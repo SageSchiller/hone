@@ -1,0 +1,1034 @@
+"""git: the model first, because the CLI only makes sense afterwards.
+
+The roster calls git the hardest tool in common daily use, and the reason is
+specific: the underlying model is small and clean, and the command line that
+sits on it is inconsistent enough to hide it. People memorise incantations,
+the incantations fail in a slightly different situation, and there is nothing
+underneath to reason from.
+
+So lessons one and two are the model, and everything after is commands read as
+operations on it. Someone who holds "commits are snapshots, refs are pointers,
+branches are labels that move" can work out what `reset --hard` does. Someone
+who has memorised `reset --hard` cannot work out anything.
+
+Challenges use the git adapter, which makes this one of the best-verified
+modules in the roster: every question a challenge wants to ask has a plumbing
+command that answers it exactly.
+"""
+
+MODULE = {
+    'id': 'git',
+    'title': 'git',
+    'group': 'Version control',
+    'blurb': 'The commit graph, and the commands that move pointers around it.',
+    'context': 'You are at a shell inside a git repository with some history and a clean-ish working tree.',
+    'needs': ('git',),
+    'prereqs': ['linux'],
+    'adapter': 'git',
+    'estimate': '6-8 hours',
+    'order': 50,
+
+    'lessons': [
+        {
+            'id': 'git-model',
+            'title': 'Commits, refs, and why branches are cheap',
+            'next': 'git-three-trees',
+            'concept': (
+                'A commit is a **snapshot** of your whole project, not a diff. '
+                'It also records its parent, which is what turns a pile of '
+                'snapshots into a graph. Diffs are computed between two '
+                'commits when you ask for them; they are not what is '
+                'stored.\n\n'
+                'A branch is a **pointer to one commit**, stored as a file '
+                'containing a hash. That is the entire implementation. Making a '
+                'branch writes forty-one bytes, which is why branching in git '
+                'is instant and why the advice to branch freely is not '
+                'bravado.\n\n'
+                '`HEAD` is a pointer to where you are, and usually points at a '
+                'branch rather than directly at a commit. Committing moves the '
+                'branch forward and HEAD follows. Almost every git command you '
+                'will learn is moving one of these pointers or building a new '
+                'commit for one to point at.'
+            ),
+            'examples': [
+                {
+                    'label': 'The graph',
+                    'code': ('A <- B <- C  <- main   <- HEAD\n'
+                             '      \\\n'
+                             '       D <- E  <- feature\n'
+                             '\n'
+                             'each letter is a full snapshot\n'
+                             'each arrow points at a PARENT\n'
+                             'main and feature are just labels'),
+                    'note': 'Every history diagram in every git tutorial is '
+                            'this. Once it is in your head the commands stop '
+                            'being arbitrary.',
+                },
+                {
+                    'label': 'A branch really is a file',
+                    'code': ('$ cat .git/refs/heads/main\n'
+                             '3f2a91c8e0b4d5a7f6c3e2b1a0d9c8b7a6f5e4d3\n'
+                             '\n'
+                             '$ cat .git/HEAD\n'
+                             'ref: refs/heads/main'),
+                    'note': 'Nothing is hidden. You can read the whole model '
+                            'with cat.',
+                },
+            ],
+            'misconceptions': [
+                'A commit does not store a diff. It stores a complete tree, '
+                'which is why checking out an old commit is fast and why git '
+                'does not slow down as history grows.',
+                'Branches do not contain commits. Several branches can point '
+                'into the same chain, and deleting a branch deletes a label, '
+                'not the work.',
+                'The commit hash is of the content, the parent, the author and '
+                'the message together. Change any of them and it is a different '
+                'commit, which is why rewriting history creates new commits '
+                'rather than editing old ones.',
+            ],
+            'try_it': [
+                'In any repository, run `cat .git/HEAD` and then `git log '
+                "--oneline --graph --all` and match the picture to the file.",
+            ],
+        },
+        {
+            'id': 'git-three-trees',
+            'title': 'Three trees, and what the index is for',
+            'next': 'git-basics',
+            'concept': (
+                'git has three places your files exist at once, and every '
+                'confusing message is about the difference between them.\n\n'
+                'The **working tree** is what is on disk. The **index**, also '
+                'called the staging area, is what your next commit will '
+                'contain. **HEAD** is what your last commit contained.\n\n'
+                'The index is the part other version control systems do not '
+                'have, and it exists so a commit can be smaller than your '
+                'changes. You fixed a bug and also renamed a variable; `git add '
+                '-p` lets you commit those separately. That is the whole '
+                'justification, and once you use it once it stops feeling like '
+                'bureaucracy.\n\n'
+                '`git status` is a report on the two gaps: between HEAD and the '
+                'index, and between the index and the working tree.'
+            ),
+            'examples': [
+                {
+                    'label': 'The three, and what moves between them',
+                    'code': ('HEAD  <--commit--  index  <--add--  working tree\n'
+                             '  |                  |                 |\n'
+                             '  |--- restore --------------------->  |\n'
+                             '  |--- reset ------->  |\n'
+                             '\n'
+                             'git diff           index vs working tree\n'
+                             'git diff --staged  HEAD vs index'),
+                    'note': 'Two diffs because there are two gaps. Plain `git '
+                            'diff` not showing your staged work is not a bug.',
+                },
+                {
+                    'label': 'Committing part of your work',
+                    'code': ('git add -p file      choose hunk by hunk\n'
+                             'git commit -m "fix"  only what you staged\n'
+                             'git status           the rest is still there'),
+                    'note': 'This is the reason the index exists.',
+                },
+            ],
+            'misconceptions': [
+                '`git diff` shows unstaged changes only. Once you stage '
+                'something it disappears from that output, which reads like '
+                'the change was lost.',
+                '`git commit -a` skips the index for tracked files, and skips '
+                'untracked ones entirely. It is a shortcut, not a "commit '
+                'everything".',
+                'Staging is not saving. Nothing in the index is safe from a '
+                '`reset --hard` and it is not in your history until you '
+                'commit.',
+            ],
+            'try_it': [
+                'Edit two things in one file, `git add -p`, stage one hunk, and '
+                'compare `git diff` with `git diff --staged`.',
+            ],
+        },
+        {
+            'id': 'git-basics',
+            'title': 'The daily loop',
+            'next': 'git-branches',
+            'concept': (
+                'Status, add, commit, log. Most days are only these.\n\n'
+                '`git status` first, always. It tells you which branch you are '
+                'on, what is staged, what is not, and what is untracked, and it '
+                'suggests the command for whatever you probably want next. '
+                'Reading it properly removes most of the need to memorise '
+                'anything.\n\n'
+                'A commit message is worth more thought than it usually gets. '
+                'The first line is a summary in the imperative, under about '
+                'fifty characters, and if there is more to say a blank line '
+                'then prose. The reason is that git tooling everywhere shows '
+                'you only the first line, so "fix stuff" is a message you will '
+                'meet again when you least want it.'
+            ),
+            'examples': [
+                {
+                    'label': 'The loop',
+                    'code': ('git status                 what is going on\n'
+                             'git add file               stage one file\n'
+                             'git add -p                 stage part of one\n'
+                             'git commit -m "message"    commit the index\n'
+                             'git log --oneline --graph  read the history\n'
+                             'git show HEAD              what was in that one'),
+                    'note': '`git log --oneline --graph --all --decorate` is '
+                            'worth an alias. It draws the picture from lesson '
+                            'one.',
+                },
+                {
+                    'label': 'A message that ages well',
+                    'code': ('Fix crash when config file is missing\n'
+                             '\n'
+                             'The loader assumed the file existed and threw a\n'
+                             'raw IOError. Fall back to defaults instead.\n'
+                             '\n'
+                             'not:  fixes\n'
+                             'not:  WIP\n'
+                             'not:  addressed review comments'),
+                    'note': 'Imperative mood, because it completes the sentence '
+                            '"applying this commit will...".',
+                },
+            ],
+            'misconceptions': [
+                '`git add` does not mean "add a new file". It means "put this '
+                'version into the index", and you do it every time you change a '
+                'file, not once.',
+                '`git commit` with no `-m` opens your editor and an empty '
+                'message aborts the commit, which is the escape hatch when you '
+                'did not mean to commit.',
+                'Committing is local. Nothing has gone anywhere until you push.',
+            ],
+            'try_it': [
+                'Run `git log --oneline --graph --all --decorate` in a repo '
+                'with branches and compare it to lesson one\'s diagram.',
+            ],
+        },
+        {
+            'id': 'git-branches',
+            'title': 'Branching and merging',
+            'next': 'git-remotes',
+            'concept': (
+                'Since a branch is a pointer, making one is free and switching '
+                'is just moving HEAD and updating your files to match.\n\n'
+                '`git switch -c name` creates and moves to a branch. `git '
+                'switch name` moves to an existing one. These are newer and '
+                'clearer than `checkout`, which did both of those jobs plus '
+                'several unrelated ones and is why `checkout` confused everyone '
+                'for a decade.\n\n'
+                'Merging has two shapes. If the target branch has not moved '
+                'since you branched, git just slides the pointer forward: a '
+                '**fast-forward**, with no merge commit. If both have moved, '
+                'git builds a **merge commit** with two parents. Neither is '
+                'better; knowing which you are getting is what stops merges '
+                'being surprising.'
+            ),
+            'examples': [
+                {
+                    'label': 'Branching',
+                    'code': ('git switch -c feature     create and move\n'
+                             'git switch main           move back\n'
+                             'git switch -               the previous branch\n'
+                             'git branch                 list local\n'
+                             'git branch -d feature      delete (safely)\n'
+                             'git merge feature          merge into current'),
+                    'note': '`-d` refuses if the branch is unmerged; `-D` does '
+                            'not. Prefer `-d` and let it protect you.',
+                },
+                {
+                    'label': 'The two shapes',
+                    'code': ('fast-forward:   A-B-C          A-B-C\n'
+                             '                    ^main   ->     ^main ^feature\n'
+                             '\n'
+                             'merge commit:   A-B-C-M   M has two parents\n'
+                             '                   \\ /\n'
+                             '                    D-E'),
+                    'note': '`git merge --no-ff` forces a merge commit even when '
+                            'a fast-forward was possible, which some teams want '
+                            'so the branch is visible in history.',
+                },
+            ],
+            'misconceptions': [
+                'A conflict is not an error. It is git saying two people '
+                'changed the same lines and it will not guess. Edit the file, '
+                '`git add` it, and `git commit`.',
+                'Deleting a merged branch loses nothing. The commits are '
+                'reachable from wherever you merged them.',
+                '`git checkout` still works and still does five unrelated '
+                'things. `switch` and `restore` split those jobs up, and are '
+                'the ones to learn.',
+            ],
+            'try_it': [
+                'Make a branch, commit on it, switch back, and run `git merge`. '
+                'Note whether it says "Fast-forward".',
+            ],
+        },
+        {
+            'id': 'git-remotes',
+            'title': 'Remotes, fetch and push',
+            'next': 'git-undo',
+            'concept': (
+                'A remote is a nickname for another copy of the repository, '
+                'usually called `origin`. Your local `main` and the remote\'s '
+                '`main` are different branches that happen to share a name, and '
+                'internalising that removes most confusion about pushing.\n\n'
+                '`git fetch` downloads their commits and updates your '
+                '`origin/main` pointer. It changes nothing you are working on. '
+                '`git pull` is fetch **plus** a merge into your current branch, '
+                'which is where surprises come from: it changes your files.\n\n'
+                'The habit worth building is `git fetch` then `git log '
+                '..origin/main` to see what arrived, then merge or rebase '
+                'deliberately. `pull` is fine when you know your branch is '
+                'clean and behind; it is where accidental merge commits come '
+                'from otherwise.'
+            ),
+            'examples': [
+                {
+                    'label': 'Talking to a remote',
+                    'code': ('git clone URL              copy it locally\n'
+                             'git remote -v              what remotes exist\n'
+                             'git fetch                  download, change nothing\n'
+                             'git log ..origin/main      what arrived\n'
+                             'git pull                   fetch plus merge\n'
+                             'git pull --rebase          fetch plus rebase\n'
+                             'git push                   send your commits\n'
+                             'git push -u origin feature set upstream, first time'),
+                    'note': '`-u` records the tracking branch so later `git push` '
+                            'needs no arguments.',
+                },
+            ],
+            'misconceptions': [
+                '`origin/main` is not a branch you can commit to. It is your '
+                'local record of where their main was at the last fetch.',
+                'A rejected push usually means the remote has commits you do '
+                'not. Fetch and integrate; `--force` overwrites their work.',
+                '`git pull` on a branch with local commits creates a merge '
+                'commit. `--rebase` is what most people actually wanted.',
+            ],
+            'try_it': [
+                'Run `git fetch` then `git log --oneline ..origin/main` in a '
+                'repo with a remote. That is what pull would have merged.',
+            ],
+        },
+        {
+            'id': 'git-undo',
+            'title': 'Undoing things, and the reflog',
+            'next': 'git-rewrite',
+            'concept': (
+                'The commands here look similar and do very different things, '
+                'which is why undoing feels dangerous. Sorted by what they '
+                'touch, they stop overlapping.\n\n'
+                '`git restore file` throws away working-tree changes to that '
+                'file. `git restore --staged file` unstages without touching '
+                'the file. `git reset --soft C` moves the branch to C and keeps '
+                'everything staged. `git reset --mixed C`, the default, moves '
+                'the branch and unstages. `git reset --hard C` moves the branch '
+                'and **destroys** your working tree.\n\n'
+                '`git revert C` is different in kind: it makes a **new commit** '
+                'that undoes C, which is what you want on anything already '
+                'pushed, because it changes nothing that exists.\n\n'
+                'And the safety net: **`git reflog`** records every position '
+                'HEAD has held, including ones no branch points at any more. '
+                'Almost anything you think you destroyed is in there for weeks. '
+                'It is the single most reassuring command in git.'
+            ),
+            'examples': [
+                {
+                    'label': 'Sorted by what they touch',
+                    'code': ('restore file          working tree only\n'
+                             'restore --staged f    index only\n'
+                             'reset --soft C        branch only\n'
+                             'reset --mixed C       branch + index (default)\n'
+                             'reset --hard C        branch + index + files\n'
+                             'revert C              new commit undoing C'),
+                    'note': 'Only `--hard` can lose work you have not committed. '
+                            'Everything else is recoverable.',
+                },
+                {
+                    'label': 'The safety net',
+                    'code': ('git reflog                     everywhere HEAD went\n'
+                             'git reset --hard HEAD@{3}      go back to one\n'
+                             'git switch -c rescue HEAD@{3}  or branch from it'),
+                    'note': 'Try this before believing anything is gone. '
+                            'Commits stay reachable for weeks.',
+                },
+            ],
+            'misconceptions': [
+                '`reset` and `revert` are not variations on one idea. reset '
+                'moves a pointer; revert creates a commit. Use revert for '
+                'anything already pushed.',
+                '`reset --hard` is the only one that destroys uncommitted work, '
+                'and there is no reflog for work that was never committed.',
+                '`git checkout -- file` was the old spelling of `restore`, '
+                'which is why old answers look nothing like current advice.',
+            ],
+            'try_it': [
+                'Commit something, `git reset --hard HEAD~1`, then `git reflog` '
+                'and bring it back. Do it once so you trust it.',
+            ],
+        },
+        {
+            'id': 'git-rewrite',
+            'title': 'Rebase, and when not to',
+            'next': 'git-detached',
+            'concept': (
+                'Rebase replays your commits on top of a different base, '
+                'producing new commits with new hashes and a linear history. '
+                'Merge preserves what happened; rebase makes it read as though '
+                'it happened in order.\n\n'
+                'Interactive rebase, `git rebase -i`, is the same machinery '
+                'aimed at your own recent work: reorder, squash, reword, drop. '
+                'This is how six commits of "wip", "fix", "actually fix" become '
+                'one that a reviewer can read.\n\n'
+                'The rule that matters is simple: **do not rebase anything you '
+                'have pushed and others may have.** Rewriting makes new '
+                'commits, so anyone holding the old ones now has a divergent '
+                'history and their next pull is a mess. Rebase your own '
+                'unpushed work freely, and merge everything else.'
+            ),
+            'examples': [
+                {
+                    'label': 'Cleaning up before review',
+                    'code': ('git rebase -i HEAD~4\n'
+                             '\n'
+                             'pick  a1b2  Add parser\n'
+                             'squash c3d4  wip\n'
+                             'squash e5f6  fix typo\n'
+                             'reword 7g8h  Add tests\n'
+                             '\n'
+                             '-> two clean commits instead of four'),
+                    'note': 'Editing the list top to bottom is chronological, '
+                            'oldest first, which is the opposite of `git log`.',
+                },
+                {
+                    'label': 'The rule',
+                    'code': ('unpushed, yours       rebase freely\n'
+                             'pushed, shared        merge, never rebase\n'
+                             'pushed, only yours    rebase, then force-with-lease\n'
+                             '\n'
+                             'git push --force-with-lease   not --force'),
+                    'note': '`--force-with-lease` refuses if someone else pushed '
+                            'meanwhile. Plain `--force` does not, and that is '
+                            'the difference between careful and destructive.',
+                },
+            ],
+            'misconceptions': [
+                'Rebase does not move commits. It copies them, so the originals '
+                'are still in the reflog if it goes wrong.',
+                'A rebase conflict is resolved per commit, which is why one '
+                'rebase can stop several times. `git rebase --abort` puts '
+                'everything back.',
+                'Squashing is not required to be tidy. A series of small honest '
+                'commits is often better than one large squashed one.',
+            ],
+            'try_it': [
+                'Make three throwaway commits on a branch and squash them into '
+                'one with `git rebase -i HEAD~3`.',
+            ],
+        },
+        {
+            'id': 'git-detached',
+            'title': 'Detached HEAD, and why it is not a problem',
+            'concept': (
+                'Checking out a commit rather than a branch leaves HEAD '
+                'pointing straight at that commit instead of at a label. git '
+                'prints a paragraph about it that reads like an error and is '
+                'not one.\n\n'
+                'It matters for one reason: commits you make there have no '
+                'branch pointing at them, so when you switch away nothing '
+                'refers to them and they eventually get cleaned up. That is the '
+                'entire danger, and `git switch -c name` at any point fixes it '
+                'by giving them a label.\n\n'
+                'Once lesson one is solid this is obvious rather than '
+                'frightening: HEAD is a pointer, it usually points at a branch, '
+                'and sometimes it does not.'
+            ),
+            'examples': [
+                {
+                    'label': 'Getting there and back',
+                    'code': ('git switch --detach HEAD~2   deliberately\n'
+                             'git checkout a1b2c3d         also detaches\n'
+                             '\n'
+                             'git switch -c rescue         keep what you did\n'
+                             'git switch -                 or just leave'),
+                    'note': 'If you already left and lost commits, the reflog '
+                            'still has them.',
+                },
+            ],
+            'misconceptions': [
+                'Detached HEAD is not a broken repository. It is a normal state '
+                'that git is warning you about because it is easy to lose work '
+                'from.',
+                'You can commit while detached. The commits are real; they are '
+                'just unreferenced.',
+            ],
+            'try_it': [
+                'Run `git switch --detach HEAD~1`, read the message properly, '
+                'then `git switch -`.',
+            ],
+        },
+    ],
+
+    'drills': [
+        {'id': 'g-status', 'type': 'command', 'answer': 'git status',
+         'prompt': 'Find out what is staged, what is not, and which branch you '
+                   'are on.',
+         'teach': 'Run it first, always. It also suggests the command for '
+                  'whatever you probably want next.'},
+        {'id': 'g-add-p', 'type': 'command', 'answer': 'git add -p',
+         'prompt': 'Stage some of your changes but not all of them, choosing '
+                   'hunk by hunk.',
+         'teach': 'This is the reason the index exists.'},
+        {'id': 'g-commit', 'type': 'command', 'answer': 'git commit -m "message"',
+         'prompt': 'Commit what is staged, with a message, without opening an '
+                   'editor.',
+         'teach': 'Without a message git opens your editor. The message is '
+                  'not optional, so leaving it empty aborts the commit.'},
+        {'id': 'g-log-graph', 'type': 'command',
+         'answer': 'git log --oneline --graph --all',
+         'prompt': 'Draw the commit graph for every branch, one line per commit.',
+         'teach': 'This is the picture from the first lesson, generated from '
+                  'your own repository.'},
+        {'id': 'g-diff', 'type': 'command', 'answer': 'git diff',
+         'prompt': 'Show changes you have made but not yet staged.',
+         'teach': 'With no arguments it shows unstaged changes only. Add '
+                  '--staged to see what you are actually about to commit, '
+                  'which is the more useful review.'},
+        {'id': 'g-diff-staged', 'type': 'command', 'answer': 'git diff --staged',
+         'accepts': ['git diff --cached'],
+         'prompt': 'Show changes you have staged but not yet committed.',
+         'teach': 'Two diffs because there are two gaps: HEAD to index, and '
+                  'index to working tree.'},
+        {'id': 'g-switch-c', 'type': 'command', 'answer': 'git switch -c feature',
+         'prompt': 'Create a branch called feature and move to it.',
+         'teach': 'switch and restore split up the several unrelated jobs '
+                  'checkout used to do.'},
+        {'id': 'g-switch', 'type': 'command', 'answer': 'git switch main',
+         'prompt': 'Move to the existing branch called main.',
+         'teach': 'switch is for branches and restore is for files. checkout '
+                  'did both, which is exactly why it was confusing enough to '
+                  'split in two.'},
+        {'id': 'g-switch-back', 'type': 'command', 'answer': 'git switch -',
+         'prompt': 'Return to the branch you were on before this one.',
+         'teach': 'The dash means the previous branch, the same way it does '
+                  'in cd.'},
+        {'id': 'g-merge', 'type': 'command', 'answer': 'git merge feature',
+         'prompt': 'Merge the feature branch into the branch you are on.',
+         'teach': 'A merge brings the named branch INTO the one you are '
+                  'standing on, so which branch you are on matters more than '
+                  'the one you type.'},
+        {'id': 'g-branch-d', 'type': 'command', 'answer': 'git branch -d feature',
+         'prompt': 'Delete the feature branch, but only if it has been merged.',
+         'teach': 'Prefer -d over -D and let it protect you.'},
+        {'id': 'g-fetch', 'type': 'command', 'answer': 'git fetch',
+         'prompt': 'Download what the remote has, without changing any of your '
+                   'files.',
+         'teach': 'Fetch updates your view of the remote and touches nothing '
+                  'in your working tree, so it is always safe to run.'},
+        {'id': 'g-incoming', 'type': 'command', 'answer': 'git log ..origin/main',
+         'prompt': 'See which commits the remote has that you do not, after '
+                   'fetching.',
+         'teach': 'This is what pull would have merged. Looking first is the '
+                  'habit worth building.'},
+        {'id': 'g-pull-rebase', 'type': 'command', 'answer': 'git pull --rebase',
+         'prompt': 'Bring in remote commits and replay yours on top, rather '
+                   'than creating a merge commit.',
+         'teach': 'Rebasing rewrites your local commits, which is fine '
+                  'because nobody else has seen them. Set pull.rebase true to '
+                  'make it the default.'},
+        {'id': 'g-push-u', 'type': 'command',
+         'answer': 'git push -u origin feature',
+         'prompt': 'Push a new branch and record it as the upstream so later '
+                   'pushes need no arguments.',
+         'teach': '-u records the tracking branch. Without it, every later '
+                  'push needs the remote and branch spelled out again.'},
+        {'id': 'g-restore', 'type': 'command', 'answer': 'git restore file.txt',
+         'prompt': 'Throw away your uncommitted changes to file.txt.',
+         'teach': 'There is no reflog for work that was never committed, so '
+                  'this one is genuinely irreversible.'},
+        {'id': 'g-unstage', 'type': 'command',
+         'answer': 'git restore --staged file.txt',
+         'prompt': 'Unstage file.txt without changing the file itself.',
+         'teach': '--staged moves it out of the index and leaves the file '
+                  'alone. Drop that flag and it discards your edits instead.'},
+        {'id': 'g-reset-soft', 'type': 'command', 'answer': 'git reset --soft HEAD~1',
+         'prompt': 'Undo the last commit but keep all of its changes staged.',
+         'teach': 'Move the branch pointer back, leave everything else alone. '
+                  'This is how you redo a commit message or split a commit.'},
+        {'id': 'g-reset-hard', 'type': 'command', 'answer': 'git reset --hard HEAD~1',
+         'prompt': 'Undo the last commit and discard its changes entirely.',
+         'teach': 'The only reset that destroys uncommitted work. Committed '
+                  'work is still in the reflog.'},
+        {'id': 'g-revert', 'type': 'command', 'answer': 'git revert HEAD',
+         'prompt': 'Undo the last commit by making a new commit, safe to do on '
+                   'something already pushed.',
+         'teach': 'Revert adds a commit that undoes another; reset removes '
+                  'commits. That is why revert is the one that is safe on '
+                  'history others have pulled.'},
+        {'id': 'g-reflog', 'type': 'command', 'answer': 'git reflog',
+         'prompt': 'List everywhere HEAD has been, including commits no branch '
+                   'points at any more.',
+         'teach': 'The single most reassuring command in git. Try this before '
+                  'believing anything is gone.'},
+        {'id': 'g-rebase-i', 'type': 'command', 'answer': 'git rebase -i HEAD~3',
+         'prompt': 'Reorder, squash or reword your last three commits.',
+         'teach': 'HEAD~3 means the last three commits and you edit the list '
+                  'of them. Never do this to commits someone else has already '
+                  'pulled.'},
+        {'id': 'g-force-lease', 'type': 'command',
+         'answer': 'git push --force-with-lease',
+         'prompt': 'Push rewritten history, but refuse if someone else has '
+                   'pushed since you last fetched.',
+         'teach': 'Plain --force does not check, which is the difference '
+                  'between careful and destructive.'},
+        {'id': 'g-stash', 'type': 'command', 'answer': 'git stash',
+         'prompt': 'Put your uncommitted changes aside so you can switch '
+                   'branches cleanly.',
+         'teach': 'A stash is a stack, so pop takes the most recent one back. '
+                  'It is easy to leave one there for a month and forget it '
+                  'exists.'},
+        {'id': 'g-bisect', 'type': 'command', 'answer': 'git bisect start',
+         'prompt': 'Begin a binary search through history for the commit that '
+                   'introduced a bug.',
+         'teach': 'You mark one bad commit and one good one and git checks '
+                  'out the midpoint until it finds the change. Ten steps '
+                  'covers a thousand commits.'},
+        {'id': 'g-blame', 'type': 'command', 'answer': 'git blame file.txt',
+         'prompt': 'Find out which commit last changed each line of file.txt.',
+         'teach': 'It shows the last commit to touch each line, which is not '
+                  'always the one that introduced the bug. -w ignores '
+                  'whitespace-only changes.'},
+    ],
+
+    'challenges': [
+        {
+            'id': 'g-first-commit',
+            'title': 'Stage and commit',
+            'goal': 'Take a change from the working tree, through the index, '
+                    'into history.',
+            'setup': {'kind': 'git', 'branch': 'main',
+                      'tree': {'README.md': '# project\n'},
+                      'commits': [{'message': 'initial commit',
+                                   'tree': {'README.md': '# project\n'}}]},
+            'solution': {'shell': 'echo "hello" > notes.txt && git add notes.txt '
+                                  '&& git -c user.email=t@t -c user.name=t '
+                                  'commit -q -m "Add notes"'},
+            'steps': [
+                {'instruction': 'Create a file called notes.txt with something '
+                                'in it.', 'hint': 'echo hello > notes.txt'},
+                {'instruction': 'Stage it.', 'hint': 'git add notes.txt'},
+                {'instruction': 'Commit it with a message mentioning notes.',
+                 'hint': 'git commit -m "Add notes"'},
+            ],
+            'free': 'Create notes.txt, commit it with a message mentioning '
+                    'notes, and leave the working tree clean.',
+            'verify': {'kind': 'git', 'expect': {
+                'branch': 'main', 'commit_count': 2,
+                'subjects_contain': 'notes', 'clean': True,
+                'exists': ['notes.txt']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'g-branch-merge',
+            'title': 'Branch, commit, merge',
+            'goal': 'Do the whole branching loop and end up back on main with '
+                    'the work included.',
+            'setup': {'kind': 'git', 'branch': 'main',
+                      'tree': {'app.py': 'print(1)\n'},
+                      'commits': [{'message': 'initial commit',
+                                   'tree': {'app.py': 'print(1)\n'}}]},
+            'solution': {'shell': 'git switch -q -c feature && echo "print(2)" '
+                                  '>> app.py && git add -A && git -c '
+                                  'user.email=t@t -c user.name=t commit -q '
+                                  '-m "Extend app" && git switch -q main '
+                                  '&& git -c user.email=t@t -c user.name=t '
+                                  'merge -q feature'},
+            'steps': [
+                {'instruction': 'Create and switch to a branch called feature.',
+                 'hint': 'git switch -c feature'},
+                {'instruction': 'Change app.py and commit it.',
+                 'hint': 'git add -A then git commit -m "Extend app"'},
+                {'instruction': 'Switch back to main.', 'hint': 'git switch main'},
+                {'instruction': 'Merge feature into it.',
+                 'hint': 'git merge feature. Watch for "Fast-forward"'},
+            ],
+            'free': 'Make a feature branch, commit a change to app.py on it, '
+                    'and merge it back into main.',
+            'verify': {'kind': 'git', 'expect': {
+                'branch': 'main', 'branches': ['feature', 'main'],
+                'min_commits': 2, 'subjects_contain': 'Extend', 'clean': True}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'g-undo-soft',
+            'title': 'Undo a commit without losing it',
+            'goal': 'Move the branch pointer back and keep the work staged, '
+                    'which is how you redo a commit properly.',
+            'setup': {'kind': 'git', 'branch': 'main',
+                      'commits': [
+                          {'message': 'initial commit',
+                           'tree': {'a.txt': 'one\n'}},
+                          {'message': 'oops wrong message',
+                           'tree': {'b.txt': 'two\n'}}]},
+            'solution': {'shell': 'git reset -q --soft HEAD~1 && git -c '
+                                  'user.email=t@t -c user.name=t commit -q '
+                                  '-m "Add b with a proper message"'},
+            'steps': [
+                {'instruction': 'Undo the last commit, keeping its changes '
+                                'staged.', 'hint': 'git reset --soft HEAD~1'},
+                {'instruction': 'Commit again with a message you are not '
+                                'embarrassed by.',
+                 'hint': 'git commit -m "Add b with a proper message"'},
+            ],
+            'free': 'Replace the last commit with one that has a better '
+                    'message, without losing the file it added.',
+            'verify': {'kind': 'git', 'expect': {
+                'commit_count': 2, 'subjects_lack': 'oops',
+                'exists': ['b.txt'], 'clean': True}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'g-reflog-rescue',
+            'title': 'Rescue a commit you destroyed',
+            'goal': 'Throw away a commit with reset --hard, then get it back, '
+                    'so you trust the reflog.',
+            'setup': {'kind': 'git', 'branch': 'main',
+                      'commits': [
+                          {'message': 'initial commit', 'tree': {'a.txt': 'one\n'}},
+                          {'message': 'important work', 'tree': {'gold.txt': 'gold\n'}}]},
+            'solution': {'shell': 'git reset -q --hard HEAD~1 && '
+                                  'git reset -q --hard HEAD@{1}'},
+            'steps': [
+                {'instruction': 'Destroy the last commit with reset --hard.',
+                 'hint': 'git reset --hard HEAD~1, and note gold.txt vanishes'},
+                {'instruction': 'Confirm it is gone.',
+                 'hint': 'ls, and git log --oneline'},
+                {'instruction': 'Find it in the reflog and bring it back.',
+                 'hint': 'git reflog, then git reset --hard HEAD@{1}'},
+            ],
+            'free': 'Reset --hard away the "important work" commit, then '
+                    'recover it using the reflog.',
+            'verify': {'kind': 'git', 'expect': {
+                'commit_count': 2, 'subjects_contain': 'important',
+                'exists': ['gold.txt']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'g-detached',
+            'title': 'Escape a detached HEAD',
+            'goal': 'Get into the state git warns you about, do work there, and '
+                    'keep it.',
+            'setup': {'kind': 'git', 'branch': 'main',
+                      'commits': [
+                          {'message': 'first', 'tree': {'a.txt': 'one\n'}},
+                          {'message': 'second', 'tree': {'b.txt': 'two\n'}},
+                          {'message': 'third', 'tree': {'c.txt': 'three\n'}}]},
+            'solution': {'shell': 'git switch -q --detach HEAD~1 && '
+                                  'echo x > rescued.txt && git add -A && '
+                                  'git -c user.email=t@t -c user.name=t commit '
+                                  '-q -m "Work done while detached" && '
+                                  'git switch -q -c rescue'},
+            'steps': [
+                {'instruction': 'Detach HEAD onto the second commit.',
+                 'hint': 'git switch --detach HEAD~1, and read the message'},
+                {'instruction': 'Create and commit a file there.',
+                 'hint': 'these commits have no branch pointing at them'},
+                {'instruction': 'Give them a branch called rescue before you '
+                                'lose them.', 'hint': 'git switch -c rescue'},
+            ],
+            'free': 'Detach onto an older commit, commit a file called '
+                    'rescued.txt there, and give that work a branch named '
+                    'rescue.',
+            'verify': {'kind': 'git', 'expect': {
+                'branch': 'rescue', 'detached': False,
+                'exists': ['rescued.txt'],
+                'subjects_contain': 'detached'}},
+            'fallback': 'self',
+        },
+        {'id': 'g-branch-and-merge',
+         'title': 'Branch, commit, merge back',
+         'goal': 'The whole loop, once: make a branch, do work on it, and '
+                 'bring it home.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'app.txt': 'v1\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'app.txt': 'v1\n'}}]},
+         'solution': {'shell': 'git switch -c feature -q && echo v2 > '
+                               'app.txt && git add -A && git -c '
+                               'user.email=t@t -c user.name=t commit -q -m '
+                               '"Bump to v2" && git switch main -q && git '
+                               '-c user.email=t@t -c user.name=t merge '
+                               'feature -q --no-edit'},
+         'steps': [{'instruction': 'Create a branch called feature and '
+                                   'move to it in one command.',
+                    'hint': 'git switch -c feature'},
+                   {'instruction': 'Change app.txt to say v2, and commit '
+                                   'it.',
+                    'hint': 'echo v2 > app.txt, then git add -A && git '
+                            'commit -m ...'},
+                   {'instruction': 'Go back to main and merge feature into '
+                                   'it.',
+                    'hint': 'git switch main, then git merge feature. A '
+                            'merge brings the named branch INTO the one '
+                            'you are on'}],
+         'free': 'Do the work on a feature branch and merge it into main, '
+                 'leaving main holding v2.',
+         'verify': {'kind': 'git',
+                    'expect': {'branch': 'main',
+                               'branches': ['feature'],
+                               'min_commits': 2,
+                               'clean': True,
+                               'file_contains': {'app.txt': 'v2'}}},
+         'fallback': 'self'},
+        {'id': 'g-undo-safely',
+         'title': 'Undo a commit that has already been shared',
+         'goal': 'Reset rewrites history. Revert adds to it. Use the one '
+                 'that is safe when someone else has your commits.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'config.txt': 'good\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'config.txt': 'good\n'}},
+                               {'message': 'Break the config',
+                                'tree': {'config.txt': 'BROKEN\n'}}]},
+         'solution': {'shell': 'git -c user.email=t@t -c user.name=t '
+                               'revert --no-edit HEAD'},
+         'steps': [{'instruction': 'Look at what the last commit did.',
+                    'hint': 'git show HEAD, or git log -1 -p'},
+                   {'instruction': 'Undo it by adding a new commit rather '
+                                   'than removing the old one.',
+                    'hint': 'git revert HEAD'},
+                   {'instruction': 'The file should say good again, and '
+                                   'the history should be longer, not '
+                                   'shorter.',
+                    'hint': 'git log --oneline to see both commits still '
+                            'there'}],
+         'free': 'Undo the breaking commit with a new commit, leaving '
+                 'config.txt reading good.',
+         'verify': {'kind': 'git',
+                    'expect': {'min_commits': 3,
+                               'clean': True,
+                               'file_contains': {'config.txt': 'good'},
+                               'subjects_contain': 'Revert'}},
+         'fallback': 'self'},
+        {'id': 'g-stash-switch',
+         'title': 'Put work aside to deal with something else',
+         'goal': 'You are mid-change and something urgent arrives. Park '
+                 'the work, switch, and come back to it.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'notes.txt': 'original\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'notes.txt': 'original\n'}}]},
+         'solution': {'shell': 'echo "half done" > notes.txt && git stash '
+                               '-q && git switch -c urgent -q && git '
+                               'switch main -q && git stash pop -q'},
+         'steps': [{'instruction': 'Change notes.txt to say "half done", '
+                                   'but do not commit it.',
+                    'hint': 'echo "half done" > notes.txt'},
+                   {'instruction': 'Park that change so the tree is clean.',
+                    'hint': 'git stash. git status should be clean '
+                            'afterwards'},
+                   {'instruction': 'Make a branch called urgent, then come '
+                                   'back to main.',
+                    'hint': 'git switch -c urgent, then git switch main'},
+                   {'instruction': 'Bring your parked change back.',
+                    'hint': 'git stash pop. A stash is a stack'}],
+         'free': 'Stash a half-finished change, create a branch called '
+                 'urgent, return to main and restore the change.',
+         'verify': {'kind': 'git',
+                    'expect': {'branch': 'main',
+                               'branches': ['urgent'],
+                               'clean': False,
+                               'file_contains': {'notes.txt': 'half '
+                                                              'done'}}},
+         'fallback': 'self'},
+        {'id': 'g-amend',
+         'title': 'Fix the commit you just made',
+         'goal': 'You forgot a file, or the message was wrong. Fix the '
+                 'last commit rather than adding a "fix typo" one.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'a.txt': 'one\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'a.txt': 'one\n'}},
+                               {'message': 'Add teh feature',
+                                'tree': {'b.txt': 'two\n'}}]},
+         'solution': {'shell': 'git -c user.email=t@t -c user.name=t '
+                               'commit -q --amend -m "Add the feature"'},
+         'steps': [{'instruction': 'Look at the message on the last '
+                                   'commit. It has a typo.',
+                    'hint': 'git log -1'},
+                   {'instruction': 'Rewrite that commit with a corrected '
+                                   'message.',
+                    'hint': 'git commit --amend -m "Add the feature"'},
+                   {'instruction': 'The history should still be two '
+                                   'commits long.',
+                    'hint': 'amend replaces the commit; it does not add '
+                            'one. Never amend something already pushed'}],
+         'free': 'Correct the typo in the last commit message without '
+                 'adding a new commit.',
+         'verify': {'kind': 'git',
+                    'expect': {'commit_count': 2,
+                               'head_subject': 'Add the feature',
+                               'subjects_lack': 'teh'}},
+         'fallback': 'self'},
+        {'id': 'g-ignore',
+         'title': 'Stop tracking what should never have been tracked',
+         'goal': 'A secret or a build artefact got committed. Ignore it '
+                 'going forward and take it out of the index.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'app.py': 'print(1)\n',
+                            'secrets.env': 'TOKEN=abc123\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'app.py': 'print(1)\n',
+                                         'secrets.env': 'TOKEN=abc123\n'}}]},
+         'solution': {'shell': 'echo "secrets.env" > .gitignore && git rm '
+                               '--cached -q secrets.env && git add -A && '
+                               'git -c user.email=t@t -c user.name=t '
+                               'commit -q -m "Ignore secrets.env"'},
+         'steps': [{'instruction': 'Add secrets.env to a .gitignore file.',
+                    'hint': 'echo secrets.env > .gitignore'},
+                   {'instruction': 'Take it out of the index without '
+                                   'deleting it from disk.',
+                    'hint': 'git rm --cached secrets.env. Without --cached '
+                            'the file goes too'},
+                   {'instruction': 'Commit both the .gitignore and the '
+                                   'removal.',
+                    'hint': 'git add -A && git commit -m "Ignore '
+                            'secrets.env". The secret is still in history: '
+                            'rotating it is the real fix'}],
+         'free': 'Ignore secrets.env, untrack it without deleting it, and '
+                 'commit that.',
+         'verify': {'kind': 'git',
+                    'expect': {'min_commits': 2,
+                               'clean': True,
+                               'exists': ['secrets.env', '.gitignore'],
+                               'file_contains': {'.gitignore': 'secrets.env'}}},
+         'fallback': 'self'},
+        {'id': 'g-tag-release',
+         'title': 'Mark a commit as a release',
+         'goal': 'A tag is a name for a commit that does not move. Put one '
+                 'on the current state.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'VERSION': '1.0.0\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'VERSION': '1.0.0\n'}}]},
+         'solution': {'shell': 'git -c user.email=t@t -c user.name=t tag '
+                               '-a v1.0.0 -m "Release 1.0.0"'},
+         'steps': [{'instruction': 'Create an annotated tag called v1.0.0 '
+                                   'on the current commit.',
+                    'hint': 'git tag -a v1.0.0 -m "Release 1.0.0"'},
+                   {'instruction': 'Check it is there.',
+                    'hint': 'git tag, or git show v1.0.0'},
+                   {'instruction': 'Note that a plain "git push" does not '
+                                   'send tags.',
+                    'hint': 'git push --tags, or git push origin v1.0.0'}],
+         'free': 'Put an annotated tag v1.0.0 on the current commit.',
+         'verify': {'kind': 'git', 'expect': {'tags': ['v1.0.0']}},
+         'fallback': 'self'},
+                  ],
+
+    'quiz': [
+        {'id': 'gq-snapshot', 'type': 'mcq',
+         'prompt': 'What does a commit actually store?',
+         'answer': 'A complete snapshot of the project, plus its parent.',
+         'distractors': ['A diff against the previous commit.',
+                         'Only the files you changed.',
+                         'A patch file and a message.'],
+         'teach': 'Diffs are computed on demand. This is why checking out an '
+                  'old commit is fast and why history does not slow git down.'},
+
+        {'id': 'gq-branch', 'type': 'mcq',
+         'prompt': 'What is a branch?',
+         'answer': 'A file containing one commit hash.',
+         'distractors': ['A copy of the repository at a point in time.',
+                         'A list of the commits that belong to it.',
+                         'A directory under .git holding those commits.'],
+         'teach': 'Forty-one bytes. That is why branching is instant and why '
+                  'deleting a branch does not delete work.'},
+
+        {'id': 'gq-diff', 'type': 'mcq',
+         'prompt': 'You edit a file and `git add` it. Why does `git diff` now '
+                   'show nothing?',
+         'answer': 'It compares the index to the working tree, and they match.',
+         'distractors': ['The change was lost by adding it.',
+                         'diff only works on committed files.',
+                         'You need to commit before diff works.'],
+         'teach': 'Two gaps, two diffs. `git diff --staged` compares HEAD to '
+                  'the index and will show it.'},
+
+        {'id': 'gq-reset-revert', 'type': 'mcq',
+         'prompt': 'You pushed a bad commit and others have pulled it. What do '
+                   'you use?',
+         'answer': 'revert, because it adds a new commit and changes nothing '
+                   'that exists.',
+         'distractors': ['reset --hard, then force push.',
+                         'reset --soft and recommit.',
+                         'rebase -i and drop the commit.'],
+         'teach': 'Rewriting anything others hold gives them a divergent '
+                  'history. revert is the only one that is safe there.'},
+
+        {'id': 'gq-hard', 'type': 'mcq',
+         'prompt': 'Which of these can actually lose work permanently?',
+         'answer': 'reset --hard, on changes that were never committed.',
+         'distractors': ['reset --soft on a pushed commit.',
+                         'rebase -i squashing four commits.',
+                         'Deleting a merged branch.'],
+         'teach': 'Committed work stays in the reflog for weeks. There is no '
+                  'reflog for work that was never committed.'},
+
+        {'id': 'gq-fetch-pull', 'type': 'mcq',
+         'prompt': 'What is the difference between fetch and pull?',
+         'answer': 'pull is fetch plus a merge into your current branch.',
+         'distractors': ['fetch is for branches, pull is for tags.',
+                         'They are the same; pull is the newer spelling.',
+                         'fetch downloads one branch, pull downloads all.'],
+         'teach': 'fetch changes nothing you are working on, which is why '
+                  'fetch-then-look is the safer habit.'},
+
+        {'id': 'gq-origin-main', 'type': 'mcq',
+         'prompt': 'What is `origin/main`?',
+         'answer': 'Your local record of where the remote main was at your last '
+                   'fetch.',
+         'distractors': ['A live view of the remote branch.',
+                         'A branch on the remote server.',
+                         'An alias for your own main branch.'],
+         'teach': 'It only updates when you fetch, which is why it can be '
+                  'stale and why a push can be rejected unexpectedly.'},
+
+        {'id': 'gq-rebase-rule', 'type': 'mcq',
+         'prompt': 'When is rebasing a bad idea?',
+         'answer': 'On commits you have pushed that others may already have.',
+         'distractors': ['On any branch with more than ten commits.',
+                         'Whenever there might be a conflict.',
+                         'On a branch that has been merged once already.'],
+         'teach': 'Rebase creates new commits with new hashes. Anyone holding '
+                  'the old ones now has a divergent history.'},
+
+        {'id': 'gq-detached', 'type': 'mcq',
+         'prompt': 'What is actually risky about a detached HEAD?',
+         'answer': 'Commits made there have no branch, so nothing refers to '
+                   'them once you leave.',
+         'distractors': ['You cannot commit at all while detached.',
+                         'It corrupts the index until you switch back.',
+                         'It silently rewrites the branch you came from.'],
+         'teach': 'It is a normal state, not an error. `git switch -c name` '
+                  'fixes it by giving the work a label.'},
+
+        {'id': 'gq-force-lease', 'type': 'mcq',
+         'prompt': 'Why prefer --force-with-lease over --force?',
+         'answer': 'It refuses if someone else pushed since your last fetch.',
+         'distractors': ['It is faster on large repositories.',
+                         'It keeps a backup branch automatically.',
+                         'It only rewrites commits you authored.'],
+         'teach': 'Plain --force does not check, which is the difference '
+                  'between careful and destructive.'},
+    ],
+}
