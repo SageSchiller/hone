@@ -82,6 +82,11 @@ PACKAGES: dict[str, dict[str, str]] = {
                     'apk': 'proxychains-ng'},
     'lsof': {'pacman': 'lsof', 'apt': 'lsof', 'dnf': 'lsof',
              'zypper': 'lsof', 'apk': 'lsof', 'brew': 'lsof'},
+    # The init system, so on a systemd distribution it is already there.
+    # No apk or brew entry on purpose: Alpine runs OpenRC and macOS runs
+    # launchd, and offering a package for either would be a lie.
+    'systemctl': {'pacman': 'systemd', 'apt': 'systemd', 'dnf': 'systemd',
+                  'zypper': 'systemd'},
     'pwsh': {},   # never in the ordinary repositories: see COMMANDS below
 
     # The security roster. Several of these are packaged everywhere and a few
