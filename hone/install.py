@@ -145,6 +145,9 @@ PACKAGES: dict[str, dict[str, str]] = {
     # taught us. Debian ships the scripts as python3-impacket.
     'secretsdump.py': {'pacman': 'impacket', 'apt': 'python3-impacket',
                        'dnf': 'python3-impacket'},
+    # The audit userspace: Arch calls the package audit, Debian auditd.
+    'ausearch': {'pacman': 'audit', 'apt': 'auditd', 'dnf': 'audit',
+                 'zypper': 'audit', 'apk': 'audit'},
     'binwalk': {'pacman': 'binwalk', 'apt': 'binwalk', 'dnf': 'binwalk',
                 'brew': 'binwalk'},
     'exiftool': {'pacman': 'perl-image-exiftool', 'apt': 'libimage-exiftool-perl',
