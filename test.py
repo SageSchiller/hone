@@ -2878,6 +2878,83 @@ def test_no_undefined_names(t: Runner) -> None:
         t.eq(f'{rel} defines every name it uses', unknown, [])
 
 
+def test_search(t: Runner) -> None:
+    """Search across every tool: ranking, snippets, and the keyboard."""
+    from hone.screens.search import SearchScreen
+
+    reg = loader.load_all()
+    caps = Caps(ColorLevel.NONE, GlyphLevel.UNICODE, theme.NEUTRAL, 90, 24)
+
+    def typed(q):
+        scr = SearchScreen(reg, st.State.blank(T0), T0)
+        for ch in q:
+            scr.handle(K.parse(ch) if ch != ' ' else K.parse('SPC'))
+        return scr
+
+    t.head('search / it will not run on a fragment')
+    t.eq('one character finds nothing', typed('s').count(), 0)
+    t.ok('two characters do', typed('ssh').count() > 0)
+
+    t.head('search / it finds a flag that appears only in an answer')
+    # The point of searching answers: you remember the flag, not the sentence.
+    scr = typed('--delete')
+    t.ok('finds --delete', scr.count() > 0)
+    hit = scr.results()[0]
+    t.ok('and it is the rsync material', hit['module'].id == 'scprsync',
+         hit['module'].id)
+
+    t.head('search / a title outranks a mention buried in prose')
+    scr = typed('pane')
+    top = scr.results()[0]
+    t.eq('tmux first', top['module'].id, 'tmux')
+    t.eq('and it matched a title', top['field'], 'title')
+
+    t.head('search / every result can actually be opened')
+    for q in ('ssh', 'pane', 'dnat', 'hash'):
+        for r in typed(q).results()[:8]:
+            t.ok(f'{q}: {r["module"].id}/{r["kind"]} is a real item',
+                 r['item'] in r['module'].items(r['kind']))
+
+    t.head('search / rows fit and never overflow')
+    for cols in (80, 100, 120):
+        c = Caps(ColorLevel.NONE, GlyphLevel.UNICODE, theme.NEUTRAL, cols, 24)
+        scr = typed('config')
+        for row in scr.render(c):
+            t.ok(f'{cols} cols fits', row.width() <= cols, row.plain())
+
+    t.head('search / typing edits the query rather than triggering shortcuts')
+    scr = typed('ssh')
+    t.eq('query built from keys', scr.query, 'ssh')
+    scr.handle(K.parse('BSP'))
+    t.eq('backspace deletes', scr.query, 'ss')
+    # `q` and `j` are quit and down elsewhere; here they are just letters.
+    scr.handle(K.parse('q'))
+    t.eq('q is a character, not quit', scr.query, 'ssq')
+    t.eq('and the screen stays', scr.handle(K.parse('j')).kind, 'stay')
+    t.eq('j typed too', scr.query, 'ssqj')
+
+    t.head('search / esc still leaves, and the footer says so')
+    t.eq('esc pops', typed('ssh').handle(K.parse('ESC')).kind, 'pop')
+    hints = [k for k, _ in typed('ssh').hints(caps)]
+    t.ok('esc advertised', 'esc' in hints, hints)
+
+    t.head('search / an empty state explains itself rather than sitting blank')
+    blank = ' '.join(x.plain() for x in typed('').render(caps))
+    t.ok('says what it searches', 'lesson' in blank.lower(), blank[:120])
+    none = ' '.join(x.plain() for x in typed('zzzznotathing').render(caps))
+    t.ok('says nothing matched', 'Nothing matches' in none, none[:120])
+
+    t.head('search / home offers the key and it opens this screen')
+    from hone.screens.home import HomeScreen
+    opened = []
+    home = HomeScreen(reg, st.State.blank(T0), T0,
+                      open_search=lambda: opened.append(1) or SearchScreen(
+                          reg, st.State.blank(T0), T0))
+    t.ok('/ advertised', '/' in [k for k, _ in home.hints(caps)])
+    t.eq('/ pushes search', home.handle(K.parse('/')).kind, 'push')
+    t.eq('factory called', len(opened), 1)
+
+
 def main() -> int:
     t = Runner()
     for fn in (test_keys, test_term, test_render, test_state,
@@ -2890,7 +2967,7 @@ def main() -> int:
                test_orientation, test_splash, test_install_help,
                test_pcapgen, test_oracle, test_checking_mode, test_rigor,
                test_labs, test_free_pace, test_validate,
-               test_no_undefined_names, test_outro):
+               test_no_undefined_names, test_outro, test_search):
         fn(t)
 
     print(f'{t.passed} checks passed')

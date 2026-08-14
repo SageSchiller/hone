@@ -69,7 +69,7 @@ class HomeScreen(ListScreen):
     can_pop = False
 
     def __init__(self, registry, state, now: datetime, open_module=None,
-                 open_notes=None) -> None:
+                 open_notes=None, open_search=None) -> None:
         super().__init__()
         self.registry = registry
         self.state = state
@@ -77,6 +77,7 @@ class HomeScreen(ListScreen):
         self.title = APP_TITLE
         self._open_module = open_module
         self._open_notes = open_notes
+        self._open_search = open_search
 
     # -- data --------------------------------------------------------------
 
@@ -285,6 +286,11 @@ class HomeScreen(ListScreen):
         # D19 rule 4: the mode key is always advertised, because a mode you
         # cannot find is a mode you cannot turn back off.
         out = [('m', 'checking mode')]
+        if self._open_search is not None:
+            # First in the list: with forty-six tools this is the fastest way
+            # into the content, and a key nobody is told about is a key
+            # nobody uses.
+            out.insert(0, ('/', 'search'))
         if self._open_notes is not None and self.state.notes():
             out.insert(0, ('n', 'your notes'))
         return out
@@ -296,6 +302,9 @@ class HomeScreen(ListScreen):
         return push(self._open_module(mods[index]))
 
     def handle(self, key):
+        if key.name == '/' and not key.ctrl and not key.alt \
+                and self._open_search is not None:
+            return push(self._open_search())
         if key.name == 'n' and not key.ctrl and not key.alt \
                 and self._open_notes is not None and self.state.notes():
             return push(self._open_notes())

@@ -29,6 +29,7 @@ from .screens.lesson import LessonScreen
 from .screens.module import ModuleScreen
 from .screens.quiz import QuizScreen
 from .screens.notes import NotesScreen
+from .screens.search import SearchScreen
 
 
 class App:
@@ -45,7 +46,8 @@ class App:
         self.exit_chord = exit_chord
         self.stack: list[Screen] = [HomeScreen(registry, state, now,
                                                open_module=self._open_module,
-                                               open_notes=self.open_notes)]
+                                               open_notes=self.open_notes,
+                                               open_search=self.open_search)]
         self.running = True
         self.tty: term.Terminal | None = None
         self.allow_split = allow_split
@@ -80,6 +82,27 @@ class App:
     def open_notes(self, module_id: str | None = None) -> Screen:
         return NotesScreen(self.registry, self.state, self.now,
                            open_item=self._open_item, module_id=module_id)
+
+    def open_search(self) -> Screen:
+        return SearchScreen(self.registry, self.state, self.now,
+                            open_item=self._open_found,
+                            open_module=self._open_module)
+
+    def _open_found(self, module, kind: str, item: dict) -> Screen | None:
+        """A search result, opened as the thing it is.
+
+        Landing on the item rather than on its module is the whole point of
+        searching: you already said what you were looking for.
+        """
+        if kind == 'lessons':
+            return self._open_lesson(module, item)
+        if kind == 'challenges':
+            return self._open_challenge(module, item)
+        if kind == 'drills':
+            return self._open_drill(module, [item], 0)
+        if kind == 'quiz':
+            return QuizScreen(module, [item], 0, self.state, self.now)
+        return None
 
     def _open_item(self, module_id: str, kind: str, item_id: str) -> Screen | None:
         """A single item as its own one-question session, from a note row."""
