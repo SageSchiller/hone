@@ -96,6 +96,7 @@ HELP = [
            ('hone --import f.json', 'replace it from one'),
            ('hone --sync f.json', 'remember a file and keep it current'),
            ('hone --list', 'what is installed, and what can be verified'),
+           ('hone --sheet ssh', 'print one tool as a reference card'),
            ('hone --doctor', 'why something degrades on this machine'),
            ('hone --reset', 'erase progress and start over, backup written'),
            ('hone --ascii', 'no box drawing, for a plain terminal'),

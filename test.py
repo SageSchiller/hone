@@ -2955,6 +2955,56 @@ def test_search(t: Runner) -> None:
     t.eq('factory called', len(opened), 1)
 
 
+def test_sheet(t: Runner) -> None:
+    """--sheet: the reference card, for when you are not training."""
+    import io, contextlib
+    from hone.app import sheet
+
+    reg = loader.load_all()
+
+    def run(tool):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = sheet(reg, tool)
+        return rc, out.getvalue(), err.getvalue()
+
+    t.head('sheet / it prints a tool\'s real commands')
+    rc, out, _ = run('scprsync')
+    t.eq('succeeds', rc, 0)
+    t.ok('names the tool', 'scp and rsync' in out, out[:80])
+    t.ok('has a COMMANDS section', 'COMMANDS' in out)
+    # Every command drill answer must appear: that is the whole point.
+    mod = reg.get('scprsync')
+    for d in mod.items('drills'):
+        if d.get('type') == 'command':
+            t.ok(f'lists {d["answer"][:24]}', d['answer'] in out)
+
+    t.head('sheet / a keystroke tool gets a KEYS section instead')
+    rc, out, _ = run('vim')
+    t.eq('succeeds', rc, 0)
+    t.ok('has KEYS', 'KEYS' in out, out[:60])
+
+    t.head('sheet / markup is rendered away, not printed raw')
+    for tool in ('ssh', 'curl', 'systemd', 'git'):
+        _, out, _ = run(tool)
+        t.ok(f'{tool}: no stray backticks', '`' not in out, out[:120])
+
+    t.head('sheet / an unknown tool fails usefully, not silently')
+    rc, out, err = run('rsync')          # a real binary, not a module id
+    t.eq('non-zero exit', rc, 1)
+    t.ok('says so', 'no tool called' in err, err)
+    t.ok('suggests the module that holds it', 'scprsync' in err, err)
+    rc, _, err = run('zzznope')
+    t.eq('still non-zero', rc, 1)
+    t.ok('points at --list', '--list' in err, err)
+
+    t.head('sheet / every module produces a card without raising')
+    for mod in reg:
+        rc, out, _ = run(mod.id)
+        t.eq(f'{mod.id} exits 0', rc, 0)
+        t.ok(f'{mod.id} says something', len(out.strip()) > 20, mod.id)
+
+
 def main() -> int:
     t = Runner()
     for fn in (test_keys, test_term, test_render, test_state,
@@ -2967,7 +3017,8 @@ def main() -> int:
                test_orientation, test_splash, test_install_help,
                test_pcapgen, test_oracle, test_checking_mode, test_rigor,
                test_labs, test_free_pace, test_validate,
-               test_no_undefined_names, test_outro, test_search):
+               test_no_undefined_names, test_outro, test_search,
+               test_sheet):
         fn(t)
 
     print(f'{t.passed} checks passed')

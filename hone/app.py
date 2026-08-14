@@ -361,6 +361,71 @@ def reset(state, registry, target: str, assume_yes: bool, at) -> int:
 # Doctor
 # --------------------------------------------------------------------------
 
+def sheet(registry, tool: str) -> int:
+    """Print one tool's commands as a reference card.
+
+    hone is a trainer, and a trainer is something you are inside. This is the
+    other half: the thing you want at the moment you are *not* training, when
+    you know the tool exists and cannot remember the invocation. The content
+    is already there, one command per drill with a line saying why, so the
+    only thing missing was a way to get it out without opening the app.
+
+    Plain text on stdout, so it pipes, redirects and prints. It schedules
+    nothing and records nothing, so D24 is untouched: this is a reference,
+    not a review.
+    """
+    mod = registry.get(tool)
+    if mod is None:
+        near = [m.id for m in registry if tool.lower() in m.id.lower()
+                or tool.lower() in m.title.lower()]
+        print(f'no tool called {tool!r}', file=sys.stderr)
+        if near:
+            print(f'did you mean: {", ".join(sorted(near))}', file=sys.stderr)
+        else:
+            print('hone --list shows them all', file=sys.stderr)
+        return 1
+
+    rule = '=' * max(12, len(mod.title))
+    print(f'{mod.title}\n{rule}')
+    if mod.blurb:
+        print(mod.blurb)
+
+    # Command drills are the reference material: one invocation and one
+    # sentence on why. Keystroke drills are muscle memory and read badly on
+    # paper, so they get their own compact section rather than the same shape.
+    typed = [d for d in mod.items('drills') if d.get('type') == 'command']
+    keys = [d for d in mod.items('drills') if d.get('type') == 'keys']
+
+    if typed:
+        width = min(46, max(len(str(d.get('answer', ''))) for d in typed))
+        print('\nCOMMANDS')
+        for d in typed:
+            answer = str(d.get('answer', ''))
+            why = render.strip_markup(str(d.get('teach') or d.get('prompt') or ''))
+            why = ' '.join(why.split())
+            if len(answer) > width:
+                print(f'  {answer}')
+                print(f'  {"":<{width}}    {why}')
+            else:
+                print(f'  {answer:<{width}}    {why}')
+
+    if keys:
+        print('\nKEYS')
+        for d in keys:
+            seq = ' '.join(str(k) for k in (d.get('keys') or ()))
+            prompt = render.strip_markup(str(d.get('prompt') or ''))
+            print(f'  {seq:<18}  {" ".join(prompt.split())}')
+
+    gone = install.missing(mod.needs)
+    if gone:
+        print(f'\nNOT INSTALLED HERE: {", ".join(gone)}')
+        for t in gone:
+            hint = install.hint(t)
+            if hint:
+                print(f'  {hint}')
+    return 0
+
+
 def doctor(state, registry, at) -> int:
     """Everything that decides how this machine's hone behaves, in one page.
 
@@ -472,6 +537,8 @@ def build_parser() -> argparse.ArgumentParser:
                         'copy made elsewhere')
     p.add_argument('--list', action='store_true',
                    help='list installed tools and exit')
+    p.add_argument('--sheet', metavar='TOOL',
+                   help='print a tool\'s commands as a reference card and exit')
     p.add_argument('--doctor', action='store_true',
                    help='report what this machine supports and exit')
     p.add_argument('--reset', nargs='?', const='all', metavar='TOOL',
@@ -512,7 +579,7 @@ def main(argv: list[str] | None = None) -> int:
     # import rather than an invented pause.
     registry = None
     if not term.is_tty() or any([args.export, args.import_, args.list,
-                                 args.doctor, args.reset]):
+                                 args.doctor, args.reset, args.sheet]):
         registry = loader.load_all()
 
     if args.export:
@@ -551,6 +618,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.doctor:
         return doctor(state, registry, now)
+
+    if args.sheet:
+        return sheet(registry, args.sheet)
 
     if args.list:
         if not registry:
