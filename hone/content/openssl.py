@@ -637,7 +637,7 @@ MODULE = {
          'teach': 'RSA only, and the form you will see in every older '
                   'write-up. The pubkey comparison works for EC too.'},
         {'id': 'osd-rmpass', 'type': 'command',
-         'prompt': 'Write an unencrypted copy of the encrypted key encrypted.pem.',
+         'prompt': 'Write an unencrypted copy of encrypted.pem to plain.pem.',
          'answer': 'openssl rsa -in encrypted.pem -out plain.pem',
          'teach': 'What unattended services need, and it moves the protection '
                   'entirely onto file permissions.'},

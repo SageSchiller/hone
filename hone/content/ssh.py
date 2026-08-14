@@ -54,12 +54,13 @@ MODULE = {
             'examples': [
                 {
                     'label': 'Making and installing one',
-                    'code': 'ssh-keygen -t ed25519 -C "you@machine"\nssh-copy-id user@host        install the public key\n\nchmod 700 ~/.ssh\nchmod 600 ~/.ssh/id_ed25519\nchmod 644 ~/.ssh/id_ed25519.pub',
+                    'code': 'ssh-keygen -t ed25519 -C "you@machine"\nssh-copy-id user@host        install the public key\nssh -i key.pem user@host     use one key file, by path\n\nchmod 700 ~/.ssh\nchmod 600 ~/.ssh/id_ed25519\nchmod 644 ~/.ssh/id_ed25519.pub',
                     'note': '`ssh-copy-id` appends to the remote `~/.ssh/authorized_keys` and fixes its permissions for you, which is why it beats doing it by hand.',
                 },
             ],
             'misconceptions': [
                 'The `.pub` file is the one you copy. Copying the other one is the mistake this lesson exists to prevent.',
+                'A cloud VM hands you a `.pem` file rather than putting a key in `~/.ssh`. `ssh -i key.pem user@host` is how you use it, and it still wants mode 600.',
                 '"Permissions 0644 for key are too open" is not a bug. Fix the mode rather than looking for a flag to silence it.',
                 'A passphrase does not mean typing it constantly. That is what the agent is for.',
             ],
@@ -96,7 +97,7 @@ MODULE = {
             'examples': [
                 {
                     'label': 'Using the agent',
-                    'code': 'ssh-add ~/.ssh/id_ed25519    load a key\nssh-add -l                    what is loaded\nssh-add -D                    forget everything\nssh-add -t 1h key             expire it after an hour',
+                    'code': 'eval "$(ssh-agent -s)"        start one, if none is running\nssh-add ~/.ssh/id_ed25519    load a key\nssh-add -l                    what is loaded\nssh-add -D                    forget everything\nssh-add -t 1h key             expire it after an hour',
                     'note': '`-t` is a good habit on a laptop: the key stops being usable after an hour rather than until reboot.',
                 },
                 {
@@ -110,7 +111,7 @@ MODULE = {
                 '`ForwardAgent yes` inside `Host *` is a common and bad idea. Scope it to the one host that needs it, or use ProxyJump.',
             ],
             'try_it': [
-                'Run `ssh-add -l`. If it says the agent has no identities, that is why you are being asked for a passphrase.',
+                'Run `ssh-add -l`. If it says the agent has no identities, that is why you are being asked for a passphrase. If it says it cannot connect to your authentication agent, there is no agent running at all: `eval "$(ssh-agent -s)"` starts one.',
             ],
         },
         {
@@ -157,6 +158,13 @@ MODULE = {
             'answer': 'ssh-copy-id user@host',
             'prompt': 'Install your public key on a remote machine.',
             'teach': 'It appends to the remote authorized_keys and fixes the permissions, which is the step people get wrong doing it by hand.',
+        },
+        {
+            'id': 'sshd-known-hosts-r',
+            'type': 'command',
+            'answer': 'ssh-keygen -R oldhost.example.com',
+            'prompt': 'Remove one host key from known_hosts, the sanctioned way.',
+            'teach': 'After a rebuilt VM or a reinstalled container the warning is expected, and this is how you clear that one entry rather than deleting the file or editing it by hand.',
         },
         {
             'id': 'rm-cmd-chmod-key',
@@ -396,6 +404,7 @@ MODULE = {
                     'is_file': [
                         'hostkey',
                         'hostkey.pub',
+                        'meaning.txt',
                     ],
                     'file_contains': {
                         'fingerprint.txt': 'SHA256:',

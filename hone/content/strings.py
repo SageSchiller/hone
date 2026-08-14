@@ -41,7 +41,7 @@ MODULE = {
                     'note': 'Offsets in hex, so you can go straight back with xxd -s.',
                 },
                 {
-                    'label': 'Every encoding, then filter',
+                    'label': 'The 8-bit pass, then filter',
                     'code': 'strings -a -e S sample.bin | sort -u | head -50',
                     'note': '-a scans the whole file rather than only the loaded sections.',
                 },

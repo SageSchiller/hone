@@ -274,8 +274,8 @@ MODULE = {
                 'is a deleted file a process still holds open, which `df` counts '
                 'and `du` cannot see (back to lsof), or files hidden underneath '
                 'a mount point. `du -sh * | sort -h` is the one-liner for "what '
-                'is eating this directory", newest sorted so the biggest thing '
-                'is at the bottom.\n\n'
+                'is eating this directory", sorted smallest to largest so the '
+                'biggest thing is at the bottom of the list.\n\n'
                 '`watch` reruns a command every few seconds and shows only the '
                 'latest output, which is how you watch a number move without '
                 'writing a loop. `watch -n 5 df -h` gives you a live disk meter. '
@@ -552,9 +552,9 @@ MODULE = {
         # inspection
         {'id': 'lu-stat', 'type': 'command', 'answer': 'stat file.txt',
          'prompt': 'Show a file\'s size, permissions, inode and timestamps.',
-         'teach': 'ls shows one timestamp; stat shows all three: modified, '
-                  'accessed, and the inode change time, which cannot be set '
-                  'by touch.'},
+         'teach': 'ls shows one timestamp; stat shows the rest: accessed, '
+                  'modified, the inode change time that touch cannot set, '
+                  'and birth where the filesystem records it.'},
         {'id': 'lu-file', 'type': 'command', 'answer': 'file mystery.bin',
          'prompt': 'Work out what a file actually is, ignoring its extension.',
          'teach': 'It reads the leading bytes, not the name. Extensions are '

@@ -23,7 +23,7 @@ MODULE = {
         {
             'id': 'tr-magic',
             'title': 'The extension is a label, the magic is the file',
-            'concept': 'Nothing in a Unix filesystem enforces that invoice.pdf is a PDF. The extension is part of the name, and the name is metadata that anyone can write. What actually decides is the content, and specifically the first few bytes, because most formats begin with a fixed signature.\n\nPDF files start with %PDF. ZIP archives, and therefore also every .docx, .xlsx, .jar and .apk, start with PK followed by 03 04. ELF binaries start with 0x7F then ELF. PNG starts with 89 50 4E 47. Windows executables start with MZ, the initials of a Microsoft engineer from 1983, which is the kind of fact that makes signatures memorable.\n\n`file` is the tool that reads these, and it is doing something more careful than a table lookup: it works through a compiled database of magic patterns, at various offsets, with fallbacks, and it will tell you a great deal more than the type. For an ELF it names the architecture, whether it is dynamically linked, and whether it was stripped, all of which are triage facts.\n\nWhen `file` says "data", that is a real answer: no signature matched. Encrypted blobs, compressed streams and carved fragments all look like that.',
+            'concept': 'Nothing in a Unix filesystem enforces that invoice.pdf is a PDF. The extension is part of the name, and the name is metadata that anyone can write. What actually decides is the content, and specifically the first few bytes, because most formats begin with a fixed signature.\n\nPDF files start with %PDF. ZIP archives, and therefore also every .docx, .xlsx, .jar and .apk, start with PK followed by 03 04. ELF binaries start with 0x7F then ELF. PNG starts with 89 50 4E 47. Windows executables start with MZ, the initials of Mark Zbikowski, a Microsoft engineer, which is the kind of fact that makes signatures memorable.\n\n`file` is the tool that reads these, and it is doing something more careful than a table lookup: it works through a compiled database of magic patterns, at various offsets, with fallbacks, and it will tell you a great deal more than the type. For an ELF it names the architecture, whether it is dynamically linked, and whether it was stripped, all of which are triage facts.\n\nWhen `file` says "data", that is a real answer: no signature matched. Encrypted blobs, compressed streams and carved fragments all look like that.',
             'examples': [
                 {
                     'label': 'What is it, really',
@@ -43,7 +43,7 @@ MODULE = {
                 {
                     'label': 'Follow a symlink to its target',
                     'code': 'file -L link-to-thing',
-                    'note': 'Without -L you learn only that it is a symlink.',
+                    'note': 'Without -L you learn where it points, not what the target is.',
                 },
             ],
             'misconceptions': [
@@ -79,7 +79,7 @@ MODULE = {
                 },
                 {
                     'label': 'Read one file out of an archive without unpacking',
-                    'code': 'tar -xOf bundle.tar.gz ./manifest.json | head',
+                    'code': 'tar -xOf bundle.tar.gz manifest.json | head',
                     'note': '-O writes to stdout. Nothing lands on disk at all.',
                 },
             ],

@@ -166,7 +166,7 @@ MODULE = {
             'misconceptions': [
                 '`select` is not `if`. It emits its input unchanged or emits '
                 'nothing, which is why it composes in a pipeline.',
-                '`map` needs an array as input. On a stream it fails, and `.[] '
+                '`map` needs an array. On a stream of scalars it errors, and on a stream of objects it quietly maps the values of each object, which is worse than failing. `.[] | f` was what you wanted, and `.[] '
                 '| f` is what you wanted.',
                 '`add` on an empty array is `null`, not `0`, which breaks '
                 'arithmetic downstream unless you handle it.',

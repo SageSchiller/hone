@@ -222,7 +222,8 @@ MODULE = {
             'concept': (
                 'Indentation is the block structure, which means there are no '
                 'braces and no `end`. Four spaces, consistently. Mixing tabs '
-                'and spaces is a syntax error and always has been.\n\n'
+                'and spaces inconsistently inside one block is a TabError '
+                'in Python 3, so pick one and let your editor enforce it.\n\n'
                 '`if`, `for` and `while` behave as expected. The Python-specific '
                 'part is **truthiness**: empty things are false. An empty '
                 'string, list, dict or set, plus zero and None, are all falsy, '

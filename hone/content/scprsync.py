@@ -60,7 +60,7 @@ MODULE = {
                 },
                 {
                     'label': 'Using it safely',
-                    'code': 'rsync -av --dry-run src/ host:dest/   look first\nrsync -av src/ host:dest/            then do it\n\n-a  archive: recursive, keeps permissions,\n    times, symlinks\n-v  verbose      -z  compress in transit\n--delete  make dest match src exactly\n-P  progress and resume partial files',
+                    'code': 'rsync -av --dry-run src/ host:dest/   look first\nrsync -av src/ host:dest/            then do it\n\n-a  archive: recursive, keeps permissions,\n    times, symlinks\n-v  verbose      -z  compress in transit\n--delete  make dest match src exactly\n-P  progress and resume partial files\n--exclude .git --exclude node_modules',
                     'note': '`-avP --dry-run` is the combination to type by reflex before anything with --delete.',
                 },
             ],
@@ -68,6 +68,8 @@ MODULE = {
                 'The trailing slash on the DESTINATION does almost nothing. It is the source slash that changes the result.',
                 '`--delete` deletes on the destination, not the source, and with the wrong source slash that can be everything.',
                 'rsync over ssh reads your `~/.ssh/config`, so an alias works here exactly as it does for ssh.',
+                '`-P` means the port to scp and progress to rsync. rsync takes a port through ssh instead: `-e \'ssh -p 2222\'`.',
+                'The trailing slash rule belongs to rsync alone. `scp -r` copies the directory itself whether or not you write a slash.',
             ],
             'try_it': [
                 'Make two directories and run rsync both ways, with and without the source slash. Look at the result each time.',
@@ -95,6 +97,13 @@ MODULE = {
             'answer': 'rsync -av src dest/',
             'prompt': 'Copy the directory src INTO dest, so you end up with dest/src/.',
             'teach': 'A trailing slash on the SOURCE copies its contents instead. That one character is the difference between dest/src/ and dest/.',
+        },
+        {
+            'id': 'srd-exclude',
+            'type': 'command',
+            'answer': 'rsync -av --exclude .git src/ host:dest/',
+            'prompt': 'Sync a project without copying its git directory.',
+            'teach': 'The first real tree you sync has a .git or a node_modules in it, and --exclude repeats for each pattern you want left behind.',
         },
         {
             'id': 'rm-cmd-rsync-dry',

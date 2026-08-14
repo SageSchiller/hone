@@ -33,8 +33,13 @@ MODULE = {
                 },
                 {
                     'label': 'Reading an answer line',
-                    'code': 'example.com.  276  IN  A  93.184.216.34\n\nname          TTL  class type value\nthe 276 is seconds left before the cache expires',
+                    'code': 'example.com.  276  IN  A  203.0.113.10\n\nname          TTL  class type value\nthe 276 is seconds left before the cache expires\nclass is always IN in practice',
                     'note': 'The TTL is how long a resolver may keep the answer, which is why a change can take that long to be seen everywhere.',
+                },
+                {
+                    'label': 'The two lines worth reading in full output',
+                    'code': 'status: NOERROR   the question was answered\nstatus: NXDOMAIN  that name does not exist\nNOERROR + ANSWER: 0  exists, but no record of that type\n\n;; SERVER: 1.1.1.1#53(1.1.1.1)\n   which resolver actually answered',
+                    'note': 'NXDOMAIN and an empty NOERROR are different findings. The SERVER line answers the question this module keeps asking.',
                 },
             ],
             'misconceptions': [
