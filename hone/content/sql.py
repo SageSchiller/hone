@@ -540,15 +540,33 @@ MODULE = {
                 },
                 {
                     'label': 'A browser history, as an ordinary query',
-                    'code': ('SELECT datetime(v.visit_time, ...) AS when,\n'
+                    'code': ("SELECT datetime(v.visit_time/1000000\n"
+                             "                - 11644473600, 'unixepoch')\n"
+                             '         AS visited,\n'
                              '       u.url\n'
                              'FROM visits v\n'
                              'JOIN urls u ON u.id = v.url_id\n'
                              'ORDER BY v.visit_time DESC\n'
                              'LIMIT 50;'),
                     'note': 'Just SELECT, JOIN, ORDER BY and a timestamp '
-                            'conversion. The forensic part is the read-only '
-                            'copy, not the SQL.',
+                            'conversion. Do not call the column `when`: it is '
+                            'a reserved word and the query will not parse.',
+                },
+                {
+                    'label': 'The three epochs you will actually meet',
+                    'code': ("unix seconds   datetime(t, 'unixepoch')\n"
+                             '\n'
+                             'firefox        microseconds since 1970\n'
+                             "               datetime(t/1000000, 'unixepoch')\n"
+                             '\n'
+                             'chrome         microseconds since 1601\n'
+                             '               datetime(t/1000000\n'
+                             "                        - 11644473600,\n"
+                             "                        'unixepoch')"),
+                    'note': '11644473600 is the seconds between 1601 and 1970. '
+                            'A timestamp that reads as 1601 or as the far '
+                            'future is almost always the wrong epoch rather '
+                            'than corrupt data.',
                 },
             ],
             'misconceptions': [
@@ -740,6 +758,21 @@ MODULE = {
          'prompt': 'Ask whether a query uses an index or scans the whole table.',
          'teach': 'The plan says SCAN or SEARCH. This is how you diagnose a '
                   'slow query rather than guessing.'},
+        {'id': 'sqd-epoch-unix', 'type': 'command',
+         'answer': "SELECT datetime(ts, 'unixepoch') FROM events;",
+         'prompt': 'Render a Unix seconds column as a readable date.',
+         'teach': "Without 'unixepoch' sqlite reads the number as a Julian "
+                  'day and gives you a date in the wrong millennium.'},
+        {'id': 'sqd-epoch-firefox', 'type': 'command',
+         'answer': "SELECT datetime(visit_date/1000000, 'unixepoch') FROM moz_historyvisits;",
+         'prompt': 'Render a Firefox visit_date, which is microseconds.',
+         'teach': 'Divide by a million first. Firefox counts microseconds from '
+                  '1970, so only the scale is unusual.'},
+        {'id': 'sqd-epoch-chrome', 'type': 'command',
+         'answer': "SELECT datetime(visit_time/1000000 - 11644473600, 'unixepoch') FROM visits;",
+         'prompt': 'Render a Chrome visit_time, which counts from 1601.',
+         'teach': '11644473600 is the seconds between 1601 and 1970. A date in '
+                  'the far future usually means this offset was forgotten.'},
     ],
 
     'challenges': [
@@ -980,6 +1013,60 @@ MODULE = {
             'verify': {'kind': 'sandbox', 'expect': {
                 'file_contains': {'before.txt': 'SCAN',
                                   'after.txt': ['SEARCH', 'idx_user']}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'sqc-epochs',
+            'title': 'Convert three timestamps to readable dates',
+            'goal': 'A browser artifact is an ordinary database with an '
+                    'unusual clock. Convert all three of the epochs you will '
+                    'meet, and see what happens when you get one wrong.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'seed.sql':
+                    'CREATE TABLE hits (source TEXT, ts INTEGER);\n'
+                    "INSERT INTO hits VALUES ('unix', 1755120000);\n"
+                    "INSERT INTO hits VALUES ('firefox', 1755120000000000);\n"
+                    "INSERT INTO hits VALUES ('chrome', 13399593600000000);\n",
+            }},
+            'solution': {'shell':
+                'sqlite3 hits.db < seed.sql && '
+                'sqlite3 hits.db "SELECT datetime(ts, \'unixepoch\') FROM '
+                'hits WHERE source=\'unix\';" > unix.txt && '
+                'sqlite3 hits.db "SELECT datetime(ts/1000000, \'unixepoch\') '
+                'FROM hits WHERE source=\'firefox\';" > firefox.txt && '
+                'sqlite3 hits.db "SELECT datetime(ts/1000000 - 11644473600, '
+                '\'unixepoch\') FROM hits WHERE source=\'chrome\';" '
+                '> chrome.txt && '
+                'sqlite3 hits.db "SELECT datetime(ts/1000000, \'unixepoch\') '
+                'FROM hits WHERE source=\'chrome\';" > chrome-wrong.txt'},
+            'steps': [
+                {'instruction': 'Build the database from seed.sql. Three rows, '
+                                'three clocks, one column type.',
+                 'hint': 'sqlite3 hits.db < seed.sql'},
+                {'instruction': 'Write unix.txt with the plain Unix seconds row '
+                                'rendered as a date.',
+                 'hint': "datetime(ts, 'unixepoch')"},
+                {'instruction': 'Write firefox.txt with the microseconds row '
+                                'rendered, dividing by a million first.',
+                 'hint': "datetime(ts/1000000, 'unixepoch')"},
+                {'instruction': 'Write chrome.txt with the 1601-based row, '
+                                'subtracting the offset between 1601 and 1970.',
+                 'hint': "datetime(ts/1000000 - 11644473600, 'unixepoch')"},
+                {'instruction': 'Write chrome-wrong.txt by converting the '
+                                'Chrome row as if it were Firefox, and look at '
+                                'the year. That is what a forgotten epoch looks '
+                                'like, and it is why a date in 2394 is a units '
+                                'bug rather than evidence.',
+                 'hint': 'the same query as firefox, on the chrome row'},
+            ],
+            'free': 'From seed.sql produce unix.txt, firefox.txt and chrome.txt '
+                    'holding each row as a readable date, plus chrome-wrong.txt '
+                    'showing the Chrome row converted with the wrong epoch.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'unix.txt': '2025-08-13',
+                                  'firefox.txt': '2025-08-13',
+                                  'chrome.txt': '2025-08-13',
+                                  'chrome-wrong.txt': '2394'}}},
             'fallback': 'self',
         },
         {
