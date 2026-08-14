@@ -800,56 +800,6 @@ MODULE = {
                                   'not_contains': 'delete this line'}},
             'fallback': 'self',
         },
-        {'id': 'org-todo-cycle',
-         'title': 'Turn a heading into a task, then finish it',
-         'goal': 'A TODO is a keyword on a heading, not a special kind of '
-                 'line. Add one, then complete it.',
-         'setup': {'kind': 'emacs',
-                   'scratch_name': 'scratch.org',
-                   'start': ['* Buy milk', '* Call the bank']},
-         'solution': {'elisp': '(progn (erase-buffer) (insert "* DONE Buy '
-                               'milk\\n* TODO Call the bank\\n"))'},
-         'steps': [{'instruction': 'Put the cursor on the first heading '
-                                   'and cycle it to TODO.',
-                    'hint': 'C-c C-t, or S-Right to step through the '
-                            'keywords'},
-                   {'instruction': 'Cycle it once more, to DONE.',
-                    'hint': 'C-c C-t again. The cycle is TODO, DONE, '
-                            'nothing'},
-                   {'instruction': 'Make the second heading a TODO and '
-                                   'leave it there.',
-                    'hint': 'C-c C-t on that line, once'},
-                   {'instruction': 'Save and quit.',
-                    'hint': 'SPC f s, then SPC q q'}],
-         'free': 'Leave the first heading DONE and the second TODO.',
-         'verify': {'kind': 'emacs',
-                    'expect': {'lines': ['* DONE Buy milk',
-                                         '* TODO Call the bank']}},
-         'fallback': 'self'},
-        {'id': 'org-checkboxes',
-         'title': 'A checklist under a heading',
-         'goal': 'Checkboxes are list items with a box. Build one and tick '
-                 'part of it.',
-         'setup': {'kind': 'emacs',
-                   'scratch_name': 'scratch.org',
-                   'start': ['* Packing']},
-         'solution': {'elisp': '(progn (goto-char (point-max)) (insert '
-                               '"\\n- [X] passport\\n- [ ] tickets\\n"))'},
-         'steps': [{'instruction': 'Under the heading, add a list item '
-                                   'with an empty checkbox for passport.',
-                    'hint': '- [ ] passport'},
-                   {'instruction': 'Add a second one for tickets.',
-                    'hint': 'M-RET continues a list, box and all'},
-                   {'instruction': 'Tick the passport one.',
-                    'hint': 'C-c C-c on the item toggles its box'},
-                   {'instruction': 'Save and quit.',
-                    'hint': 'SPC f s, then SPC q q'}],
-         'free': 'Under Packing, list passport (ticked) and tickets '
-                 '(unticked) as checkboxes.',
-         'verify': {'kind': 'emacs',
-                    'expect': {'contains': ['- [X] passport',
-                                            '- [ ] tickets']}},
-         'fallback': 'self'},
         {'id': 'org-tags',
          'title': 'Tag a heading so the agenda can find it',
          'goal': 'Tags are how you slice an outline later. Put one on a '

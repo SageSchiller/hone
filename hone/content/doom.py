@@ -878,33 +878,6 @@ MODULE = {
                                             'keep = 4']}},
          'fallback': 'self'},
 
-        {'id': 'doom-macro-region',
-         'title': 'Record once, apply to a region',
-         'goal': 'Doom is still evil, so a macro over a range is the same '
-                 'skill as in vim, and it is the one that scales.',
-         'setup': {'kind': 'emacs',
-                   'scratch_name': 'list.txt',
-                   'start': ['apples', 'pears', 'plums', 'cherries']},
-         'solution': {'elisp': '(progn (goto-char (point-min)) '
-                               '(while (not (eobp)) '
-                               '(beginning-of-line) (insert "- ") '
-                               '(forward-line 1)))'},
-         'steps': [{'instruction': 'Start recording a macro into register q.',
-                    'hint': 'qq'},
-                   {'instruction': 'Prefix the current line with a dash and a '
-                                   'space, then move to the next line.',
-                    'hint': 'I then the dash and space, Esc, then j'},
-                   {'instruction': 'Stop recording and replay it for the '
-                                   'remaining lines.',
-                    'hint': 'q to stop, then 3@q'},
-                   {'instruction': 'Save.',
-                    'hint': 'SPC f s'}],
-         'free': 'Turn all four lines into a dash-prefixed list using a '
-                 'macro, then save.',
-         'verify': {'kind': 'emacs',
-                    'expect': {'contains': ['- apples', '- pears', '- plums',
-                                            '- cherries']}},
-         'fallback': 'self'},
 
         {'id': 'doom-magit-commit',
          'title': 'Make a real commit through magit',

@@ -674,33 +674,6 @@ MODULE = {
 
     'challenges': [
         {
-            'id': 'sh-spaces',
-            'title': 'Survive a filename with a space',
-            'goal': 'Write a loop that handles a filename containing a space, '
-                    'which is the bug quoting exists to prevent.',
-            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
-                'My Notes.txt': 'alpha\n',
-                'plain.txt': 'bravo\n',
-                'other.log': 'ignore\n',
-            }},
-            'solution': {'shell': 'for f in *.txt; do cp "$f" "$f.bak"; done'},
-            'steps': [
-                {'instruction': 'Loop over every .txt file.',
-                 'hint': 'for f in *.txt; do ... done'},
-                {'instruction': 'Copy each one to the same name with .bak '
-                                'appended, quoting the variable.',
-                 'hint': 'cp "$f" "$f.bak"  and note both quotes matter'},
-            ],
-            'free': 'Make a .bak copy of every .txt file, including the one with '
-                    'a space in its name. Leave the .log alone.',
-            'verify': {'kind': 'sandbox', 'expect': {
-                'exists': ['My Notes.txt.bak', 'plain.txt.bak'],
-                'missing': ['other.log.bak'],
-                'file_equals': {'My Notes.txt.bak': 'alpha'},
-            }},
-            'fallback': 'self',
-        },
-        {
             'id': 'sh-rank',
             'title': 'Count and rank',
             'goal': 'Build the sort-count-sort pipeline and capture its output.',

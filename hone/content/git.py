@@ -775,42 +775,6 @@ MODULE = {
                 'subjects_contain': 'detached'}},
             'fallback': 'self',
         },
-        {'id': 'g-branch-and-merge',
-         'title': 'Branch, commit, merge back',
-         'goal': 'The whole loop, once: make a branch, do work on it, and '
-                 'bring it home.',
-         'setup': {'kind': 'git',
-                   'branch': 'main',
-                   'tree': {'app.txt': 'v1\n'},
-                   'commits': [{'message': 'initial commit',
-                                'tree': {'app.txt': 'v1\n'}}]},
-         'solution': {'shell': 'git switch -c feature -q && echo v2 > '
-                               'app.txt && git add -A && git -c '
-                               'user.email=t@t -c user.name=t commit -q -m '
-                               '"Bump to v2" && git switch main -q && git '
-                               '-c user.email=t@t -c user.name=t merge '
-                               'feature -q --no-edit'},
-         'steps': [{'instruction': 'Create a branch called feature and '
-                                   'move to it in one command.',
-                    'hint': 'git switch -c feature'},
-                   {'instruction': 'Change app.txt to say v2, and commit '
-                                   'it.',
-                    'hint': 'echo v2 > app.txt, then git add -A && git '
-                            'commit -m ...'},
-                   {'instruction': 'Go back to main and merge feature into '
-                                   'it.',
-                    'hint': 'git switch main, then git merge feature. A '
-                            'merge brings the named branch INTO the one '
-                            'you are on'}],
-         'free': 'Do the work on a feature branch and merge it into main, '
-                 'leaving main holding v2.',
-         'verify': {'kind': 'git',
-                    'expect': {'branch': 'main',
-                               'branches': ['feature'],
-                               'min_commits': 2,
-                               'clean': True,
-                               'file_contains': {'app.txt': 'v2'}}},
-         'fallback': 'self'},
 
         {'id': 'g-resolve-conflict',
          'title': 'Resolve a merge conflict by hand',

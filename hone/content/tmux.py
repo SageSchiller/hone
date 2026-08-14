@@ -771,37 +771,6 @@ MODULE = {
             'fallback': 'self',
         },
         {
-            'id': 'tmux-named-windows',
-            'title': 'Name every window so the status bar is useful',
-            'goal': 'A status bar reading bash, bash, bash is a status bar '
-                    'you stop reading. Naming is the cheapest fix in tmux.',
-            'setup': {'kind': 'tmux', 'session': 'hone-drill',
-                      'create': True, 'handoff': 'attach'},
-            'solution': {'commands': [
-                ['rename-window', '-t', 'hone-drill', 'edit'],
-                ['new-window', '-t', 'hone-drill', '-n', 'logs'],
-                ['new-window', '-t', 'hone-drill', '-n', 'shell'],
-            ]},
-            'steps': [
-                {'instruction': 'Rename the window you are already in to '
-                                'edit. Every window counts, including the '
-                                'one you started with.',
-                 'hint': 'C-b , renames the current window'},
-                {'instruction': 'Create two more windows and name them logs '
-                                'and shell.',
-                 'hint': 'C-b c, then C-b ,'},
-                {'instruction': 'Look at the status bar. That is the '
-                                'difference between three windows and three '
-                                'places.'},
-            ],
-            'free': 'Leave the session with three windows, named edit, logs '
-                    'and shell, and none left on a default name.',
-            'verify': {'kind': 'tmux', 'expect': {
-                'session_exists': True, 'min_windows': 3,
-                'named_windows': ['edit', 'logs', 'shell']}},
-            'fallback': 'self',
-        },
-        {
             'id': 'tmux-kill-tidy',
             'title': 'Take a layout apart again',
             'goal': 'Building is half of it. Closing panes and windows '

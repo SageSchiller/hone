@@ -1029,25 +1029,6 @@ MODULE = {
                                          'bar two',
                                          'three BAR']}},
          'fallback': 'self'},
-        {'id': 'vim-reorder',
-         'title': 'Swap two lines',
-         'goal': 'Move a line below the one under it, using delete and put '
-                 'rather than retyping either.',
-         'setup': {'kind': 'nvim', 'start': ['second', 'first', 'third']},
-         'solution': {'keys': 'ddp:wq\r'},
-         'steps': [{'instruction': 'Delete the current line. It goes into '
-                                   'a register, not the void.',
-                    'hint': 'dd'},
-                   {'instruction': 'Put it back below the line you are now '
-                                   'on.',
-                    'hint': 'p. Capital P puts it above'},
-                   {'instruction': 'Save and quit.',
-                    'hint': ':wq. ddp is the idiom for swapping two '
-                            'lines'}],
-         'free': 'Make the file read first, second, third.',
-         'verify': {'kind': 'nvim',
-                    'expect': {'lines': ['first', 'second', 'third']}},
-         'fallback': 'self'},
         {'id': 'vim-append-end',
          'title': 'Append to the end of a line',
          'goal': 'Get into insert mode at the end of the line without '

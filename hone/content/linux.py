@@ -746,31 +746,6 @@ MODULE = {
             'fallback': 'self',
         },
         {
-            'id': 'lx-redirect',
-            'title': 'Separate the streams',
-            'goal': 'Prove to yourself that stdout and stderr are different '
-                    'streams by sending them to different files.',
-            'setup': {'kind': 'sandbox', 'tree': {'notes.txt': 'hello\n'}},
-            'solution': {'shell': 'ls notes.txt nope.txt > out.txt 2> err.txt'},
-            'steps': [
-                {'instruction': 'Run ls on one file that exists and one that '
-                                'does not.',
-                 'hint': 'ls notes.txt nope.txt'},
-                {'instruction': 'Send the normal output to out.txt.',
-                 'hint': '> out.txt'},
-                {'instruction': 'Send the error to err.txt, in the same command.',
-                 'hint': '2> err.txt'},
-            ],
-            'free': 'Run ls on notes.txt and a file that does not exist, '
-                    'capturing normal output in out.txt and the error in '
-                    'err.txt.',
-            'verify': {'kind': 'sandbox', 'expect': {
-                'file_contains': {'out.txt': 'notes.txt', 'err.txt': 'nope'},
-                'file_lacks': {'out.txt': 'nope'},
-            }},
-            'fallback': 'self',
-        },
-        {
             'id': 'lx-links',
             'title': 'Make a symbolic link',
             'goal': 'Create a stable name that points at a versioned file, '
