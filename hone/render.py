@@ -5,6 +5,12 @@ Two ladders, detected independently because terminals mix and match:
 * **Colour**: truecolour, 256, 16, none. `NO_COLOR` and a non-TTY force none.
 * **Glyphs**: Nerd Font, Unicode box drawing, pure ASCII.
 
+Inline markup rides the colour ladder. Content is authored with `backticks`
+around anything you type, and `wrap_rich` turns those into styling; on a
+terminal with no colour it leaves the marks alone instead, because there the
+backticks are the only thing distinguishing a command from the prose around
+it, and stripping them would delete the distinction rather than render it.
+
 Screens never emit escape codes. They build `Text` out of styled spans and
 semantic glyph names, and this module turns that into bytes at whatever rung
 the terminal actually supports. That indirection is what lets `test.py` render
@@ -19,6 +25,7 @@ default is Unicode, which is always safe, and Nerd glyphs are opt-in.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import textwrap
 import unicodedata
@@ -269,6 +276,127 @@ def wrap(s: str, width: int, indent: str = '') -> list[str]:
     while out and out[-1] == '':
         out.pop()
     return out
+
+
+# --------------------------------------------------------------------------
+# Inline markup
+# --------------------------------------------------------------------------
+
+#: Content is authored with `backticks` around anything you type and `**bold**`
+#: for the load-bearing sentence, because that is how technical prose is
+#: written. Rendering the marks literally put 2367 stray backticks on screen
+#: and made authored text look like unprocessed source, so they are parsed into
+#: styling here instead.
+CODE = 1
+BOLD = 2
+
+_MARKUP = re.compile(r'\*\*(.+?)\*\*|`([^`]+)`', re.DOTALL)
+
+
+def parse_markup(s: str) -> list[tuple[str, int]]:
+    """Explode a string into (character, style-mask) pairs.
+
+    Per character rather than per span because wrapping happens afterwards and
+    can cut a span anywhere. Bold is parsed first and its contents re-parsed,
+    so ``**`-L` is local**`` comes out bold *and* code on the flag, which is
+    exactly how it was written.
+    """
+    pairs: list[tuple[str, int]] = []
+    pos = 0
+    for m in _MARKUP.finditer(s):
+        pairs += [(c, 0) for c in s[pos:m.start()]]
+        if m.group(1) is not None:
+            pairs += [(c, st | BOLD) for c, st in parse_markup(m.group(1))]
+        else:
+            pairs += [(c, CODE) for c in m.group(2)]
+        pos = m.end()
+    pairs += [(c, 0) for c in s[pos:]]
+    return pairs
+
+
+def strip_markup(s: str) -> str:
+    """The text as it will be displayed, with the marks removed."""
+    return ''.join(c for c, _ in parse_markup(s))
+
+
+def _collapse(pairs: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """Squeeze whitespace runs to one space, the way `wrap` does, in step."""
+    out: list[tuple[str, int]] = []
+    spaced = True
+    for ch, st in pairs:
+        if ch.isspace():
+            if not spaced:
+                out.append((' ', -1))      # style decided below
+                spaced = True
+        else:
+            out.append((ch, st))
+            spaced = False
+    while out and out[-1][0] == ' ':
+        out.pop()
+    # A space inside one styled run joins it, so `ssh-keygen -t ed25519` is a
+    # single span rather than five. Purely an output-size win: a space has no
+    # ink, but every style change costs an escape sequence on every repaint.
+    for i, (ch, st) in enumerate(out):
+        if st != -1:
+            continue
+        prev = out[i - 1][1] if i else 0
+        nxt = out[i + 1][1] if i + 1 < len(out) else 0
+        out[i] = (ch, prev if prev == nxt else 0)
+    return out
+
+
+def wrap_rich(caps: Caps, s: str, width: int, indent: str, base: Color | None,
+              code: Color | None = None) -> list[Text]:
+    """`wrap`, but returning styled rows with inline markup applied.
+
+    The line breaking is still `textwrap` over the display text, so wrapping
+    is identical to what plain `wrap` would produce for the same visible
+    characters. Styles are mapped back afterwards by locating each wrapped
+    line in that text, which is exact: `textwrap` only ever slices.
+
+    **A terminal with no colour keeps the marks.** Styling is the whole way a
+    code span is distinguished once the backticks are gone, so stripping them
+    on a monochrome terminal would delete the distinction rather than render
+    it differently. That is the D20 ladder applied to markup: the bottom rung
+    is the marks themselves, which is exactly how the text was authored.
+    """
+    if caps.color == ColorLevel.NONE:
+        return [Text().add(ln, base) if ln else Text()
+                for ln in wrap(str(s), width, indent)]
+
+    rows: list[Text] = []
+    for para in str(s).split('\n\n'):
+        pairs = _collapse(parse_markup(para))
+        if not pairs:
+            rows.append(Text())
+            continue
+        plain = ''.join(c for c, _ in pairs)
+        styles = [st for _, st in pairs]
+        lines = textwrap.wrap(plain, max(8, width - len(indent)),
+                              initial_indent=indent,
+                              subsequent_indent=indent) or ['']
+        at = 0
+        for ln in lines:
+            body = ln[len(indent):] if ln.startswith(indent) else ln.lstrip()
+            found = plain.find(body, at)
+            if found < 0:                      # defensive: never lose a line
+                rows.append(Text().add(ln, base))
+                continue
+            t = Text().add(indent)
+            run = 0
+            for i in range(1, len(body) + 1):
+                if i < len(body) and styles[found + i] == styles[found + run]:
+                    continue
+                st = styles[found + run]
+                t.add(body[run:i], code if (st & CODE) and code else base,
+                      bold=bool(st & BOLD))
+                run = i
+            rows.append(t)
+            at = found + len(body)
+        rows.append(Text())
+    while rows and not rows[-1].spans:
+        rows.pop()
+    return rows
 
 
 def line(*args, **kwargs) -> Text:

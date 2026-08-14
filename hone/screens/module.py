@@ -84,18 +84,37 @@ class ModuleScreen(ListScreen):
         self.view = index % len(VIEWS)
         self.cursor = 0
 
+    def _tab_count(self, name: str) -> int:
+        """How many rows sit behind a tab, counted the way that tab shows them.
+
+        Practice includes its quiz row, because that is a row you can open
+        there and a count that disagreed with the list would be worse than no
+        count at all.
+        """
+        kind = KINDS[name]
+        n = len(self.module.items(kind))
+        if kind == 'challenges' and self.module.has('quiz'):
+            n += 1
+        return n
+
     # -- content ------------------------------------------------------------
 
     def header_rows(self, caps: Caps) -> list[Text]:
         p = caps.palette
+        # Each tab carries how much is behind it. A tab is a promise about
+        # what you will find, and "Practice" alone does not distinguish a
+        # module with one exercise from one with sixteen.
+        labels = [f'{name} {self._tab_count(name)}' for name in VIEWS]
+
         tabs = Text().add('  ')
         for i, name in enumerate(VIEWS):
             on = i == self.view
             has = self.module.has(KINDS[name])
             colour = p.accent if on else (p.muted if has else p.dim)
             tabs.add(f' {name} ', colour, bold=on)
-            if not has:
-                tabs.add('', p.dim)
+            tabs.add(f'{self._tab_count(name)} ',
+                     p.accent2 if on else (p.dim if has else p.border),
+                     bold=on)
             if i < len(VIEWS) - 1:
                 tabs.add(caps.g('bullet'), p.border)
         rows = [Text(), tabs]
@@ -103,7 +122,7 @@ class ModuleScreen(ListScreen):
         underline = Text().add('  ')
         for i, name in enumerate(VIEWS):
             seg = caps.g('hh') if i == self.view else ' '
-            underline.add(seg * (len(name) + 2),
+            underline.add(seg * (len(labels[i]) + 2),
                           p.accent if i == self.view else p.bg)
             if i < len(VIEWS) - 1:
                 underline.add(' ')
@@ -145,6 +164,9 @@ class ModuleScreen(ListScreen):
         rows.append(Text())
         return rows
 
+    #: Room for the longest status word ("self-marked") inside 80 columns.
+    LABEL_W = 48
+
     def rows(self, caps: Caps) -> list[Text]:
         p = caps.palette
         out: list[Text] = []
@@ -157,7 +179,12 @@ class ModuleScreen(ListScreen):
             rec = self.state.peek(self.module.id, self.kind, iid)
 
             t = Text().add(f'  {caps.g("sel") if sel else " "} ', p.accent)
-            t.add(f'{label}'[:48].ljust(48), p.fg if sel else p.muted, bold=sel)
+            # Truncate rather than slice: titles run to 52 characters and a
+            # bare [:48] cut one off mid-word with nothing to say it had, then
+            # left a 48-character title touching the status word beside it.
+            cell = Text().add(str(label), p.fg if sel else p.muted, bold=sel)
+            cell.truncate(self.LABEL_W, caps.g('ellipsis')).pad_to(self.LABEL_W + 2)
+            t.spans.extend(cell.spans)
 
             if self.kind == 'lessons':
                 done = rec.get('done')

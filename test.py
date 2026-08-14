@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import shutil
 import time
 import subprocess
@@ -42,6 +43,12 @@ from hone.render import Caps, ColorLevel, GlyphLevel, Text
 from hone.screens import ScreenContractError
 
 T0 = datetime(2026, 8, 12, 9, 0, tzinfo=timezone.utc)
+
+#: Tools present on any machine that can run this at all. coreutils and
+#: openssl are not worth an install hint: without them the trainer itself
+#: does not work, so a module may declare them and skip the advice.
+GIVEN_TOOLS = {'ssh', 'curl', 'python3', 'sha256sum', 'md5sum', 'stat',
+               'tar', 'openssl'}
 ROOT = Path(__file__).resolve().parent
 
 RUNGS = [
@@ -412,8 +419,16 @@ def test_screens(t: Runner) -> None:
             t.ok(f'{label} {name} fits {caps.rows} rows',
                  len(lines) <= caps.rows, f'{len(lines)} lines')
             t.ok(f'{label} {name} has a footer', bool(scr.hints(caps)))
-            t.ok(f'{label} {name} can be left via {scr.escape_key}',
-                 scr.handle(K.parse(scr.escape_key)).kind != 'stay')
+            # D19 rule 2: every screen has a way out, and it is the key the
+            # footer names. The root is the exception and states its own: Esc
+            # means "back" everywhere, there is nowhere back to from home, so
+            # home is left with `q` and Esc is deliberately inert there.
+            leave = 'q' if not scr.can_pop else scr.escape_key
+            t.ok(f'{label} {name} can be left via {leave}',
+                 scr.handle(K.parse(leave)).kind != 'stay')
+            if not scr.can_pop:
+                t.eq(f'{label} {name} ignores ESC rather than quitting',
+                     scr.handle(K.parse('ESC')).kind, 'stay')
     t.ok(f'walked {total} screen-renders', total > 0)
 
     t.head('screens / ASCII purity at the ASCII rung')
@@ -532,7 +547,10 @@ def test_screens(t: Runner) -> None:
     home.handle(K.parse('Up'))
     t.eq('cursor wraps', home.cursor, len(reg) - 1)
     t.eq('q quits', home.handle(K.parse('q')).kind, 'quit')
-    t.eq('esc at root quits', home.handle(K.parse('ESC')).kind, 'quit')
+    # Esc used to quit here. It is inert now: the most-pressed key in the
+    # app should not also be the one that ends the session from the screen
+    # you return to most, and the home footer never advertised it.
+    t.eq('esc at root does nothing', home.handle(K.parse('ESC')).kind, 'stay')
     app4.dispatch(K.parse('RET'))
     t.eq('esc in a module pops', app4.screen.handle(K.parse('ESC')).kind, 'pop')
 
@@ -787,7 +805,7 @@ def test_tmux_adapter(t: Runner) -> None:
     ch2 = reg2.get('tmux').item('challenges', 'c1')
     state2 = st.State.blank(T0)
     scr2 = _CS(reg2.get('tmux'), ch2, state2, T0,
-               handoff=lambda argv, cwd=None, brief=None: None)
+               handoff=lambda argv, cwd=None, brief=None, env=None: None)
     t.eq('starts out promising verification', scr2.plan.kind, A.VERIFIED)
     scr2.handle(K.parse('RET'))
     t.eq('but degrades on an untrustworthy observation', scr2.phase, 'selfmark')
@@ -816,7 +834,7 @@ def test_challenge(t: Runner) -> None:
     A.register('tmux', lambda: A.FakeAdapter(ok=True, data={'panes': 3}))
     state = st.State.blank(T0)
     scr = ChallengeScreen(mod, ch, state, T0,
-                                  handoff=lambda argv, cwd=None, brief=None: None)
+                                  handoff=lambda argv, cwd=None, brief=None, env=None: None)
     scr.set_rigor('guided')
     guided = ''.join(x.plain() for x in scr.body(caps))
     scr.set_rigor('coached')
@@ -848,7 +866,7 @@ def test_challenge(t: Runner) -> None:
     A.register('tmux', lambda: A.FakeAdapter(ok=False, data={'panes': 1}))
     state2 = st.State.blank(T0)
     scr2 = ChallengeScreen(mod, ch, state2, T0,
-                           handoff=lambda argv, cwd=None, brief=None: None)
+                           handoff=lambda argv, cwd=None, brief=None, env=None: None)
     scr2.handle(K.parse('RET'))
     t.ok('fail is not recorded as done',
          not state2.module('tmux')['challenges'].get('c1', {}).get('done'))
@@ -858,7 +876,7 @@ def test_challenge(t: Runner) -> None:
     A.reset()
     state3 = st.State.blank(T0)
     scr3 = ChallengeScreen(mod, ch, state3, T0,
-                           handoff=lambda argv, cwd=None, brief=None: None)
+                           handoff=lambda argv, cwd=None, brief=None, env=None: None)
     t.eq('no adapter means self', scr3.plan.kind, A.SELF)
     scr3.handle(K.parse('RET'))
     t.eq('lands on the self-mark prompt', scr3.phase, 'selfmark')
@@ -873,7 +891,7 @@ def test_challenge(t: Runner) -> None:
     A.reset()
     A.register('tmux', Exploding)
     scr4 = ChallengeScreen(mod, ch, st.State.blank(T0), T0,
-                           handoff=lambda argv, cwd=None, brief=None: None)
+                           handoff=lambda argv, cwd=None, brief=None, env=None: None)
     scr4.handle(K.parse('RET'))
     t.eq('falls back to self-mark', scr4.phase, 'selfmark')
     t.ok('and says why', 'kaboom' in scr4.plan.reason)
@@ -960,14 +978,20 @@ def test_solvable(t: Runner) -> None:
 
             from hone.screens.challenge import ChallengeScreen
 
-            def handoff(argv, cwd=None, brief=None, sol=sol, kind=kind):
+            def handoff(argv, cwd=None, brief=None, env=None, sol=sol, kind=kind):
                 # Dispatch on the SHAPE of the solution rather than on the
                 # adapter name. Keying off the name meant every new adapter
                 # silently replayed nothing and its challenges "failed", which
                 # is exactly what happened when git arrived.
                 if sol.get('shell') is not None:
+                    # The adapter's env overrides must be honoured here, not
+                    # only in the real handover. Without this the gpg
+                    # solutions would run against the *tester's* own
+                    # ~/.gnupg, which is both a D1 violation and a test that
+                    # passes for the wrong reason.
                     _sp.run(['bash', '-c', sol['shell']], cwd=cwd,
-                            capture_output=True, timeout=60)
+                            env={**os.environ, **(env or {})},
+                            capture_output=True, timeout=120)
                     return
                 # argv[-2] is the leave hook and argv[-1] the file, for every
                 # buffer adapter. See BufferAdapter.launch.
@@ -1237,7 +1261,10 @@ def test_app(t: Runner) -> None:
     app.dispatch(K.parse('ESC'))
     t.eq('esc pops', len(app.stack), 1)
     app.dispatch(K.parse('ESC'))
-    t.ok('esc at root stops the loop', not app.running)
+    t.ok('esc at root leaves the app running', app.running)
+    t.eq('and stays on home', len(app.stack), 1)
+    app.dispatch(K.parse('q'))
+    t.ok('q at root stops the loop', not app.running)
 
     t.head('app / cli')
     from hone.app import build_parser
@@ -1573,7 +1600,7 @@ def test_handover_and_reset(t: Runner) -> None:
     app = App(reg, seen(), T0, caps)
     app.tty = None
     sc = ChallengeScreen(mod, chal, seen(), T0,
-                         handoff=lambda a, c=None, b=None: seen_args.update(
+                         handoff=lambda a, c=None, b=None, env=None: seen_args.update(
                              argv=a, cwd=c, brief=b))
     sc._start()
     t.ok('brief passed to the handoff', seen_args.get('brief') is not None)
@@ -1753,6 +1780,7 @@ def test_orientation(t: Runner) -> None:
 def test_splash(t: Runner) -> None:
     """The launch screen: degrades, resolves, and never blocks the app."""
     from hone import splash
+    reg = fixture_registry()
 
     t.head('splash / it fits or it does not run')
     big = Caps(ColorLevel.TRUE, GlyphLevel.UNICODE, theme.CYBERPUNK_NEON, 80, 24)
@@ -1794,7 +1822,7 @@ def test_splash(t: Runner) -> None:
     t.ok('says what it is doing', 'sharpening' in first)
 
     t.head('splash / no frame ever overflows the terminal')
-    for cols, rows in ((80, 24), (120, 40), (40, 16)):
+    for cols, rows in ((80, 24), (120, 40), (40, 20)):
         caps = Caps(ColorLevel.NONE, GlyphLevel.UNICODE, theme.NEUTRAL, cols, rows)
         if not splash.fits(caps):
             continue
@@ -1847,15 +1875,28 @@ def test_splash(t: Runner) -> None:
     t.ok('no hint when not holding', splash.HOLD_HINT not in plain_last)
 
     t.head('splash / holding still fits the window')
-    for cols, rows in ((80, 24), (120, 40), (40, 16)):
+    note = splash.roster_note(reg)
+    for cols, rows in ((80, 24), (120, 40), (40, 20)):
         caps = Caps(ColorLevel.NONE, GlyphLevel.UNICODE, theme.NEUTRAL, cols, rows)
         if not splash.fits(caps):
             continue
-        drawn = splash.frame(caps, splash.STEPS - 1, hold=True)
+        drawn = splash.frame(caps, splash.STEPS - 1, hold=True, note=note)
         for row in drawn:
             t.ok(f'{cols}x{rows} held frame fits wide', row.width() <= cols,
                  row.plain())
         t.ok(f'{cols}x{rows} held frame fits tall', len(drawn) <= rows)
+
+    t.head('splash / the roster line is counted, and dropped when it cannot fit')
+    t.ok('counts the real roster', note.startswith(f'{len(reg)} tools'), note)
+    wide = '\n'.join(x.plain() for x in
+                     splash.frame(big, splash.STEPS - 1, hold=True, note=note))
+    t.ok('shown when there is room', note in wide)
+    narrow = Caps(ColorLevel.NONE, GlyphLevel.UNICODE, theme.NEUTRAL, 40, 20)
+    thin = splash.frame(narrow, splash.STEPS - 1, hold=True, note=note)
+    t.ok('dropped rather than overflowing',
+         all(row.width() <= 40 for row in thin))
+    t.eq('an empty registry says nothing', splash.roster_note(loader.Registry()), '')
+    t.eq('a non-registry says nothing', splash.roster_note(object()), '')
 
     t.head('splash / it waits for a key rather than timing out')
     class PatientTty:
@@ -2203,11 +2244,50 @@ def test_install_help(t: Runner) -> None:
                      if tool in install.PACKAGES and m in install.PACKAGES[tool]))
 
     t.head('install / every module need can be installed or is a given')
-    given = {'ssh', 'curl', 'python3'}       # present on any machine that runs this
     for mod in loader.load_all():
         for tool in mod.needs:
             t.ok(f'{mod.id} needs {tool}: known or a given',
-                 install.known(tool) or tool in given, tool)
+                 install.known(tool) or tool in GIVEN_TOOLS, tool)
+
+    t.head('install / Arch and Debian both get a route for every tool')
+    # The two distributions this is actually used on. A tool that some module
+    # declares, or that an adapter needs, must have a working line for both,
+    # because "not installed" with no way forward is where people stop. This
+    # caught `pacman -S ffuf`, which does not exist: ffuf is AUR-only on Arch
+    # and unpackaged on Debian, and a real paste of that line failed.
+    wanted = {tool for mod in loader.load_all() for tool in mod.needs}
+    for name in A.registered():
+        wanted.update(getattr(A.get(name), 'requires', ()))
+    for tool in sorted(wanted - GIVEN_TOOLS):
+        for pm, label in (('pacman', 'Arch'), ('apt', 'Debian')):
+            cmd = install.command_for(tool, pm)
+            t.ok(f'{tool} has a {label} route', bool(cmd), f'{tool}/{pm}')
+
+    t.head('install / a route names a real package or a real alternative')
+    # A bare `pacman -S x` / `apt install x` is a claim that x is in the
+    # distribution's own repositories. Where it is not, the entry must say so
+    # rather than print a line that fails.
+    for tool, pm, why in (('ffuf', 'pacman', 'AUR only'),
+                          ('ffuf', 'apt', 'not packaged'),
+                          ('pwsh', 'pacman', 'AUR only'),
+                          ('netexec', 'apt', 'pipx only'),
+                          ('vol', 'apt', 'pipx only')):
+        cmd = install.command_for(tool, pm) or ''
+        plain = cmd.startswith(('sudo pacman -S ', 'sudo apt install '))
+        t.ok(f'{tool} on {pm} is not a bare package claim ({why})',
+             not plain, cmd)
+
+    t.head('install / a renamed binary still counts as installed')
+    # FreeRDP 3 ships xfreerdp3 and no xfreerdp, so a fully installed machine
+    # was being told it needed to install FreeRDP.
+    t.ok('xfreerdp has known aliases', 'xfreerdp3' in install.ALIASES['xfreerdp'])
+    t.eq('an alias satisfies the need',
+         install.missing(['definitely-not-real']), ['definitely-not-real'])
+    real = next((a for a in ('xfreerdp',) if install.present(a)), None)
+    t.ok('present() accepts either name',
+         install.present('xfreerdp') == bool(
+             shutil.which('xfreerdp') or shutil.which('xfreerdp3')
+             or shutil.which('sdl-freerdp3')), real)
 
     t.head('install / the awkward cases are honest, not plausible')
     # pacman -S powershell does not exist. Printing it would fail and look
@@ -2379,6 +2459,7 @@ def test_audit(t: Runner) -> None:
 
 def test_free_pace(t: Runner) -> None:
     """D24: nothing is scheduled, nothing is owed, nothing keeps score."""
+    from hone import install
     from hone.screens.home import HomeScreen
 
     reg = loader.load_all()
@@ -2476,6 +2557,31 @@ def test_free_pace(t: Runner) -> None:
                                           'read and drill only')
          or label.startswith('needs'), label)
 
+    t.head('home / a missing tool is named even when its adapter is fine')
+    # The sandbox is available on every machine by definition, so asking the
+    # adapter first reported "checks your work" for a module that runs a
+    # binary this machine has not got. Twenty modules were wrong that way.
+    sandboxed = loader.build_module(
+        {'id': 'ghost', 'title': 'Ghost', 'adapter': 'sandbox',
+         'needs': ['definitely-not-a-real-binary'],
+         'lessons': [{'id': 'a', 'title': 'A', 'concept': 'x' * 220,
+                      'misconceptions': ['m'], 'try_it': ['t']}]}, 'fixture')
+    ok, label = home.checkable(sandboxed)
+    t.ok('sandbox does not hide it', not ok, label)
+    t.ok('names the binary', 'definitely-not-a-real-binary' in label, label)
+
+    t.head('home / two missing tools are both named, three are counted')
+    from hone.screens.home import _and_list
+    t.eq('one', _and_list(['nft']), 'nft')
+    t.eq('two', _and_list(['nft', 'iptables']), 'nft and iptables')
+    t.eq('three', _and_list(['a', 'b', 'c']), 'a and 2 more')
+
+    t.head('home / every declared need can actually be advised on')
+    for mod in reg:
+        for tool in mod.needs:
+            t.ok(f'{mod.id} needs {tool}: hint or a given',
+                 install.known(tool) or tool in GIVEN_TOOLS, tool)
+
     t.head('home / footer offers nothing that no longer exists')
     keys = [k for k, _ in home.hints(caps)]
     for gone in ('r', 't', 'w', 'x', 'space'):
@@ -2529,6 +2635,249 @@ def test_free_pace(t: Runner) -> None:
     t.ok('titled for the module', 'vim' in app.open_notes('vim').title)
 
 
+def test_labs(t: Runner) -> None:
+    """The two lab adapters, which build their own target rather than find one.
+
+    These need testing here and not only through `test_solvable`, because the
+    solvability harness skips an adapter whose tool is missing, and `nmap` is
+    missing on plenty of machines including the one this was written on. That
+    would leave the netlab code shipping entirely unexercised, which is the
+    exact hole that let the git adapter ship unplayed once already.
+    """
+    import socket
+    import urllib.error
+    import urllib.request
+
+    A.reset(builtins=True)
+
+    t.head('netlab / the target is sockets the trainer owns')
+    net = A.get('netlab')
+    t.ok('registered', net is not None)
+    t.ok('needs nmap, and says so when it is missing',
+         net.available() or 'nmap' in net.reason, net.reason)
+    net.setup({'ports': [0, 0]})
+    try:
+        ports = net.ports()
+        t.eq('opened both', len(ports), 2)
+        t.ok('on loopback only', all(p > 0 for p in ports), ports)
+        t.ok('targets.txt names them',
+             all(str(p) in (net.dir / 'targets.txt').read_text() for p in ports))
+
+        sock = socket.create_connection(('127.0.0.1', ports[0]), timeout=2)
+        greeting = sock.recv(64)
+        sock.close()
+        t.ok('a connection is greeted', greeting.startswith(b'hone-lab'), greeting)
+
+        obs = net.observe()
+        t.eq('and counted', obs.data['connections'], 1)
+        (net.dir / 'scan.txt').write_text(f'{ports[0]}/tcp open unknown\n')
+        obs = net.observe()
+        ok, _ = net.check({'scanned': True,
+                           'file_contains': {'scan.txt': '{p1}/tcp open'}},
+                          obs.data)
+        t.ok('{pN} resolves to the port actually opened', ok)
+        ok, why = net.check({'scanned': True}, dict(obs.data, connections=0))
+        t.ok('a scan that never arrived is refused', not ok, why)
+        t.ok('and says why', 'nothing connected' in why, why)
+    finally:
+        box = net.dir
+        net.teardown()
+        net.teardown()          # D1: safe twice
+    t.ok('teardown removes the sandbox', box is not None and not box.exists())
+    t.eq('and closes the ports', net.ports(), [])
+
+    t.head('weblab / a site on loopback, and what it saw')
+    web = A.get('weblab')
+    t.ok('needs no fuzzer, only some client',
+         web.available() or 'installed' in web.reason, web.reason)
+    web.setup({})
+    try:
+        base = f'http://127.0.0.1:{web.port}'
+        t.ok('serving', web.port > 0, web.port)
+        t.ok('$TARGET is handed over too',
+             web.handoff_env({})['TARGET'] == base, web.handoff_env({}))
+
+        t.eq('a real path is 200',
+             urllib.request.urlopen(f'{base}/robots.txt').status, 200)
+        try:
+            urllib.request.urlopen(f'{base}/nothing-here')
+            miss = 0
+        except urllib.error.HTTPError as e:
+            miss, body = e.code, e.read()
+        t.eq('a miss is 404', miss, 404)
+        t.ok('with a padded body, so -fs and -fw have something to bite on',
+             len(body) > 120, len(body))
+        try:
+            urllib.request.urlopen(f'{base}/uploads/')
+            code = 0
+        except urllib.error.HTTPError as e:
+            code = e.code
+        t.eq('a forbidden path is 403, not 404', code, 403)
+
+        req = urllib.request.Request(base + '/', headers={'Host': 'dev.hone.lab'})
+        t.ok('the virtual host answers only to its own name',
+             b'virtual host' in urllib.request.urlopen(req).read())
+
+        obs = web.observe()
+        ok, _ = web.check({'requested': '/robots.txt'}, obs.data)
+        t.ok('the request log is checkable', ok)
+        ok, why = web.check({'requested': '/never-asked'}, obs.data)
+        t.ok('and a path nobody fetched fails', not ok, why)
+    finally:
+        web.teardown()
+        web.teardown()
+    t.ok('the server is stopped', web.server is None)
+
+    t.head('handoff env / the sandbox can point a tool away from your home')
+    box = A.get('sandbox')
+    box.setup({'tree': {'ring': {'dir': True, 'mode': '700'}},
+               'env': {'GNUPGHOME': '{dir}/ring'}})
+    try:
+        env = box.handoff_env({'env': {'GNUPGHOME': '{dir}/ring'}})
+        t.ok('{dir} resolves to the real sandbox',
+             env['GNUPGHOME'] == f'{box.dir}/ring', env)
+        t.ok('and it is a directory that exists', (box.dir / 'ring').is_dir())
+        t.eq('created with the mode asked for',
+             oct((box.dir / 'ring').stat().st_mode)[-3:], '700')
+        t.eq('no env means no overrides', box.handoff_env({}), {})
+    finally:
+        box.teardown()
+
+    t.head('handoff env / the split path carries it or fails over')
+    from hone import handoff as HO
+    argv_seen = {}
+    real = HO._tmux
+    HO._tmux = lambda *a: (argv_seen.setdefault('args', a), (1, ''))[1]
+    try:
+        HO.in_tmux() and None
+        HO.split_and_wait(['sh'], cwd='/tmp', env={'GNUPGHOME': '/tmp/ring'})
+    finally:
+        HO._tmux = real
+    args = argv_seen.get('args', ())
+    if args and args[0] == 'split-window':
+        t.ok('-e is passed to the pane', '-e' in args, args)
+        t.ok('with the value', 'GNUPGHOME=/tmp/ring' in args, args)
+    else:
+        t.ok('not inside tmux, so the split was never attempted', True)
+
+
+def test_outro(t: Runner) -> None:
+    """The exit animation, and the session line it carries out."""
+    from hone import app as _app, splash
+
+    reg = loader.load_all()
+    big = Caps(ColorLevel.TRUE, GlyphLevel.UNICODE, theme.CYBERPUNK_NEON, 80, 24)
+
+    t.head('outro / it is the entrance run backwards')
+    first = '\n'.join(x.plain() for x in splash.out_frame(big, 0))
+    last = '\n'.join(x.plain() for x in
+                     splash.out_frame(big, splash.OUT_STEPS - 1))
+    t.ok('starts sharp', splash.BLOCK[0] in first, first[:80])
+    t.ok('ends broken up', splash.BLOCK[0] not in last)
+    t.ok('names what it is doing', splash.OUT_WORD in first)
+
+    t.head('outro / no frame overflows, at any size it agrees to run at')
+    for cols, rows in ((80, 24), (120, 40), (40, 20)):
+        caps = Caps(ColorLevel.NONE, GlyphLevel.UNICODE, theme.NEUTRAL, cols, rows)
+        if not splash.fits(caps):
+            continue
+        for step in range(splash.OUT_STEPS):
+            drawn = splash.out_frame(caps, step, note='12 met this session')
+            for row in drawn:
+                t.ok(f'{cols}x{rows} step {step} fits', row.width() <= cols,
+                     row.plain())
+            t.ok(f'{cols}x{rows} step {step} fits tall', len(drawn) <= rows)
+
+    t.head('outro / quitting is never the thing that fails')
+    class BrokenTty:
+        def write(self, _s):
+            raise OSError('pipe closed while quitting')
+    splash.outro(BrokenTty(), big, note='x', hold=0)
+    t.ok('a dead terminal is survived', True)
+    tiny = Caps(ColorLevel.NONE, GlyphLevel.ASCII, theme.NEUTRAL, 20, 6)
+    written = []
+    class Rec:
+        def write(self, s):
+            written.append(s)
+    splash.outro(Rec(), tiny, hold=0)
+    t.eq('a window too small draws nothing', written, [])
+
+    t.head('outro / the session line counts, and stays quiet when there is nothing')
+    s = st.State.blank(T0)
+    before = _app.met_total(s, reg)
+    t.eq('a fresh state has met nothing', before, 0)
+    t.eq('an empty session says nothing', _app.quit_summary(s, before, reg), '')
+    mod = reg.get('vim')
+    s.mark_lesson('vim', mod.lessons[0]['id'], T0)
+    s.record_answer('vim', 'drills', mod.drills[0]['id'], True)
+    t.eq('counts what was met', _app.met_total(s, reg), 2)
+    t.eq('and says so', _app.quit_summary(s, before, reg), '2 met this session')
+    t.ok('a wrong answer still counts as met',
+         'met' in _app.quit_summary(s, before, reg))
+    # D24: never a scold, never a target, never a comparison.
+    line = _app.quit_summary(s, before, reg)
+    for banned in ('streak', 'goal', 'target', 'yesterday', 'keep it up', '!'):
+        t.ok(f'no {banned}', banned not in line.lower(), line)
+
+
+def test_no_undefined_names(t: Runner) -> None:
+    """Every name a module uses at runtime actually exists.
+
+    This test exists because a real one shipped and nothing caught it:
+    `main()` called `quit_summary(state, before, ...)`, and neither name was
+    ever defined. It crashed with a NameError on every single interactive
+    quit, and 9400 checks missed it because `main()`'s tail runs only under a
+    real TTY, which a headless suite never provides.
+
+    So rather than trying to drive every branch, this reads the source: for
+    each module, collect what it defines, imports, takes as a parameter or
+    binds in a comprehension, and flag any load of a name that is none of
+    those and is not a builtin. It is a cheap, blunt check and it catches
+    exactly the class of bug that got through.
+    """
+    import ast
+    import builtins as _b
+    from pathlib import Path
+
+    root = Path(__file__).parent / 'hone'
+    files = sorted(p for p in root.rglob('*.py')
+                   if '__pycache__' not in p.parts)
+    t.head('static / no module loads a name that is never defined')
+    t.ok('found the source tree', len(files) > 20, len(files))
+
+    for path in files:
+        tree = ast.parse(path.read_text(), filename=str(path))
+        bound = set(dir(_b)) | {'__file__', '__name__', '__doc__', '__spec__',
+                                '__package__', '__builtins__', '__loader__'}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for a in node.names:
+                    bound.add((a.asname or a.name).split('.')[0])
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                   ast.ClassDef)):
+                bound.add(node.name)
+            elif isinstance(node, ast.arg):
+                bound.add(node.arg)
+            elif isinstance(node, ast.Name) and isinstance(node.ctx,
+                                                           (ast.Store,
+                                                            ast.Del)):
+                bound.add(node.id)
+            elif isinstance(node, ast.ExceptHandler) and node.name:
+                bound.add(node.name)
+            elif isinstance(node, ast.Global):
+                bound.update(node.names)
+            elif isinstance(node, (ast.comprehension,)):
+                for sub in ast.walk(node.target):
+                    if isinstance(sub, ast.Name):
+                        bound.add(sub.id)
+
+        used = {(n.id, getattr(n, 'lineno', 0)) for n in ast.walk(tree)
+                if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+        unknown = sorted({name for name, _ in used} - bound)
+        rel = path.relative_to(root.parent)
+        t.eq(f'{rel} defines every name it uses', unknown, [])
+
+
 def main() -> int:
     t = Runner()
     for fn in (test_keys, test_term, test_render, test_state,
@@ -2540,7 +2889,8 @@ def main() -> int:
                test_audit, test_handover_and_reset,
                test_orientation, test_splash, test_install_help,
                test_pcapgen, test_oracle, test_checking_mode, test_rigor,
-               test_free_pace, test_validate):
+               test_labs, test_free_pace, test_validate,
+               test_no_undefined_names, test_outro):
         fn(t)
 
     print(f'{t.passed} checks passed')

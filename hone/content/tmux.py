@@ -200,7 +200,18 @@ MODULE = {
                 'stacked at the top, so it splits into top and bottom.\n\n'
                 'The other pane binding worth knowing early is `z`, which zooms '
                 'the current pane to fill the window and back again. It is how '
-                'you read a stack trace without destroying your layout.'
+                'you read a stack trace without destroying your layout.\n\n'
+                'Two more things make panes usable rather than just possible. '
+                'You will want to resize them, and the binding is the prefix '
+                'then a CONTROL-arrow: `C-b` then `C-Left` nudges the border '
+                'one column, and it is repeatable, so holding nothing but '
+                'tapping `C-Left` again keeps going. `M-Left` (Alt) moves it '
+                'five at a time. Note the plain arrow without Control still '
+                'just moves between panes. When a layout gets lopsided, `C-b '
+                'Space` cycles through the preset layouts that tidy every '
+                'pane at once, which is faster than nudging borders by hand. '
+                '`C-b q` flashes a number on each pane so you can jump '
+                'straight to one.'
             ),
             'examples': [
                 {
@@ -209,10 +220,21 @@ MODULE = {
                              'C-b "      split top / bottom\n'
                              'C-b o      cycle to the next pane\n'
                              'C-b Left   move to the pane on the left\n'
+                             'C-b q      show pane numbers, then a digit jumps\n'
                              'C-b z      zoom this pane, and again to restore\n'
                              'C-b x      kill this pane, asks first'),
                     'note': 'Directional movement takes arrow keys and is far '
                             'easier to think about than cycling with o.',
+                },
+                {
+                    'label': 'Resizing and tidying',
+                    'code': ('C-b C-Left/C-Right/C-Up/C-Down   resize by one\n'
+                             'C-b M-Left/...                   resize by five\n'
+                             'C-b Space    cycle the preset layouts\n'
+                             'C-b !        break this pane into its own window'),
+                    'note': 'Control-arrow resizes; a plain arrow still just '
+                            'moves between panes. Reach for a preset layout '
+                            'before nudging borders by hand.',
                 },
                 {
                     'label': 'Reading the mnemonic',
@@ -355,6 +377,13 @@ MODULE = {
                 'Copying is a three-step ritual: start a selection, extend it, '
                 'confirm it. With the default key table that is Space, then '
                 'movement, then Enter. Paste back with `C-b ]`.\n\n'
+                'The thing that makes copy mode worth the friction is search. '
+                'Scrolling by hand to find an error twenty screens back is '
+                'miserable; searching for it is one keystroke. With `mode-keys '
+                'vi` set, `/` searches forward and `?` searches backward inside '
+                'copy mode, exactly like vim, and `n` and `N` repeat. That '
+                'turns the scrollback into something you query rather than '
+                'scroll.\n\n'
                 'This is the part of tmux people bounce off, and the reason is '
                 'almost always that they did not realise they had changed mode.'
             ),
@@ -363,13 +392,16 @@ MODULE = {
                     'label': 'The ritual',
                     'code': ('C-b [      enter copy mode\n'
                              'PageUp     scroll back\n'
+                             '/error     search forward (vi mode-keys)\n'
+                             'n   N      next and previous match\n'
                              'Space      start selecting\n'
                              '(move)     extend the selection\n'
                              'Enter      copy it and leave copy mode\n'
                              'C-b ]      paste into any pane\n'
                              'q          leave without copying'),
                     'note': 'With `setw -g mode-keys vi` the movement keys '
-                            'become hjkl and selection becomes v and y.',
+                            'become hjkl, selection becomes v and y, and '
+                            'search becomes / and ? just like vim.',
                 },
             ],
             'misconceptions': [
@@ -472,6 +504,15 @@ MODULE = {
          'prompt': 'Rotate the panes within the window.',
          'teach': 'Note this one keeps Ctrl held for the second key, which is '
                   'unusual and worth remembering.'},
+        {'id': 'tmux-pane-resize', 'type': 'recall', 'keys': ['C-b', 'C-Left'],
+         'prompt': 'Make the current pane one column wider to the left.',
+         'teach': 'Control-arrow resizes; a plain C-b Left just moves between '
+                  'panes. It repeats, so tap C-Left again to keep going, and '
+                  'M-Left moves five at a time.'},
+        {'id': 'tmux-layout-cycle', 'type': 'recall', 'keys': ['C-b', 'SPC'],
+         'prompt': 'Cycle to the next preset pane layout.',
+         'teach': 'The presets tidy every pane at once (five of them, seven since tmux 3.4), which beats nudging '
+                  'borders by hand when a layout gets lopsided.'},
 
         # windows
         {'id': 'tmux-win-new', 'type': 'recall', 'keys': ['C-b', 'c'],
@@ -521,6 +562,11 @@ MODULE = {
          'prompt': 'Enter copy mode so you can scroll back through the pane.',
          'teach': 'The bracket points backwards, into history. C-b ] pastes '
                   'forwards out of it.'},
+        {'id': 'tmux-copy-search', 'type': 'recall', 'keys': ['/'],
+         'prompt': 'Inside copy mode with vi keys, search the scrollback '
+                   'forward.',
+         'teach': 'n and N repeat, ? searches backward. Searching beats '
+                  'scrolling by hand to find an error twenty screens up.'},
         {'id': 'tmux-paste', 'type': 'recall', 'keys': ['C-b', ']'],
          'prompt': 'Paste the most recent tmux buffer.',
          'teach': 'This is the tmux buffer, not your system clipboard.'},
@@ -669,6 +715,171 @@ MODULE = {
             'free': 'Fill a pane with output, copy one line out of the '
                     'scrollback, and paste it into a different pane.',
             'verify': {'kind': 'self'},
+            'fallback': 'self',
+        },
+        {
+            'id': 'tmux-zoom',
+            'title': 'Zoom a pane and prove it is zoomed',
+            'goal': 'Zoom is the pane feature people miss for years, and it '
+                    'is the one that makes a busy layout usable.',
+            'setup': {'kind': 'tmux', 'session': 'hone-drill',
+                      'create': True, 'handoff': 'attach'},
+            'solution': {'commands': [['split-window', '-t', 'hone-drill'],
+                                      ['resize-pane', '-t', 'hone-drill', '-Z']]},
+            'steps': [
+                {'instruction': 'Split the window so there is more than one '
+                                'pane.',
+                 'hint': 'C-b %'},
+                {'instruction': 'Zoom the current pane so it fills the '
+                                'window. The other pane is still there.',
+                 'hint': 'C-b z'},
+                {'instruction': 'Leave it zoomed and come back. Pressing C-b '
+                                'z again is how you undo it.'},
+            ],
+            'free': 'In a window with at least two panes, zoom one of them '
+                    'and leave it zoomed.',
+            'verify': {'kind': 'tmux', 'expect': {
+                'session_exists': True, 'min_panes': 2, 'zoomed': True}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'tmux-break-pane',
+            'title': 'Promote a pane into its own window',
+            'goal': 'Move work between the levels of the object model, which '
+                    'is the thing that proves you have the model.',
+            'setup': {'kind': 'tmux', 'session': 'hone-drill',
+                      'create': True, 'handoff': 'attach'},
+            'solution': {'commands': [
+                ['split-window', '-t', 'hone-drill'],
+                ['split-window', '-t', 'hone-drill'],
+                ['break-pane', '-d', '-t', 'hone-drill'],
+            ]},
+            'steps': [
+                {'instruction': 'Split until you have three panes in one '
+                                'window.',
+                 'hint': 'C-b % then C-b "'},
+                {'instruction': 'Break one of them out into a window of its '
+                                'own.',
+                 'hint': 'C-b !'},
+                {'instruction': 'You should now have two windows. The pane '
+                                'did not restart: it moved.'},
+            ],
+            'free': 'Build a three-pane window, then break one pane out so '
+                    'the session has two windows.',
+            'verify': {'kind': 'tmux', 'expect': {
+                'session_exists': True, 'min_windows': 2, 'min_panes': 2}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'tmux-named-windows',
+            'title': 'Name every window so the status bar is useful',
+            'goal': 'A status bar reading bash, bash, bash is a status bar '
+                    'you stop reading. Naming is the cheapest fix in tmux.',
+            'setup': {'kind': 'tmux', 'session': 'hone-drill',
+                      'create': True, 'handoff': 'attach'},
+            'solution': {'commands': [
+                ['rename-window', '-t', 'hone-drill', 'edit'],
+                ['new-window', '-t', 'hone-drill', '-n', 'logs'],
+                ['new-window', '-t', 'hone-drill', '-n', 'shell'],
+            ]},
+            'steps': [
+                {'instruction': 'Rename the window you are already in to '
+                                'edit. Every window counts, including the '
+                                'one you started with.',
+                 'hint': 'C-b , renames the current window'},
+                {'instruction': 'Create two more windows and name them logs '
+                                'and shell.',
+                 'hint': 'C-b c, then C-b ,'},
+                {'instruction': 'Look at the status bar. That is the '
+                                'difference between three windows and three '
+                                'places.'},
+            ],
+            'free': 'Leave the session with three windows, named edit, logs '
+                    'and shell, and none left on a default name.',
+            'verify': {'kind': 'tmux', 'expect': {
+                'session_exists': True, 'min_windows': 3,
+                'named_windows': ['edit', 'logs', 'shell']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'tmux-kill-tidy',
+            'title': 'Take a layout apart again',
+            'goal': 'Building is half of it. Closing panes and windows '
+                    'deliberately, rather than by exiting shells, is the '
+                    'other half.',
+            'setup': {'kind': 'tmux', 'session': 'hone-drill',
+                      'create': True, 'handoff': 'attach'},
+            'solution': {'commands': [
+                ['rename-window', '-t', 'hone-drill', 'keep'],
+                ['new-window', '-t', 'hone-drill', '-n', 'doomed'],
+                ['split-window', '-t', 'hone-drill:keep'],
+                ['kill-window', '-t', 'hone-drill:doomed'],
+            ]},
+            'steps': [
+                {'instruction': 'Rename the window you are in to keep, then '
+                                'add a second one named doomed.',
+                 'hint': 'C-b , then C-b c then C-b ,'},
+                {'instruction': 'Split the keep window so it has two panes.',
+                 'hint': 'C-b %'},
+                {'instruction': 'Kill the doomed window without exiting its '
+                                'shell.',
+                 'hint': 'C-b & asks for confirmation'},
+                {'instruction': 'Note that C-b x kills a pane and C-b & kills '
+                                'a window. Both confirm first.'},
+            ],
+            'free': 'Leave a session with a window named keep holding two '
+                    'panes, and no window named doomed.',
+            'verify': {'kind': 'tmux', 'expect': {
+                'session_exists': True, 'min_panes': 2,
+                'named_windows': ['keep']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'tmux-config',
+            'title': 'Write a tmux config you can defend',
+            'goal': 'Configuration is where tmux stops fighting you. Write '
+                    'one in a sandbox, and know what each line does.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+            'solution': {'shell':
+                'cat > tmux.conf <<\'EOF\'\n'
+                '# Prefix on C-a, which is easier to reach than C-b.\n'
+                'unbind C-b\n'
+                'set -g prefix C-a\n'
+                'bind C-a send-prefix\n'
+                '# Windows and panes count from 1, like the keyboard does.\n'
+                'set -g base-index 1\n'
+                'setw -g pane-base-index 1\n'
+                '# Splits that open where you already are.\n'
+                'bind | split-window -h -c "#{pane_current_path}"\n'
+                'bind - split-window -v -c "#{pane_current_path}"\n'
+                '# Enough scrollback to be worth searching.\n'
+                'set -g history-limit 50000\n'
+                '# Reload without restarting.\n'
+                'bind r source-file ~/.tmux.conf\n'
+                'EOF'},
+            'steps': [
+                {'instruction': 'Write tmux.conf here in the sandbox. This is '
+                                'not your real config, and the trainer will '
+                                'never touch that.'},
+                {'instruction': 'Move the prefix to C-a, unbinding C-b and '
+                                'binding C-a to send itself through.',
+                 'hint': 'unbind C-b; set -g prefix C-a; bind C-a send-prefix'},
+                {'instruction': 'Set base-index and pane-base-index to 1, so '
+                                'the numbers match the keys you press.',
+                 'hint': 'set -g base-index 1'},
+                {'instruction': 'Bind | and - to split, keeping the current '
+                                'directory.',
+                 'hint': 'bind | split-window -h -c "#{pane_current_path}"'},
+                {'instruction': 'Raise the history limit, and bind r to '
+                                'reload the config.'},
+            ],
+            'free': 'Produce tmux.conf setting the prefix to C-a, indexing '
+                    'from 1, binding | and - to directory-preserving splits, '
+                    'raising history-limit, and binding a reload.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'tmux.conf': [
+                    'set -g prefix C-a', 'send-prefix', 'base-index 1',
+                    'pane_current_path', 'history-limit', 'source-file']}}},
             'fallback': 'self',
         },
     ],

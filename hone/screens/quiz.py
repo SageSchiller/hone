@@ -20,7 +20,7 @@ import random
 import time
 
 from .. import keys as K
-from ..render import Caps, Text, wrap
+from ..render import Caps, Text, strip_markup, wrap, wrap_rich
 from . import POP, ROOT, STAY, Screen
 
 
@@ -100,7 +100,7 @@ class QuizScreen(Screen):
                  p.dim)
         rows += [head, Text()]
 
-        for ln in wrap(str(q.get('prompt', '')), caps.cols - 6, '  '):
+        for ln in wrap(strip_markup(str(q.get('prompt', ''))), caps.cols - 6, '  '):
             rows.append(Text().add(ln, p.fg, bold=True) if ln else Text())
         rows.append(Text())
 
@@ -119,7 +119,7 @@ class QuizScreen(Screen):
             row = Text().add(f'  {mark} ', colour, bold=True)
             row.add(f'{i + 1}. ', p.accent if self.phase == 'prompt' else p.dim)
             first = True
-            for ln in wrap(opt, caps.cols - 12, ''):
+            for ln in wrap(strip_markup(opt), caps.cols - 12, ''):
                 if first:
                     row.add(ln, colour, bold=picked or (is_answer and
                                                         self.phase == 'feedback'))
@@ -132,8 +132,8 @@ class QuizScreen(Screen):
             teach = q.get('teach')
             if teach:
                 rows.append(Text())
-                for ln in wrap(str(teach), caps.cols - 8, '    '):
-                    rows.append(Text().add(ln, p.dim) if ln else Text())
+                rows += wrap_rich(caps, str(teach), caps.cols - 8, '    ', p.dim,
+                                  p.accent)
         return rows
 
     def hints(self, caps: Caps) -> list[tuple[str, str]]:

@@ -430,6 +430,46 @@ def lint_registry(reg, rep: Report) -> None:
                      f'same wording in {", ".join(owners)}: {text[:48]}')
 
 
+def check_duplicate_keys(rep: Report, package: str = 'hone.content') -> None:
+    """A dict literal that sets the same key twice, read from the source.
+
+    Every other check here runs against loaded content, and by then this bug
+    is already invisible: Python keeps the last value silently, so a lesson
+    with two `next` keys parses fine and chains correctly right up until
+    someone edits near the dead one. Five of them had accumulated, each the
+    signature of a lesson inserted after the fact. Only the source text can
+    show them, so this check reads it.
+    """
+    import ast
+    import collections
+    import pathlib
+
+    here = pathlib.Path(__file__).parent / package.replace('.', '/')
+    for path in sorted(here.glob('*.py')):
+        if path.name == '__init__.py':
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+        except SyntaxError as e:
+            rep.error(path.name, f'cannot parse: {e}')
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            keys = [k.value for k in node.keys
+                    if isinstance(k, ast.Constant) and isinstance(k.value, str)]
+            dupes = sorted(k for k, n in collections.Counter(keys).items() if n > 1)
+            if not dupes:
+                continue
+            ident = next((v.value for k, v in zip(node.keys, node.values)
+                          if isinstance(k, ast.Constant) and k.value == 'id'
+                          and isinstance(v, ast.Constant)), '?')
+            rep.error(f'{path.stem}/{ident}',
+                      f'line {node.lineno}: duplicate key '
+                      f'{", ".join(repr(d) for d in dupes)}; the earlier value '
+                      f'is dead code')
+
+
 def check_prereqs(reg, rep: Report) -> None:
     for mod in reg:
         for p in mod.prereqs:
@@ -477,6 +517,7 @@ def main(argv: list[str] | None = None) -> int:
             lint_module(mod, rep)
     check_prereqs(reg, rep)
     check_packs(reg, rep)
+    check_duplicate_keys(rep)
     if lint:
         lint_registry(reg, rep)
 

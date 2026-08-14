@@ -12,11 +12,22 @@ next to Linux sitting next to bash reads as a list nobody sorted. Five or six
 short lists under headings turn it into something you can take in at a glance
 and choose from by category, which is how people actually decide.
 
-**The third column says what the machine can do, not what you have done.** It
-used to read "verified", which is the word D8 puts on a task you completed
-under real verification, and printing it beside a tool you have never opened
-was a lie by adjacency. It now says whether hone can check your work here, and
-when it cannot, what is missing.
+**The third column speaks up when something is wrong, and otherwise says how
+big the tool is.** It first read "verified", which is the word D8 puts on a
+task you completed under real verification, and printing it beside a tool you
+have never opened was a lie by adjacency. It then read "checks your work",
+which was true but identical on every row: on a machine with the tools
+installed that is the same sentence forty-six times, and the one module with
+an actual problem looked like all the others. So the tick alone carries "hone
+can check you here", the rest of the cell carries the module's own estimate,
+which differs per row and answers the question you actually have while
+choosing, and a module that cannot be checked says so in warning colour where
+nothing else competes with it.
+
+**The header states the size of the build, counted from the registry.** It is
+the one place the whole roster can be seen at once, and it is read off
+`Registry.tally()` rather than written down, because a hand-typed total is a
+number that goes stale the next time a module lands.
 
 Prerequisites are not shown here either. They are advice, never a gate (D16
 rule 3), and the row that carried them appeared and disappeared under the
@@ -33,6 +44,23 @@ from .. import install
 from ..config import APP_TITLE, TAGLINE_PARTS
 from ..render import Caps, Text, bar
 from . import STAY, Action, ListScreen, push
+
+#: Placeholder swapped for the glyph-set bullet at render time, so the count
+#: string can be built once without knowing the terminal's rung.
+SEP = '\x00'
+
+
+def _and_list(names: list[str]) -> str:
+    """Name what is missing without letting a long list eat the row.
+
+    Two fit and are worth spelling out, because "needs nft" on a module called
+    nftables and iptables would send someone off to install half of it.
+    """
+    if len(names) == 1:
+        return names[0]
+    if len(names) == 2:
+        return f'{names[0]} and {names[1]}'
+    return f'{names[0]} and {len(names) - 1} more'
 
 
 class HomeScreen(ListScreen):
@@ -87,38 +115,64 @@ class HomeScreen(ListScreen):
         student has turned checking off the answer is the same for every
         module and listing what each one *could* have done would be an advert
         for a setting they just changed on purpose.
+
+        **The tool is asked about before the adapter.** This used to be the
+        other way round, and it hid every missing tool behind a tick: the
+        sandbox adapter is available on any machine by definition, so a module
+        that runs `hashcat` inside the sandbox reported "checks your work" on a
+        machine with no hashcat. Only the modules whose adapter itself needs
+        the binary (netlab wants nmap, yaralab wants yara) degraded honestly,
+        which is D18 failing for about twenty modules at once. A declared tool
+        that is not on this machine is the answer whatever the adapter says.
         """
         if A.read_only():
             return False, 'read and drill only'
+        gone = install.missing(mod.needs)
+        if gone:
+            return False, f'needs {_and_list(gone)}'
         ok, reason = A.status(mod.adapter)
         if ok:
             return True, 'checks your work'
-        gone = install.missing(mod.needs)
-        if gone:
-            return False, f'needs {gone[0]}'
         if not mod.adapter:
             return False, 'read and drill only'
         return False, reason
 
     # -- content -----------------------------------------------------------
 
+    def scale(self) -> str:
+        """What is actually in this build, counted rather than claimed."""
+        n = self.registry.tally()
+        return (f'{n["tools"]} tools {SEP} {n["lessons"]} lessons '
+                f'{SEP} {n["drills"]} drills {SEP} '
+                f'{n["challenges"]} practice sessions')
+
     def header_rows(self, caps: Caps) -> list[Text]:
         p = caps.palette
         # The mode is stated on the one screen every session starts from.
         # Without it, "read and drill only" against every module reads as
-        # fifteen things being broken rather than as one switch being off.
+        # forty-six things being broken rather than as one switch being off.
         read = A.read_only()
         mode = Text().add('  mode  ', p.dim)
         mode.add(f' {A.mode()} ', p.bg, p.muted if read else p.accent, bold=True)
         mode.add(f'  {A.MODE_BLURB[A.mode()]}', p.dim)
+
+        title = Text().add('  ' + ' '.join(APP_TITLE), p.accent, bold=True)
+        title.add('   ' + f' {caps.g("bullet")} '.join(TAGLINE_PARTS), p.dim)
+
+        scale = Text().add('  ' + self.scale().replace(SEP, caps.g('bullet')),
+                           p.accent2)
         return [
             Text(),
-            Text().add('  ' + ' '.join(APP_TITLE), p.accent, bold=True),
-            Text().add('  ' + f' {caps.g("bullet")} '.join(TAGLINE_PARTS), p.dim),
+            title,
+            scale,
             Text(),
             mode,
             Text(),
         ]
+
+    #: Widest title that still leaves room for the bar, the percentage and the
+    #: right-hand cell inside the documented 80-column minimum.
+    TITLE_W = 21
 
     def module_row(self, caps: Caps, mod, selected: bool) -> Text:
         p = caps.palette
@@ -126,12 +180,26 @@ class HomeScreen(ListScreen):
         ok, label = self.checkable(mod)
 
         t = Text().add(f'  {caps.g("sel") if selected else " "} ', p.accent)
-        t.add(f'{mod.title[:18]:<18}', p.fg if selected else p.muted,
-              bold=selected)
+        title = Text().add(mod.title, p.fg if selected else p.muted,
+                           bold=selected)
+        title.truncate(self.TITLE_W, caps.g('ellipsis')).pad_to(self.TITLE_W + 2)
+        t.spans.extend(title.spans)
         t.spans.extend(bar(caps, pct).spans)
         t.add(f' {int(pct * 100):3d}%   ', p.dim)
-        t.add(f'{caps.g("check")} {label}' if ok
-              else f'{caps.g("bullet")} {label}', p.ok if ok else p.dim)
+
+        # Right-hand cell. When hone can check here, the tick says so and the
+        # rest of the cell is spent on something that differs per row: how big
+        # this tool's course is. Printing "checks your work" on all forty-six
+        # rows answered the same question forty-six times and left the one
+        # module with an actual problem looking like all the others.
+        if ok:
+            t.add(f'{caps.g("check")} ', p.ok, bold=True)
+            t.add(f'{mod.estimate}', p.dim)
+        elif A.read_only():
+            t.add('  ', p.dim).add(f'{mod.estimate}', p.dim)
+        else:
+            t.add(f'{caps.g("cross")} ', p.warn, bold=True)
+            t.add(label, p.warn)
         return t
 
     def rows(self, caps: Caps) -> list[Text]:

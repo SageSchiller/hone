@@ -101,8 +101,10 @@ MODULE = {
                 'how you get a bird\'s-eye view of a long document instantly.\n\n'
                 'The moves that matter are structural rather than textual. '
                 '`M-RET` makes a new heading at the same level. `M-Right` and '
-                '`M-Left` change a heading\'s depth, taking its whole subtree '
-                'with it. `M-Up` and `M-Down` move a subtree past its siblings. '
+                '`M-Left` change that one heading\'s depth and leave its '
+                'children where they are; add Shift, `M-S-Right`, to carry the '
+                'subtree along. `M-Up` and `M-Down` always move the whole '
+                'subtree past its siblings. '
                 'Once these are in your fingers you stop editing text and start '
                 'rearranging an outline.'
             ),
@@ -112,12 +114,14 @@ MODULE = {
                     'code': ('TAB       fold this heading, cycling\n'
                              'S-TAB     fold the whole file, cycling\n'
                              'M-RET     new heading at this level\n'
-                             'M-Right   demote (more stars)\n'
-                             'M-Left    promote (fewer stars)\n'
+                             'M-Right   demote this heading only\n'
+                             'M-Left    promote this heading only\n'
+                             'M-S-Right demote it and its subtree\n'
                              'M-Up      move this subtree up\n'
                              'M-Down    move it down'),
-                    'note': 'All of these carry the subtree. Demoting a heading '
-                            'takes its children with it.',
+                    'note': 'Shift is the difference: M-Right moves the heading '
+                            'alone and orphans its children, M-S-Right carries '
+                            'them. M-Up and M-Down always take the subtree.',
                 },
             ],
             'misconceptions': [
@@ -374,7 +378,6 @@ MODULE = {
         {
             'id': 'org-agenda',
             'title': 'The agenda: why the dates were worth typing',
-            'next': 'org-or-obsidian',
             'concept': (
                 'The agenda is a generated view across every file org knows '
                 'about, showing what is scheduled, what is due, and what is '
@@ -417,6 +420,82 @@ MODULE = {
             'try_it': [
                 'Schedule something for tomorrow with `C-c C-s`, then open the '
                 'agenda with `SPC o A` and find it.',
+            ],
+            'next': 'org-export',
+        },
+        {
+            'id': 'org-export',
+            'title': 'Export: turning the outline into a document',
+            'next': 'org-or-obsidian',
+            'concept': (
+                'An org file is a source format, and the same file can become '
+                'an HTML page, a PDF, a markdown file, or plain text. This is '
+                'the part that makes org a document tool rather than only a '
+                'planner, and it is the honest answer to "how do I hand this to '
+                'someone who does not use Emacs".\n\n'
+                'Everything goes through one dispatcher: `C-c C-e`. It opens a '
+                'menu, and two more keys pick the format and what to do with '
+                'it. `h o` writes HTML and opens it, `l o` writes a PDF through '
+                'LaTeX and opens it, `m m` writes markdown, `t u` writes UTF-8 '
+                'plain text. Inside that menu you can also toggle `C-s`, which '
+                'limits the export to the subtree under the cursor rather than '
+                'the whole file.\n\n'
+                'What gets exported is controlled by keywords at the top of the '
+                'file. `#+TITLE:`, `#+AUTHOR:` and `#+DATE:` become the '
+                'document header. `#+OPTIONS: toc:nil num:nil` turns off the '
+                'table of contents and section numbers. A subtree tagged '
+                '`:noexport:` is left out entirely, which is how you keep '
+                'private planning notes in the same file as the document you '
+                'share.\n\n'
+                'The two backends worth knowing: markdown, which is built in '
+                'and is how an org document reaches the vault or a git README, '
+                'and HTML, which needs nothing installed. PDF is the one with a '
+                'dependency: it wants a LaTeX toolchain, and its absence is the '
+                'usual reason `l p` fails. Source blocks export as formatted '
+                'code, and if you executed them with `C-c C-c` first, their '
+                'results are exported too, which is the whole point of the '
+                'literate-programming side of org.'
+            ),
+            'examples': [
+                {
+                    'label': 'The dispatcher',
+                    'code': ('C-c C-e     open the export menu\n'
+                             '  h o       HTML, and open it\n'
+                             '  l o       PDF via LaTeX, and open it\n'
+                             '  m m       markdown\n'
+                             '  t u       UTF-8 plain text\n'
+                             '  C-s       toggle: this subtree only'),
+                    'note': 'Two keys after C-c C-e: the first picks the '
+                            'backend, the second what to do with the output.',
+                },
+                {
+                    'label': 'Controlling the output from the file',
+                    'code': ('#+TITLE: Incident notes\n'
+                             '#+AUTHOR: you\n'
+                             '#+OPTIONS: toc:nil num:nil\n'
+                             '\n'
+                             '* Findings\n'
+                             '* Scratch work            :noexport:\n'
+                             '  This subtree is left out of every export.'),
+                    'note': 'The keywords are the document header; the '
+                            ':noexport: tag keeps private sections private.',
+                },
+            ],
+            'misconceptions': [
+                'Export does not change your file. It writes a new file beside '
+                'it, so the org source is always the thing you keep editing.',
+                'PDF export failing is almost always a missing LaTeX '
+                'toolchain, not a broken document. HTML and markdown need '
+                'nothing extra.',
+                'A `:noexport:` tag hides a whole subtree, children included. '
+                'That is a feature: planning and document live in one file.',
+                'Markdown export is built in but the backend may need enabling '
+                'in `init.el` (the `org` module\'s `+dragndrop` is unrelated; '
+                'it is `ox-md`, loaded by default in Doom).',
+            ],
+            'try_it': [
+                'Add a `#+TITLE:` to any org file, then press `C-c C-e m m` and '
+                'open the markdown it produced. Then try `h o` for HTML.',
             ],
         },
         {
@@ -497,9 +576,10 @@ MODULE = {
          'teach': 'Same level, after the current one. It also continues list '
                   'items, so the one chord grows both outlines and lists.'},
         {'id': 'org-demote', 'type': 'keys', 'keys': ['M-Right'],
-         'prompt': 'Demote this heading one level, taking its subtree with it.',
-         'teach': 'Structure editing moves the whole subtree. That is what '
-                  'makes org an outliner rather than a text file with hashes.'},
+         'prompt': 'Demote this heading one level, leaving its children behind.',
+         'teach': 'M-Right moves the heading alone. M-S-Right is the one that '
+                  'carries the subtree, which is the distinction that makes '
+                  'org an outliner rather than a text file with hashes.'},
         {'id': 'org-promote', 'type': 'keys', 'keys': ['M-Left'],
          'prompt': 'Promote this heading one level.',
          'teach': 'M-Right demotes. With Shift held the whole subtree moves '
@@ -568,6 +648,30 @@ MODULE = {
          'prompt': 'Open the agenda.',
          'teach': 'Nothing about it is stored. It is computed from your '
                   'SCHEDULED and DEADLINE lines every time.'},
+        {'id': 'org-archive', 'type': 'keys', 'keys': ['C-c', 'C-x', 'C-a'],
+         'prompt': 'Archive the subtree under the cursor.',
+         'teach': 'Archiving retires a DONE tree to a separate file so your '
+                  'live files and agenda stay small. It is the counterpart to '
+                  'refile: refile moves live items, archive retires finished '
+                  'ones.'},
+
+        # export: open the dispatcher (a real chord), then pick a destination
+        {'id': 'org-export-dispatch', 'type': 'keys', 'keys': ['C-c', 'C-e'],
+         'prompt': 'Open the export dispatcher.',
+         'teach': 'One menu for every backend. The next two keys pick the '
+                  'format and what to do with the file.'},
+        {'id': 'org-export-md', 'type': 'recall', 'keys': ['m', 'm'],
+         'prompt': 'In the export menu, write the file as markdown.',
+         'teach': 'Markdown is how an org document reaches the vault or a git '
+                  'README. It is built in.'},
+        {'id': 'org-export-html', 'type': 'recall', 'keys': ['h', 'o'],
+         'prompt': 'In the export menu, write HTML and open it.',
+         'teach': 'HTML needs nothing installed. The second key, o, opens the '
+                  'result; h alone just writes it.'},
+        {'id': 'org-export-pdf', 'type': 'recall', 'keys': ['l', 'o'],
+         'prompt': 'In the export menu, write a PDF through LaTeX and open it.',
+         'teach': 'PDF is the one with a dependency: it wants a LaTeX '
+                  'toolchain, and its absence is the usual reason it fails.'},
 
         # shell / file level
         {'id': 'org-inbox-file', 'type': 'command',
@@ -822,6 +926,152 @@ MODULE = {
          'verify': {'kind': 'emacs',
                     'expect': {'contains': ['DEADLINE:', '2026-01-31']}},
          'fallback': 'self'},
+
+        {'id': 'org-table',
+         'title': 'Build a table and let org align it',
+         'goal': 'Org tables are plain text that the editor keeps tidy, and '
+                 'they are the feature people are most surprised by.',
+         'setup': {'kind': 'emacs',
+                   'scratch_name': 'table.org',
+                   'start': ['* Costs']},
+         'solution': {'elisp': '(progn (goto-char (point-max)) '
+                               '(insert "\\n| item | cost |\\n'
+                               '|------+------|\\n'
+                               '| tea | 3 |\\n| coffee | 4 |\\n") '
+                               '(forward-line -1) (org-table-align))'},
+         'steps': [{'instruction': 'Under the heading, start a table with a '
+                                   'header row of item and cost.',
+                    'hint': 'type the pipes yourself, then press Tab'},
+                   {'instruction': 'Add a horizontal rule under the header.',
+                    'hint': 'a row of dashes, or C-c - on the row below'},
+                   {'instruction': 'Add two rows of data. Pressing Tab in the '
+                                   'last cell creates the next row.'},
+                   {'instruction': 'Align the table and save.',
+                    'hint': 'C-c C-c on the table realigns it, then SPC f s'}],
+         'free': 'Produce a table under the heading with an item and cost '
+                 'header, a rule, and two data rows.',
+         'verify': {'kind': 'emacs',
+                    'expect': {'contains': ['| item', 'cost', 'tea',
+                                            'coffee']}},
+         'fallback': 'self'},
+
+        {'id': 'org-properties',
+         'title': 'Attach structured data to a heading',
+         'goal': 'A property drawer is how a heading carries fields that the '
+                 'agenda and column view can read.',
+         'setup': {'kind': 'emacs',
+                   'scratch_name': 'props.org',
+                   'start': ['* TODO Replace the door']},
+         'solution': {'elisp': '(progn (goto-char (point-max)) '
+                               '(insert "\\n:PROPERTIES:\\n'
+                               ':Effort: 2:00\\n'
+                               ':Owner: sage\\n'
+                               ':END:\\n"))'},
+         'steps': [{'instruction': 'Put the cursor on the heading.',
+                    'hint': 'gg'},
+                   {'instruction': 'Add a property drawer with an Effort of '
+                                   'two hours.',
+                    'hint': 'C-c C-x p, or type the drawer by hand'},
+                   {'instruction': 'Add a second property naming an owner.'},
+                   {'instruction': 'Save, and note that the drawer folds away '
+                                   'and is still data.',
+                    'hint': 'SPC f s'}],
+         'free': 'Give the heading a property drawer with an Effort and an '
+                 'Owner property.',
+         'verify': {'kind': 'emacs',
+                    'expect': {'contains': [':PROPERTIES:', ':Effort:',
+                                            ':Owner:', ':END:']}},
+         'fallback': 'self'},
+
+        {'id': 'org-src-block',
+         'title': 'Put code in a document that stays code',
+         'goal': 'A source block keeps its language, gets real editing, and '
+                 'exports as code rather than as prose.',
+         'setup': {'kind': 'emacs',
+                   'scratch_name': 'notes.org',
+                   'start': ['* How to check the disk']},
+         'solution': {'elisp': '(progn (goto-char (point-max)) '
+                               '(insert "\\n#+begin_src sh\\n'
+                               'df -h /\\n'
+                               '#+end_src\\n"))'},
+         'steps': [{'instruction': 'Under the heading, open a shell source '
+                                   'block.',
+                    'hint': 'type <s then Tab, or write the begin_src line'},
+                   {'instruction': 'Put a df command inside it.'},
+                   {'instruction': 'Close the block and save.',
+                    'hint': 'the end_src line, then SPC f s'},
+                   {'instruction': 'Note that C-c apostrophe opens the block '
+                                   'in a real buffer for that language.'}],
+         'free': 'Add a shell source block under the heading containing a df '
+                 'command.',
+         'verify': {'kind': 'emacs',
+                    'expect': {'contains': ['#+begin_src', 'df -h',
+                                            '#+end_src']}},
+         'fallback': 'self'},
+
+        {'id': 'org-export-setup',
+         'title': 'Set a document up to export cleanly',
+         'goal': 'Export is controlled from the top of the file and by tags. '
+                 'Put the header keywords in, and hide the part you do not '
+                 'want shared.',
+         'setup': {'kind': 'emacs',
+                   'scratch_name': 'report.org',
+                   'start': ['* Findings',
+                             '  The real content lives here.',
+                             '* Scratch work',
+                             '  Private notes that must not be shared.']},
+         'solution': {'elisp': '(progn (goto-char (point-min)) '
+                               '(insert "#+TITLE: Incident report\\n'
+                               '#+AUTHOR: analyst\\n'
+                               '#+OPTIONS: toc:nil num:nil\\n\\n") '
+                               '(goto-char (point-max)) '
+                               '(search-backward "* Scratch work") '
+                               '(end-of-line) (insert " :noexport:"))'},
+         'steps': [{'instruction': 'At the very top of the file, add TITLE, '
+                                   'AUTHOR and DATE keywords.',
+                    'hint': '#+TITLE:, #+AUTHOR: on their own lines above the '
+                            'first heading'},
+                   {'instruction': 'Add an OPTIONS line turning off the table '
+                                   'of contents and section numbers.',
+                    'hint': '#+OPTIONS: toc:nil num:nil'},
+                   {'instruction': 'Tag the Scratch work heading so export '
+                                   'leaves it out.',
+                    'hint': 'add :noexport: at the end of that heading line'},
+                   {'instruction': 'Save. Then try C-c C-e m m and confirm '
+                                   'the scratch section is absent from the '
+                                   'markdown.'}],
+         'free': 'Produce report.org with TITLE, AUTHOR and an OPTIONS line at '
+                 'the top, and the Scratch work heading tagged :noexport:.',
+         'verify': {'kind': 'emacs',
+                    'expect': {'contains': ['#+TITLE:', '#+OPTIONS:',
+                                            'toc:nil',
+                                            '* Scratch work :noexport:']}},
+         'fallback': 'self'},
+
+        {'id': 'org-export-run',
+         'title': 'Export one document three ways',
+         'goal': 'The dispatcher is muscle memory once you have used it a few '
+                 'times. Do it for real, and see where the files land.',
+         'setup': {'kind': 'self'},
+         'steps': [{'instruction': 'Open or write a short org file with a '
+                                   'title, a couple of headings and a list.'},
+                   {'instruction': 'Export it to markdown and open the '
+                                   'result.',
+                    'hint': 'C-c C-e m m, then find report.md beside it'},
+                   {'instruction': 'Export the same file to HTML and open it '
+                                   'in a browser.',
+                    'hint': 'C-c C-e h o'},
+                   {'instruction': 'Put the cursor on one subtree and export '
+                                   'only that, using the C-s toggle in the '
+                                   'dispatcher.'},
+                   {'instruction': 'If you have a LaTeX toolchain, try a PDF. '
+                                   'If it fails, read the error: it is almost '
+                                   'always the missing toolchain, not the '
+                                   'document.'}],
+         'free': 'On your own machine: export one org file to markdown and to '
+                 'HTML, and export a single subtree on its own.',
+         'verify': {'kind': 'self'},
+         'fallback': 'self'},
                   ],
 
     # ------------------------------------------------------------------
@@ -878,12 +1128,15 @@ MODULE = {
         {'id': 'oq-structure-edit', 'type': 'mcq',
          'prompt': 'You press M-Right on a heading that has three children. '
                    'What happens?',
-         'answer': 'The heading and all three children are demoted together.',
-         'distractors': ['Only the heading is demoted, orphaning the children.',
+         'answer': 'Only the heading moves, and its children are left behind '
+                   'at their old depth.',
+         'distractors': ['The heading and all three children are demoted '
+                         'together.',
                          'The children are promoted to take its place.',
                          'Nothing; M-Right only works on childless headings.'],
-         'teach': 'Structure editing operates on subtrees. That is what makes '
-                  'org an outliner rather than a text file with headings.'},
+         'teach': 'M-Right demotes the heading alone. Hold Shift, M-S-Right, to '
+                  'take the subtree with it. M-Up and M-Down do move the whole '
+                  'subtree, which is where the expectation comes from.'},
 
         {'id': 'oq-links', 'type': 'mcq',
          'prompt': 'You rename a file. What happens to org links pointing at it?',

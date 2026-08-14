@@ -23,6 +23,7 @@ because that module is about bash and the author's login shell is fish.
 
 from __future__ import annotations
 
+import base64
 import os
 import shutil
 import stat
@@ -81,7 +82,9 @@ class SandboxAdapter(Adapter):
 
         `tree` maps a relative path to what should be there. A trailing slash
         or a None value means a directory; a string means file content; a dict
-        may carry `content`, `mode` or `symlink`.
+        may carry `content`, `mode` or `symlink`, or `dir` for a directory
+        that needs a mode of its own (a keyring wants 700, and gpg complains
+        loudly about anything looser).
         """
         self.teardown()
         self.dir = Path(tempfile.mkdtemp(prefix='hone-box-'))
@@ -94,12 +97,29 @@ class SandboxAdapter(Adapter):
             if rel.endswith('/') or what is None:
                 target.mkdir(parents=True, exist_ok=True)
                 continue
+            if isinstance(what, dict) and what.get('dir'):
+                target.mkdir(parents=True, exist_ok=True)
+                if what.get('mode'):
+                    target.chmod(int(str(what['mode']), 8))
+                continue
             target.parent.mkdir(parents=True, exist_ok=True)
             if isinstance(what, dict):
                 if what.get('symlink'):
                     target.symlink_to(str(what['symlink']))
                     continue
-                target.write_text(str(what.get('content', '')), encoding='utf-8')
+                # `b64` plants raw bytes. Everything else here is written as
+                # UTF-8 text, which silently mangles any byte over 0x7F: a
+                # PNG's leading 0x89 came out as the two bytes C2 89, so the
+                # file and xxd challenges showed the learner the exact
+                # opposite of what their lesson had just taught, and graded
+                # green anyway because the checks only read the ASCII tail.
+                # Magic bytes are the whole subject of those modules, so the
+                # tree has to be able to hold them.
+                if what.get('b64') is not None:
+                    target.write_bytes(base64.b64decode(str(what['b64'])))
+                else:
+                    target.write_text(str(what.get('content', '')),
+                                      encoding='utf-8')
                 if what.get('mode'):
                     target.chmod(int(str(what['mode']), 8))
             else:
@@ -129,6 +149,18 @@ class SandboxAdapter(Adapter):
 
     def handoff_cwd(self, spec: dict) -> str | None:
         return str(self.dir) if self.dir else None
+
+    def handoff_env(self, spec: dict) -> dict[str, str]:
+        """Resolve `env` against the sandbox, so a value can name a path in it.
+
+        `{dir}` expands to the sandbox root. Anything that does not mention it
+        is passed through untouched, and a spec with no `env` costs nothing.
+        """
+        env = spec.get('env') or {}
+        if not env or self.dir is None:
+            return {str(k): str(v) for k, v in env.items()}
+        root = str(self.dir)
+        return {str(k): str(v).replace('{dir}', root) for k, v in env.items()}
 
     def observe(self) -> Observation:
         """Walk the tree. Read-only, per D1."""

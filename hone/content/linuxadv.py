@@ -301,7 +301,7 @@ MODULE = {
                     'code': ('df -h             filesystems and usage\n'
                              'df -i             inodes: the other way to run out\n'
                              'du -sh *          what is big in here\n'
-                             'du -sh . 2>/dev/null | sort -h\n'
+                             'du -sh * 2>/dev/null | sort -h\n'
                              'findmnt           mounts, as a tree\n'
                              'lsof +L1          deleted but still open'),
                     'note': 'Running out of inodes with space free is a real '
@@ -730,6 +730,271 @@ MODULE = {
                     'check for failed units and boot errors, and inventory the '
                     'setuid binaries and capabilities.',
             'verify': {'kind': 'self'},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lav-signals-trap',
+            'title': 'Catch a signal and clean up after yourself',
+            'goal': 'Write a script that traps a signal, and prove which '
+                    'signal cannot be trapped at all.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+            'solution': {'shell':
+                'cat > catcher.sh <<\'EOF\'\n'
+                '#!/bin/bash\n'
+                'cleanup() { echo "cleaning up" >> caught.txt; exit 0; }\n'
+                'trap cleanup TERM INT\n'
+                'echo "started $$" > running.txt\n'
+                'sleep 30 &\n'
+                'wait\n'
+                'EOF\n'
+                'chmod +x catcher.sh\n'
+                # The chmod is its own statement on purpose: with `chmod &&
+                # ./catcher.sh &` the ampersand backgrounds the whole list, so
+                # $! is the subshell rather than the script, and the TERM
+                # never reaches the trap.
+                './catcher.sh &\n'
+                'pid=$!; sleep 1; kill -TERM $pid; sleep 1\n'
+                './catcher.sh &\n'
+                'pid2=$!; sleep 1; kill -KILL $pid2; sleep 1\n'
+                'echo "KILL cannot be trapped" > uncatchable.txt\n'
+                'true'},
+            'steps': [
+                {'instruction': 'Write catcher.sh: it should trap TERM and '
+                                'INT, append "cleaning up" to caught.txt when '
+                                'either arrives, then exit.',
+                 'hint': 'trap cleanup TERM INT'},
+                {'instruction': 'Have it record its own pid in running.txt '
+                                'and then wait.',
+                 'hint': 'echo "started $$" > running.txt'},
+                {'instruction': 'Run it in the background and send it TERM. '
+                                'Check that caught.txt appeared.',
+                 'hint': './catcher.sh & kill -TERM $!'},
+                {'instruction': 'Run it again and send KILL instead. Write to '
+                                'uncatchable.txt what you observed about '
+                                'signal 9.'},
+            ],
+            'free': 'Produce catcher.sh trapping TERM and INT, caught.txt '
+                    'written by the trap, and uncatchable.txt recording what '
+                    'KILL does differently.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'executable': ['catcher.sh'],
+                'file_contains': {'catcher.sh': ['trap', 'TERM'],
+                                  'caught.txt': 'cleaning up',
+                                  'uncatchable.txt': 'KILL'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lav-acls',
+            'title': 'Give one user access without touching the group',
+            'goal': 'ACLs are the answer to the question the three permission '
+                    'triads cannot express, and the plus sign in ls is how '
+                    'you know they are there.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'shared/report.txt': 'quarterly numbers\n',
+            }},
+            'solution': {'shell':
+                'setfacl -m u:nobody:rw shared/report.txt 2>/dev/null; '
+                'getfacl -p shared/report.txt > acl.txt 2>/dev/null; '
+                'ls -l shared/report.txt > listing.txt; '
+                'setfacl -d -m u:nobody:rw shared 2>/dev/null; '
+                'getfacl -p shared > diracl.txt 2>/dev/null; true'},
+            'steps': [
+                {'instruction': 'Grant the user nobody read and write on '
+                                'shared/report.txt without changing its owner '
+                                'or group.',
+                 'hint': 'setfacl -m u:nobody:rw shared/report.txt'},
+                {'instruction': 'Save the full ACL to acl.txt and the '
+                                'ordinary listing to listing.txt.',
+                 'hint': 'getfacl -p shared/report.txt > acl.txt'},
+                {'instruction': 'Look at listing.txt for the plus sign after '
+                                'the mode. That is the only hint ls gives '
+                                'you.'},
+                {'instruction': 'Set a default ACL on the directory so new '
+                                'files inherit it, and save it to diracl.txt.',
+                 'hint': 'setfacl -d -m u:nobody:rw shared'},
+            ],
+            'free': 'Produce acl.txt showing a named user entry on the file, '
+                    'listing.txt showing the plus sign, and diracl.txt showing '
+                    'a default ACL on the directory.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'acl.txt': 'user:nobody:rw',
+                                  'listing.txt': '+',
+                                  'diracl.txt': 'default:user:nobody'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lav-fds-open',
+            'title': 'Open a descriptor and write to it by number',
+            'goal': 'Descriptors are not only 0, 1 and 2. Open your own, use '
+                    'it, and close it.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+            'solution': {'shell':
+                'exec 3> extra.log && '
+                'echo "line via fd 3" >&3 && '
+                'echo "second line" >&3 && '
+                'exec 3>&- && '
+                'exec 4< extra.log && read -r first <&4 && '
+                'echo "$first" > readback.txt && exec 4<&- && '
+                'ls /proc/self/fd > fdlist.txt 2>/dev/null; true'},
+            'steps': [
+                {'instruction': 'Open file descriptor 3 for writing to '
+                                'extra.log.',
+                 'hint': 'exec 3> extra.log'},
+                {'instruction': 'Write two lines through it, by number rather '
+                                'than by filename.',
+                 'hint': 'echo "line via fd 3" >&3'},
+                {'instruction': 'Close it, then open descriptor 4 for reading '
+                                'and read the first line back into '
+                                'readback.txt.',
+                 'hint': 'exec 3>&-  then  exec 4< extra.log'},
+                {'instruction': 'List /proc/self/fd into fdlist.txt and see '
+                                'what a process descriptor table looks like.'},
+            ],
+            'free': 'Produce extra.log written through descriptor 3, '
+                    'readback.txt holding its first line read through '
+                    'descriptor 4, and fdlist.txt from /proc.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'extra.log': ['line via fd 3',
+                                                'second line'],
+                                  'readback.txt': 'line via fd 3'},
+                'is_file': ['fdlist.txt']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lav-proc',
+            'title': 'Read a process out of /proc',
+            'goal': '/proc is the kernel answering questions as files. Ask it '
+                    'about a process you started.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+            'solution': {'shell':
+                'sleep 60 & pid=$!; sleep 0.3; '
+                'tr "\\0" " " < /proc/$pid/cmdline > cmdline.txt 2>/dev/null; '
+                'ls -l /proc/$pid/cwd > cwd.txt 2>/dev/null; '
+                'grep -E "^(Name|State|PPid)" /proc/$pid/status > status.txt '
+                '2>/dev/null; '
+                'ls /proc/$pid/fd > fds.txt 2>/dev/null; '
+                'kill $pid; true'},
+            'steps': [
+                {'instruction': 'Start a sleep in the background and keep its '
+                                'pid.',
+                 'hint': 'sleep 60 & pid=$!'},
+                {'instruction': 'Read its command line out of /proc. The '
+                                'arguments are separated by null bytes, so '
+                                'translate them to spaces.',
+                 'hint': 'tr "\\0" " " < /proc/$pid/cmdline > cmdline.txt'},
+                {'instruction': 'Record where it thinks it is, from the cwd '
+                                'symlink, into cwd.txt.',
+                 'hint': 'ls -l /proc/$pid/cwd'},
+                {'instruction': 'Pull the Name, State and PPid lines out of '
+                                'its status file into status.txt, and list '
+                                'its open descriptors into fds.txt.'},
+                {'instruction': 'Kill it when you are done.'},
+            ],
+            'free': 'Produce cmdline.txt, cwd.txt, status.txt and fds.txt for '
+                    'a background process you started, all read from /proc.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'cmdline.txt': 'sleep',
+                                  'status.txt': ['Name:', 'State:', 'PPid:']},
+                'is_file': ['cwd.txt', 'fds.txt']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lav-nohup',
+            'title': 'Outlive the shell that started it',
+            'goal': 'nohup and disown solve the same problem differently, and '
+                    'knowing which one you needed is the lesson.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+            'solution': {'shell':
+                'nohup sleep 20 > nohup-out.txt 2>&1 & '
+                'echo $! > nohup.pid; '
+                'sleep 30 & echo $! > disowned.pid; disown; '
+                'jobs > jobs.txt 2>&1; '
+                'ps -o pid= -p "$(cat nohup.pid)" > still-there.txt 2>/dev/null; '
+                'kill "$(cat nohup.pid)" "$(cat disowned.pid)" 2>/dev/null; '
+                'true'},
+            'steps': [
+                {'instruction': 'Start something under nohup in the '
+                                'background, redirecting its output, and '
+                                'record its pid in nohup.pid.',
+                 'hint': 'nohup sleep 20 > nohup-out.txt 2>&1 & echo $! > '
+                         'nohup.pid'},
+                {'instruction': 'Start a second background job and disown it '
+                                'instead, recording its pid in '
+                                'disowned.pid.',
+                 'hint': 'sleep 30 & echo $! > disowned.pid; disown'},
+                {'instruction': 'Write the current jobs table to jobs.txt. '
+                                'The disowned one should be gone from it.'},
+                {'instruction': 'Confirm the nohup process is still running, '
+                                'into still-there.txt.',
+                 'hint': 'ps -o pid= -p "$(cat nohup.pid)"'},
+                {'instruction': 'nohup decides before it starts; disown '
+                                'changes a job you already have. That is the '
+                                'whole difference.'},
+            ],
+            'free': 'Produce nohup.pid, disowned.pid, jobs.txt and '
+                    'still-there.txt, showing one process started detached '
+                    'and one detached after the fact.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'is_file': ['nohup.pid', 'disowned.pid', 'jobs.txt',
+                            'still-there.txt']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lav-systemd-unit',
+            'title': 'Write a unit and a timer that would work',
+            'goal': 'systemd units are text files with a known shape. Write '
+                    'both halves in the sandbox, where getting it wrong costs '
+                    'nothing.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+            'solution': {'shell':
+                'cat > backup.service <<\'EOF\'\n'
+                '[Unit]\n'
+                'Description=Nightly backup\n'
+                'After=network-online.target\n'
+                '\n'
+                '[Service]\n'
+                'Type=oneshot\n'
+                'ExecStart=/usr/local/bin/backup.sh\n'
+                'User=backup\n'
+                'EOF\n'
+                'cat > backup.timer <<\'EOF\'\n'
+                '[Unit]\n'
+                'Description=Run the nightly backup\n'
+                '\n'
+                '[Timer]\n'
+                'OnCalendar=daily\n'
+                'Persistent=true\n'
+                '\n'
+                '[Install]\n'
+                'WantedBy=timers.target\n'
+                'EOF'},
+            'steps': [
+                {'instruction': 'Write backup.service with a Unit section '
+                                'carrying a Description and an After, and a '
+                                'Service section that is Type=oneshot.',
+                 'hint': '[Unit] then [Service] with Type=oneshot'},
+                {'instruction': 'Give it an ExecStart and a User so it does '
+                                'not run as root by default.'},
+                {'instruction': 'Write backup.timer with a Timer section '
+                                'using OnCalendar=daily and Persistent=true.',
+                 'hint': '[Timer] with OnCalendar=daily'},
+                {'instruction': 'Give the timer an Install section wanted by '
+                                'timers.target. Note the service needs no '
+                                'Install section, because the timer starts '
+                                'it.'},
+                {'instruction': 'Persistent=true is why a timer beats cron on '
+                                'a laptop: it runs the missed job at next '
+                                'boot.'},
+            ],
+            'free': 'Produce backup.service as a oneshot unit and '
+                    'backup.timer running it daily with Persistent set.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'backup.service': ['[Unit]', '[Service]',
+                                                     'Type=oneshot',
+                                                     'ExecStart='],
+                                  'backup.timer': ['[Timer]', 'OnCalendar=',
+                                                   'Persistent=true',
+                                                   'WantedBy=timers.target']}}},
             'fallback': 'self',
         },
     ],

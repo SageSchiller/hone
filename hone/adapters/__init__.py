@@ -55,12 +55,35 @@ class Observation:
     detail: str = ''
 
 
+def _absent(requires) -> tuple[str, ...]:
+    """Which required binaries are genuinely not here.
+
+    Routed through `install.present` so a tool that renamed its executable
+    (FreeRDP 3 ships `xfreerdp3`) is not reported missing on a machine that
+    has it. Imported lazily: `install` imports nothing from here, and keeping
+    it that way avoids a cycle at module load.
+    """
+    from .. import install
+    return tuple(b for b in requires if not install.present(b))
+
+
 class Adapter:
     """Base class. Subclasses override `probe`, `setup`, `observe`, `teardown`.
 
     Availability is probed once and cached, because the picker shows adapter
     status on the first screen (D16 rule 4) and re-shelling out for every row
     would make the home screen slow for no benefit.
+
+    **The cache expires when the machine changes under it.** Caching a `False`
+    forever produced the one half-state that actually matters: you open hone,
+    it says the tool is missing and prints the command, you install it in
+    another terminal, and you come back to a screen still insisting it is not
+    there. The home screen updated (its check is a plain `which` every
+    repaint) while verification stayed dead until a restart, which is worse
+    than either answer alone. So a cached `False` is revisited as soon as the
+    set of its required binaries that are absent has changed, and only then: a
+    probe that failed for some other reason (a version too old, no display)
+    keeps its answer and does not re-shell on every frame.
     """
 
     name = 'base'
@@ -83,19 +106,30 @@ class Adapter:
         self._available: bool | None = None
         self._reason: str = ''
         self._sandbox: Any = None
+        #: Which required binaries were absent when we last probed. `None`
+        #: means never probed. Comparing against it is how we notice that
+        #: someone has just installed the thing we told them to install.
+        self._probed_absent: tuple[str, ...] | None = None
 
     # -- availability ------------------------------------------------------
 
     def probe(self) -> tuple[bool, str]:
         """Is this adapter usable right now? Returns (ok, reason-if-not)."""
-        missing = [b for b in self.requires if not shutil.which(b)]
+        missing = list(_absent(self.requires))
         if missing:
             return False, f'{", ".join(missing)} not installed'
         return True, ''
 
+    def absent(self) -> tuple[str, ...]:
+        """Required binaries not on PATH right now. Cheap enough per repaint."""
+        return _absent(self.requires)
+
     def available(self, recheck: bool = False) -> bool:
-        if self._available is None or recheck:
+        stale = (self._available is False
+                 and self.absent() != self._probed_absent)
+        if self._available is None or recheck or stale:
             try:
+                self._probed_absent = self.absent()
                 self._available, self._reason = self.probe()
             except Exception as e:  # a broken probe must not break the app
                 self._available, self._reason = False, f'probe failed: {e}'
@@ -150,6 +184,20 @@ class Adapter:
         inside the tree being verified.
         """
         return None
+
+    def handoff_env(self, spec: dict) -> dict[str, str]:
+        """Environment overrides for the handed-over process, or {}.
+
+        Added for `gpg`, and the reason is a D1 problem rather than a
+        convenience: gpg writes to `~/.gnupg` unless told otherwise, so a
+        challenge that asks you to generate a key would put a trainer key in
+        your real keyring. Pointing `GNUPGHOME` at the sandbox makes the
+        isolation structural rather than a warning in the prose.
+
+        Set on the launched process only, for the life of that process. The
+        trainer's own environment is never modified.
+        """
+        return {}
 
     # -- convenience -------------------------------------------------------
 
@@ -247,7 +295,12 @@ def load_builtin() -> None:
                                          ('sandbox', 'SandboxAdapter', 'sandbox'),
                                          ('git', 'GitAdapter', 'git'),
                                          ('pcap', 'PcapAdapter', 'pcap'),
-                                         ('pwsh', 'PwshAdapter', 'pwsh')):
+                                         ('pwsh', 'PwshAdapter', 'pwsh'),
+                                         ('netlab', 'NetlabAdapter', 'netlab'),
+                                         ('weblab', 'WeblabAdapter', 'weblab'),
+                                         ('toolbox', 'YaraLabAdapter', 'yaralab'),
+                                         ('toolbox', 'PwshBoxAdapter', 'pwshbox'),
+                                         ('toolbox', 'PcapBoxAdapter', 'pcapbox')):
         try:
             mod = __import__(f'{__name__}.{module_name}', fromlist=[class_name])
             register(key, getattr(mod, class_name))

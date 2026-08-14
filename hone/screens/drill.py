@@ -52,7 +52,7 @@ from .. import adapters as A
 from .. import keys as K
 from ..grading import evaluate_regex
 from ..config import EXIT_CHORD
-from ..render import Caps, Text, dots, wrap
+from ..render import Caps, Text, dots, wrap, wrap_rich
 from . import POP, STAY, Screen
 
 CAPTURE_TYPES = ('keys',)
@@ -212,12 +212,15 @@ class DrillScreen(Screen):
 
         context = d.get('context') or getattr(self.module, 'context', '')
         if context and self.phase == 'prompt':
-            for ln in wrap(str(context), caps.cols - 6, '  '):
-                rows.append(Text().add(ln, p.dim) if ln else Text())
+            rows += wrap_rich(caps, str(context), caps.cols - 6, '  ', p.dim,
+                              p.muted)
             rows.append(Text())
 
-        for ln in wrap(str(d.get('prompt', d.get('id', ''))), caps.cols - 6, '  '):
-            rows.append(Text().add(ln, p.fg, bold=True) if ln else Text())
+        for row in wrap_rich(caps, str(d.get('prompt', d.get('id', ''))),
+                             caps.cols - 6, '  ', p.fg, p.accent):
+            for sp in row.spans:
+                sp.bold = True
+            rows.append(row)
         rows.append(Text())
 
         saved = self.saved_note()
@@ -291,8 +294,8 @@ class DrillScreen(Screen):
             teach = d.get('teach')
             if teach:
                 rows.append(Text())
-                for ln in wrap(str(teach), caps.cols - 8, '    '):
-                    rows.append(Text().add(ln, p.dim) if ln else Text())
+                rows += wrap_rich(caps, str(teach), caps.cols - 8, '    ', p.dim,
+                                  p.accent)
 
         if self.phase == 'note':
             rows += [Text(),

@@ -280,7 +280,6 @@ MODULE = {
         {
             'id': 'doom-search',
             'title': 'Search, and why it replaces navigation',
-            'next': 'doom-config',
             'concept': (
                 'In a large project, searching beats browsing, and Doom leans '
                 'hard on that. `SPC s p` searches every file in the project and '
@@ -315,6 +314,74 @@ MODULE = {
             'try_it': [
                 'Put the cursor on any identifier in a project and press '
                 '`SPC *`.',
+            ],
+            'next': 'doom-magit',
+        },
+        {
+            'id': 'doom-magit',
+            'title': 'magit: git as a menu, not a memory test',
+            'next': 'doom-config',
+            'concept': (
+                'magit is the reason a lot of people use Emacs at all, and Doom '
+                'ships it. It is a front end to the git model, so it assumes you '
+                'hold what the git module teaches: commits, the index, refs, '
+                'branches. What it removes is the memorising. `SPC g g` opens '
+                'the status buffer, and from there every action is a single key '
+                'with a menu one keystroke away.\n\n'
+                'The status buffer is the whole interface. It shows unstaged and '
+                'staged changes as foldable sections. `Tab` folds a section to '
+                'see which files changed, and folds again into the diff. On any '
+                'change, `s` stages it and `u` unstages it, and crucially you '
+                'can stage a single hunk, or even a single line in visual mode, '
+                'rather than the whole file. That is the feature that changes '
+                'how you commit: small, reviewed commits become easy.\n\n'
+                'Committing is `c c`, which opens a message buffer; write it and '
+                'finish with `C-c C-c`. Pushing is `P p`, pulling is `F p`, '
+                'fetching is `f`. Branches live under `b`, and `l l` shows the '
+                'log. Every one of those top keys opens a transient menu of '
+                'options, so you are never guessing at flags: press `P` and the '
+                'push menu shows you `-f`, upstream, and the rest.\n\n'
+                'The thing to internalise is that magit is not a different git. '
+                'It runs the same commands you would type, shows you what it is '
+                'about to do, and lets you stage at a finer grain than the '
+                'command line makes comfortable. When it does something you did '
+                'not expect, `$` shows the actual git commands it ran.'
+            ),
+            'examples': [
+                {
+                    'label': 'The status buffer, and staging',
+                    'code': ('SPC g g   open the magit status buffer\n'
+                             'Tab       fold or unfold a section into its diff\n'
+                             's         stage the change at point\n'
+                             'u         unstage it\n'
+                             'S         stage everything\n'
+                             'x         discard a change (careful)'),
+                    'note': 'On a single hunk, s stages just that hunk. In '
+                            'visual mode, s stages just the selected lines.',
+                },
+                {
+                    'label': 'Committing, and moving commits around',
+                    'code': ('c c   start a commit, then C-c C-c to finish\n'
+                             'c a   amend the last commit\n'
+                             'P p   push        F p   pull        f u   fetch\n'
+                             'b b   switch branch   b c   create one\n'
+                             'l l   show the log     $     show the git it ran'),
+                    'note': 'Each capital opens a transient menu of flags, so '
+                            'the options are shown rather than memorised.',
+                },
+            ],
+            'misconceptions': [
+                'magit is not a simplified git. It exposes more of git than the '
+                'CLI does comfortably, especially hunk-level and line-level '
+                'staging.',
+                'The commit message buffer is a normal buffer. You finish with '
+                '`C-c C-c`, not by saving, and `C-c C-k` cancels.',
+                'If you do not hold the git model, magit will not teach it. Do '
+                'the git module first; magit is the interface, not the course.',
+            ],
+            'try_it': [
+                'In a scratch git repo, change a file, press `SPC g g`, stage '
+                'it with `s`, and commit with `c c` then `C-c C-c`.',
             ],
         },
         {
@@ -493,6 +560,26 @@ MODULE = {
          'prompt': 'Open magit, the git interface.',
          'teach': 'Magit assumes you already hold git\'s model: commits, refs, '
                   'the index. It is a front end, not a tutorial.'},
+
+        # magit-internal keys: recall, because they are pressed inside the
+        # magit buffer rather than in evil normal mode, so capturing them in
+        # the trainer's context would grade the wrong thing.
+        {'id': 'doom-magit-stage', 'type': 'recall', 'keys': ['s'],
+         'prompt': 'In the magit status buffer, stage the change at point.',
+         'teach': 'u unstages. On a single hunk, s stages just that hunk, '
+                  'which is the finer grain the command line makes awkward.'},
+        {'id': 'doom-magit-commit', 'type': 'recall', 'keys': ['c', 'c'],
+         'prompt': 'In magit, start a commit.',
+         'teach': 'It opens a message buffer. You finish with C-c C-c, not by '
+                  'saving, and C-c C-k cancels.'},
+        {'id': 'doom-magit-push', 'type': 'recall', 'keys': ['P', 'p'],
+         'prompt': 'In magit, push to the upstream.',
+         'teach': 'Capital P opens a transient menu showing every push option, '
+                  'so -f and the rest are displayed rather than remembered.'},
+        {'id': 'doom-magit-log', 'type': 'recall', 'keys': ['l', 'l'],
+         'prompt': 'In magit, show the commit log.',
+         'teach': 'F p pulls, f u fetches from upstream, b b switches branch. The status '
+                  'buffer is the hub they all return to.'},
         {'id': 'doom-help-key', 'type': 'keys', 'keys': ['SPC', 'h', 'k'],
          'prompt': 'Ask what a key is actually bound to.',
          'teach': 'The fastest way to find out which of the three layers owns a '
@@ -704,7 +791,7 @@ MODULE = {
                                    'this replaces forward from point.',
                     'hint': 'gg. This is the part people forget'},
                    {'instruction': 'Start a replace across the buffer.',
-                    'hint': 'SPC s r, or M-x replace-string. :%s/// also '
+                    'hint': 'M-x replace-string, or :%s/// which also '
                             'works, because evil'},
                    {'instruction': 'Replace "needs work" with "is done", '
                                    'then save and quit.',
@@ -734,6 +821,116 @@ MODULE = {
                  'buffer, on its own.',
          'verify': {'kind': 'emacs',
                     'expect': {'contains': 'evil-window-split'}},
+         'fallback': 'self'},
+
+        {'id': 'doom-window-split',
+         'title': 'Split the frame and put something in it',
+         'goal': 'Doom windows are SPC w, and the split you make has to be '
+                 'useful rather than decorative.',
+         'setup': {'kind': 'emacs',
+                   'scratch_name': 'split.txt',
+                   'start': ['first line', 'second line', 'third line']},
+         'solution': {'elisp': '(progn (split-window-right) '
+                               '(goto-char (point-max)) '
+                               '(insert "\\nedited in the other window"))'},
+         'steps': [{'instruction': 'Split the frame vertically, so there are '
+                                   'two windows side by side.',
+                    'hint': 'SPC w v, or SPC w /'},
+                   {'instruction': 'Move to the other window.',
+                    'hint': 'SPC w w cycles, SPC w l goes right'},
+                   {'instruction': 'Add a line at the end of the buffer, then '
+                                   'save.',
+                    'hint': 'G then o, type it, Esc, SPC f s'},
+                   {'instruction': 'Note that both windows show the same '
+                                   'buffer, so the edit appears in both. That '
+                                   'is the buffer and window distinction '
+                                   'made visible.'}],
+         'free': 'Split the frame, add a line at the end of the buffer from '
+                 'the other window, and save.',
+         'verify': {'kind': 'emacs',
+                    'expect': {'contains': ['first line',
+                                            'edited in the other window']}},
+         'fallback': 'self'},
+
+        {'id': 'doom-comment-region',
+         'title': 'Comment a region with the operator',
+         'goal': 'Doom binds commenting as an evil operator, so it composes '
+                 'with motions exactly like d and y do.',
+         'setup': {'kind': 'emacs',
+                   'scratch_name': 'code.py',
+                   'start': ['first = 1', 'second = 2', 'third = 3',
+                             'keep = 4']},
+         'solution': {'elisp': '(progn (goto-char (point-min)) '
+                               '(comment-region (point-min) '
+                               '(line-end-position 3)))'},
+         'steps': [{'instruction': 'Put the cursor on the first line.',
+                    'hint': 'gg'},
+                   {'instruction': 'Comment the first three lines with the '
+                                   'comment operator and a motion.',
+                    'hint': 'gc2j, which is gc plus a two-line-down motion'},
+                   {'instruction': 'Save. The fourth line should be '
+                                   'untouched.',
+                    'hint': 'SPC f s'}],
+         'free': 'Comment out the first three lines, leaving the fourth '
+                 'alone, then save.',
+         'verify': {'kind': 'emacs',
+                    'expect': {'contains': ['# first = 1', '# third = 3',
+                                            'keep = 4']}},
+         'fallback': 'self'},
+
+        {'id': 'doom-macro-region',
+         'title': 'Record once, apply to a region',
+         'goal': 'Doom is still evil, so a macro over a range is the same '
+                 'skill as in vim, and it is the one that scales.',
+         'setup': {'kind': 'emacs',
+                   'scratch_name': 'list.txt',
+                   'start': ['apples', 'pears', 'plums', 'cherries']},
+         'solution': {'elisp': '(progn (goto-char (point-min)) '
+                               '(while (not (eobp)) '
+                               '(beginning-of-line) (insert "- ") '
+                               '(forward-line 1)))'},
+         'steps': [{'instruction': 'Start recording a macro into register q.',
+                    'hint': 'qq'},
+                   {'instruction': 'Prefix the current line with a dash and a '
+                                   'space, then move to the next line.',
+                    'hint': 'I then the dash and space, Esc, then j'},
+                   {'instruction': 'Stop recording and replay it for the '
+                                   'remaining lines.',
+                    'hint': 'q to stop, then 3@q'},
+                   {'instruction': 'Save.',
+                    'hint': 'SPC f s'}],
+         'free': 'Turn all four lines into a dash-prefixed list using a '
+                 'macro, then save.',
+         'verify': {'kind': 'emacs',
+                    'expect': {'contains': ['- apples', '- pears', '- plums',
+                                            '- cherries']}},
+         'fallback': 'self'},
+
+        {'id': 'doom-magit-commit',
+         'title': 'Make a real commit through magit',
+         'goal': 'The trainer cannot drive magit for you, so this one is on '
+                 'your own machine. Do a whole change-stage-commit loop '
+                 'without typing a git command.',
+         'setup': {'kind': 'self'},
+         'steps': [{'instruction': 'Open a scratch git repository in Doom, or '
+                                   'make one with SPC : and a shell.'},
+                   {'instruction': 'Change a file, then open the magit status '
+                                   'buffer.',
+                    'hint': 'SPC g g'},
+                   {'instruction': 'Fold a change with Tab to see its diff, '
+                                   'then stage just one hunk rather than the '
+                                   'whole file.',
+                    'hint': 'move onto a hunk, press s'},
+                   {'instruction': 'Commit it with a message, and finish the '
+                                   'message buffer properly.',
+                    'hint': 'c c, write the message, C-c C-c'},
+                   {'instruction': 'Press $ and read the actual git commands '
+                                   'magit ran. They are the ones you already '
+                                   'know from the git module.'}],
+         'free': 'On your own machine: change a file, stage one hunk in '
+                 'magit, commit it with a message, and read back the git '
+                 'commands magit ran.',
+         'verify': {'kind': 'self'},
          'fallback': 'self'},
                   ],
 

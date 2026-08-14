@@ -116,8 +116,9 @@ MODULE = {
                     'label': 'The three, and what moves between them',
                     'code': ('HEAD  <--commit--  index  <--add--  working tree\n'
                              '  |                  |                 |\n'
-                             '  |--- restore --------------------->  |\n'
-                             '  |--- reset ------->  |\n'
+                             '  |                  |--- restore --->  |\n'
+                             '  |--- reset ------->  |                |\n'
+                             '  |--- restore --source=HEAD -------->  |\n'
                              '\n'
                              'git diff           index vs working tree\n'
                              'git diff --staged  HEAD vs index'),
@@ -224,7 +225,19 @@ MODULE = {
                 '**fast-forward**, with no merge commit. If both have moved, '
                 'git builds a **merge commit** with two parents. Neither is '
                 'better; knowing which you are getting is what stops merges '
-                'being surprising.'
+                'being surprising.\n\n'
+                'When both branches changed the same lines, git stops and hands '
+                'you a **conflict**, and this is the part worth practising '
+                'because the markers look alarming and are not. git writes both '
+                'versions into the file between markers: everything from '
+                '`<<<<<<<` to `=======` is your side, everything from there to '
+                '`>>>>>>>` is theirs. You edit the file to what it should '
+                'actually be, delete all three marker lines, `git add` it to '
+                'say "resolved", and `git commit` to finish the merge. There is '
+                'no magic: you are choosing the final text by hand. If it goes '
+                'wrong, `git merge --abort` puts everything back as if you never '
+                'started, which is the escape hatch worth knowing before you '
+                'need it.'
             ),
             'examples': [
                 {
@@ -237,6 +250,20 @@ MODULE = {
                              'git merge feature          merge into current'),
                     'note': '`-d` refuses if the branch is unmerged; `-D` does '
                             'not. Prefer `-d` and let it protect you.',
+                },
+                {
+                    'label': 'Reading and resolving a conflict',
+                    'code': ('<<<<<<< HEAD\n'
+                             'the line as it is on your branch\n'
+                             '=======\n'
+                             'the line as it is on theirs\n'
+                             '>>>>>>> feature\n'
+                             '\n'
+                             'edit to the final text, delete the 3 markers,\n'
+                             'then:  git add file  &&  git commit\n'
+                             'or give up:  git merge --abort'),
+                    'note': 'The markers are just text git inserted. Nothing is '
+                            'broken; you are choosing the result.',
                 },
                 {
                     'label': 'The two shapes',
@@ -344,7 +371,7 @@ MODULE = {
                              'reset --mixed C       branch + index (default)\n'
                              'reset --hard C        branch + index + files\n'
                              'revert C              new commit undoing C'),
-                    'note': 'Only `--hard` can lose work you have not committed. '
+                    'note': '`restore file` and `reset --hard` are the two that can lose work you have not committed. '
                             'Everything else is recoverable.',
                 },
                 {
@@ -360,7 +387,7 @@ MODULE = {
                 '`reset` and `revert` are not variations on one idea. reset '
                 'moves a pointer; revert creates a commit. Use revert for '
                 'anything already pushed.',
-                '`reset --hard` is the only one that destroys uncommitted work, '
+                '`reset --hard` and `restore file` are the two that destroy uncommitted work, '
                 'and there is no reflog for work that was never committed.',
                 '`git checkout -- file` was the old spelling of `restore`, '
                 'which is why old answers look nothing like current advice.',
@@ -784,6 +811,55 @@ MODULE = {
                                'clean': True,
                                'file_contains': {'app.txt': 'v2'}}},
          'fallback': 'self'},
+
+        {'id': 'g-resolve-conflict',
+         'title': 'Resolve a merge conflict by hand',
+         'goal': 'Two branches changed the same line. Merge them, read the '
+                 'markers, and choose the final text yourself.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'config.txt': 'timeout = 10\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'config.txt': 'timeout = 10\n'}}]},
+         'solution': {'shell':
+             'git switch -c feature -q && '
+             'echo "timeout = 30" > config.txt && git add -A && '
+             'git -c user.email=t@t -c user.name=t commit -q -m '
+             '"feature: timeout 30" && '
+             'git switch main -q && '
+             'echo "timeout = 20" > config.txt && git add -A && '
+             'git -c user.email=t@t -c user.name=t commit -q -m '
+             '"main: timeout 20" && '
+             # the merge conflicts on the single line; resolve to a chosen
+             # value, then add and commit to complete the merge.
+             'git -c user.email=t@t -c user.name=t merge feature -q '
+             '--no-edit; '
+             'echo "timeout = 25" > config.txt && git add config.txt && '
+             'git -c user.email=t@t -c user.name=t commit -q --no-edit'},
+         'steps': [{'instruction': 'Make a feature branch that sets the '
+                                   'timeout to 30 and commit it.',
+                    'hint': 'git switch -c feature; edit; git commit'},
+                   {'instruction': 'Back on main, set the same line to 20 and '
+                                   'commit. Now the two disagree.',
+                    'hint': 'git switch main; edit config.txt; git commit'},
+                   {'instruction': 'Merge feature. git stops with a conflict '
+                                   'and writes both versions into the file '
+                                   'between markers.',
+                    'hint': 'git merge feature'},
+                   {'instruction': 'Edit config.txt to the value you actually '
+                                   'want, delete all three marker lines, then '
+                                   'add and commit to finish the merge.',
+                    'hint': 'set it to timeout = 25, then git add config.txt '
+                            '&& git commit'}],
+         'free': 'Create a conflict on config.txt between main and feature, '
+                 'then resolve it to timeout = 25 and complete the merge so '
+                 'the tree is clean.',
+         'verify': {'kind': 'git',
+                    'expect': {'branch': 'main',
+                               'clean': True,
+                               'file_contains': {'config.txt': 'timeout = 25'},
+                               'file_lacks': {'config.txt': '<<<<<<<'}}},
+         'fallback': 'self'},
         {'id': 'g-undo-safely',
          'title': 'Undo a commit that has already been shared',
          'goal': 'Reset rewrites history. Revert adds to it. Use the one '
@@ -932,6 +1008,179 @@ MODULE = {
                     'hint': 'git push --tags, or git push origin v1.0.0'}],
          'free': 'Put an annotated tag v1.0.0 on the current commit.',
          'verify': {'kind': 'git', 'expect': {'tags': ['v1.0.0']}},
+         'fallback': 'self'},
+
+        {'id': 'g-rebase',
+         'title': 'Replay your work on top of theirs',
+         'goal': 'Rebase a feature branch onto an updated main, so the '
+                 'history reads as though you started from the current '
+                 'state.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'app.txt': 'base\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'app.txt': 'base\n'}},
+                               {'message': 'main moves on',
+                                'tree': {'main.txt': 'from main\n'}}]},
+         'solution': {'shell':
+             'git -c user.email=t@t -c user.name=t checkout -q -b feature '
+             'HEAD~1 && '
+             'echo "feature work" > feature.txt && git add feature.txt && '
+             'git -c user.email=t@t -c user.name=t commit -q -m '
+             '"add the feature" && '
+             'git -c user.email=t@t -c user.name=t rebase main'},
+         'steps': [{'instruction': 'Branch off the commit before the tip, so '
+                                   'you are deliberately behind main.',
+                    'hint': 'git checkout -b feature HEAD~1'},
+                   {'instruction': 'Make a commit on the feature branch.',
+                    'hint': 'echo "feature work" > feature.txt; git add -A; '
+                            'git commit -m "add the feature"'},
+                   {'instruction': 'Rebase it onto main, so your commit sits '
+                                   'on top of the newer work.',
+                    'hint': 'git rebase main'},
+                   {'instruction': 'Look at the log. Your commit has a new '
+                                   'hash: rebasing rewrites, it does not '
+                                   'move.'}],
+         'free': 'From a feature branch that started behind main, rebase onto '
+                 'main so your commit sits on top of the newer one.',
+         'verify': {'kind': 'git', 'expect': {
+             'branch': 'feature',
+             'subjects_contain': ['add the feature', 'main moves on'],
+             'min_commits': 3}},
+         'fallback': 'self'},
+
+        {'id': 'g-cherry-pick',
+         'title': 'Take one commit and leave the rest',
+         'goal': 'Cherry-pick a single fix from another branch without '
+                 'merging everything else that is on it.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'app.txt': 'base\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'app.txt': 'base\n'}}]},
+         'solution': {'shell':
+             'git -c user.email=t@t -c user.name=t checkout -q -b sidework && '
+             'echo "unrelated" > unrelated.txt && git add -A && '
+             'git -c user.email=t@t -c user.name=t commit -q -m '
+             '"unrelated change" && '
+             'echo "the fix" > fix.txt && git add -A && '
+             'git -c user.email=t@t -c user.name=t commit -q -m '
+             '"the important fix" && '
+             'git -c user.email=t@t -c user.name=t checkout -q main && '
+             'git -c user.email=t@t -c user.name=t cherry-pick sidework'},
+         'steps': [{'instruction': 'Make a branch with two commits on it: one '
+                                   'unrelated, then the fix you want.',
+                    'hint': 'git checkout -b sidework, then two commits'},
+                   {'instruction': 'Go back to main.',
+                    'hint': 'git checkout main'},
+                   {'instruction': 'Bring across only the fix commit, by '
+                                   'name.',
+                    'hint': 'git cherry-pick sidework, or the commit hash'},
+                   {'instruction': 'Check that the unrelated change did not '
+                                   'come with it.',
+                    'hint': 'git log --oneline; ls'}],
+         'free': 'With two commits on a side branch, bring only the second '
+                 'one onto main and leave the first behind.',
+         'verify': {'kind': 'git', 'expect': {
+             'branch': 'main',
+             'subjects_contain': ['the important fix'],
+             'subjects_lack': ['unrelated change'],
+             'exists': ['fix.txt'],
+             'missing': ['unrelated.txt']}},
+         'fallback': 'self'},
+
+        {'id': 'g-bisect',
+         'title': 'Let git find the commit that broke it',
+         'goal': 'Bisect a short history to the exact commit that introduced '
+                 'a bad value, using the run form so it is not guesswork.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'value.txt': 'good\n'},
+                   'commits': [{'message': 'first good',
+                                'tree': {'value.txt': 'good\n'}},
+                               {'message': 'second good',
+                                'tree': {'value.txt': 'good\n',
+                                         'other.txt': 'x\n'}},
+                               {'message': 'the bad one',
+                                'tree': {'value.txt': 'bad\n'}},
+                               {'message': 'later work',
+                                'tree': {'value.txt': 'bad\n',
+                                         'more.txt': 'y\n'}}]},
+         'solution': {'shell':
+             'git bisect start HEAD HEAD~3 > /dev/null 2>&1; '
+             'git bisect run grep -q "^good$" value.txt > bisect.log 2>&1; '
+             # git says "is the first 'bad' commit", with the quotes, so a
+             # grep for the unquoted phrase matches nothing.
+             'grep -m1 "is the first" bisect.log > culprit.txt 2>/dev/null; '
+             'git bisect reset > /dev/null 2>&1; '
+             'git log --oneline > history.txt 2>&1; true'},
+         'steps': [{'instruction': 'Start a bisect with the current commit '
+                                   'as bad and the oldest as good.',
+                    'hint': 'git bisect start HEAD HEAD~3'},
+                   {'instruction': 'Let git drive it with a test command that '
+                                   'exits zero while things are still good.',
+                    'hint': 'git bisect run grep -q "^good$" value.txt'},
+                   {'instruction': 'Capture the line naming the first bad '
+                                   'commit into culprit.txt. Note that git '
+                                   'quotes the word bad in that message.',
+                    'hint': 'grep -m1 "is the first" bisect.log'},
+                   {'instruction': 'Reset the bisect so HEAD goes back where '
+                                   'it belongs. Forgetting this leaves you '
+                                   'detached.',
+                    'hint': 'git bisect reset'}],
+         'free': 'Bisect the history with a run command, capture the first '
+                 'bad commit into culprit.txt, and reset afterwards.',
+         'verify': {'kind': 'git', 'expect': {
+             'branch': 'main',
+             'detached': False,
+             'file_contains': {'culprit.txt': 'is the first',
+                               'history.txt': 'the bad one'}}},
+         'fallback': 'self'},
+
+        {'id': 'g-remote-track',
+         'title': 'Wire up a remote and see what tracking means',
+         'goal': 'Add a remote, push a branch, and read the ahead and behind '
+                 'counts that every later status line depends on.',
+         'setup': {'kind': 'git',
+                   'branch': 'main',
+                   'tree': {'app.txt': 'base\n'},
+                   'commits': [{'message': 'initial commit',
+                                'tree': {'app.txt': 'base\n'}}]},
+         'solution': {'shell':
+             # Inside the sandbox, deliberately. A bare repo one level up
+             # would be outside the directory the trainer created, which D1
+             # forbids and which the sandbox would never clean up.
+             'git init -q --bare origin.git && '
+             'git remote add origin ./origin.git && '
+             'git push -q -u origin main 2>/dev/null && '
+             'echo "local work" > local.txt && git add -A && '
+             'git -c user.email=t@t -c user.name=t commit -q -m '
+             '"work not yet pushed" && '
+             'git remote -v > remotes.txt && '
+             'git status -sb > status.txt && '
+             'git rev-list --count origin/main..main > ahead.txt'},
+         'steps': [{'instruction': 'Create a bare repository beside this one '
+                                   'to act as the remote.',
+                    'hint': 'git init --bare origin.git'},
+                   {'instruction': 'Add it as origin and push main with -u so '
+                                   'the branch tracks it.',
+                    'hint': 'git remote add origin ./origin.git; git push -u '
+                            'origin main'},
+                   {'instruction': 'Make one more local commit that you do '
+                                   'not push.'},
+                   {'instruction': 'Save the remote list, the short status '
+                                   'with branch info, and the count of '
+                                   'commits you are ahead by.',
+                    'hint': 'git status -sb; git rev-list --count '
+                            'origin/main..main'}],
+         'free': 'Set up a local bare remote, push main with tracking, make '
+                 'one unpushed commit, and record remotes.txt, status.txt and '
+                 'ahead.txt.',
+         'verify': {'kind': 'git', 'expect': {
+             'branch': 'main',
+             'file_contains': {'remotes.txt': 'origin',
+                               'status.txt': 'main',
+                               'ahead.txt': '1'}}},
          'fallback': 'self'},
                   ],
 

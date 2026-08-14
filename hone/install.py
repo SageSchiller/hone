@@ -65,18 +65,131 @@ PACKAGES: dict[str, dict[str, str]] = {
                  'dnf': 'freerdp', 'zypper': 'freerdp', 'brew': 'freerdp'},
     'socat': {'pacman': 'socat', 'apt': 'socat', 'dnf': 'socat',
               'zypper': 'socat', 'apk': 'socat', 'brew': 'socat'},
+    'rsync': {'pacman': 'rsync', 'apt': 'rsync', 'dnf': 'rsync',
+              'zypper': 'rsync', 'apk': 'rsync', 'brew': 'rsync'},
+    # dig ships in the bind client tools, packaged under a different name on
+    # almost every distribution, which is exactly the kind of thing a student
+    # should not have to guess.
+    'dig': {'pacman': 'bind', 'apt': 'dnsutils', 'dnf': 'bind-utils',
+            'zypper': 'bind-utils', 'apk': 'bind-tools', 'brew': 'bind'},
+    # netcat has three incompatible builds; the OpenBSD one is the default on
+    # most distributions and the one whose flags the lessons assume.
+    'nc': {'pacman': 'openbsd-netcat', 'apt': 'netcat-openbsd',
+           'dnf': 'nmap-ncat', 'zypper': 'netcat-openbsd',
+           'apk': 'netcat-openbsd', 'brew': 'netcat'},
+    'proxychains': {'pacman': 'proxychains-ng', 'apt': 'proxychains4',
+                    'dnf': 'proxychains-ng', 'zypper': 'proxychains-ng',
+                    'apk': 'proxychains-ng'},
+    'lsof': {'pacman': 'lsof', 'apt': 'lsof', 'dnf': 'lsof',
+             'zypper': 'lsof', 'apk': 'lsof', 'brew': 'lsof'},
     'pwsh': {},   # never in the ordinary repositories: see COMMANDS below
+
+    # The security roster. Several of these are packaged everywhere and a few
+    # are packaged almost nowhere, and the difference is worth being exact
+    # about: a student who pastes a line that fails concludes the trainer is
+    # broken rather than that the package is unusual.
+    'nmap': {'pacman': 'nmap', 'apt': 'nmap', 'dnf': 'nmap',
+             'zypper': 'nmap', 'apk': 'nmap', 'brew': 'nmap'},
+    'file': {'pacman': 'file', 'apt': 'file', 'dnf': 'file',
+             'zypper': 'file', 'apk': 'file', 'brew': 'file'},
+    'strings': {'pacman': 'binutils', 'apt': 'binutils', 'dnf': 'binutils',
+                'zypper': 'binutils', 'apk': 'binutils', 'brew': 'binutils'},
+    # Packaged with vim nearly everywhere, which is worth saying rather than
+    # letting someone search for an xxd package that does not exist.
+    'xxd': {'pacman': 'xxd', 'apt': 'xxd', 'dnf': 'vim-common',
+            'zypper': 'vim-data-common', 'apk': 'xxd', 'brew': 'vim'},
+    'strace': {'pacman': 'strace', 'apt': 'strace', 'dnf': 'strace',
+               'zypper': 'strace', 'apk': 'strace'},
+    'gpg': {'pacman': 'gnupg', 'apt': 'gnupg', 'dnf': 'gnupg2',
+            'zypper': 'gpg2', 'apk': 'gnupg', 'brew': 'gnupg'},
+    'openssl': {'pacman': 'openssl', 'apt': 'openssl', 'dnf': 'openssl',
+                'zypper': 'openssl', 'apk': 'openssl', 'brew': 'openssl'},
+    'yara': {'pacman': 'yara', 'apt': 'yara', 'dnf': 'yara',
+             'zypper': 'yara', 'apk': 'yara', 'brew': 'yara'},
+    # No pacman entry on purpose: ffuf is AUR-only on Arch, and printing
+    # `pacman -S ffuf` produced "target not found" for a real user. See
+    # COMMANDS for the route that works.
+    'ffuf': {'apk': 'ffuf', 'brew': 'ffuf'},
+    'gobuster': {'pacman': 'gobuster', 'apt': 'gobuster', 'apk': 'gobuster',
+                 'brew': 'gobuster'},
+    'hashcat': {'pacman': 'hashcat', 'apt': 'hashcat', 'dnf': 'hashcat',
+                'zypper': 'hashcat', 'brew': 'hashcat'},
+    'john': {'pacman': 'john', 'apt': 'john', 'dnf': 'john',
+             'zypper': 'john', 'apk': 'john', 'brew': 'john-jumbo'},
+    'hydra': {'pacman': 'hydra', 'apt': 'hydra', 'dnf': 'hydra',
+              'brew': 'hydra'},
+    'smbclient': {'pacman': 'smbclient', 'apt': 'smbclient', 'dnf': 'samba-client',
+                  'zypper': 'samba-client', 'apk': 'samba-client',
+                  'brew': 'samba'},
+    # Same package as smbclient everywhere, and worth its own entry anyway:
+    # the module teaches both binaries, so a machine missing one is missing
+    # the other, and being told the package name twice costs nothing.
+    'rpcclient': {'pacman': 'smbclient', 'apt': 'smbclient', 'dnf': 'samba-client',
+                  'zypper': 'samba-client', 'apk': 'samba-client',
+                  'brew': 'samba'},
+    'ldapsearch': {'pacman': 'openldap', 'apt': 'ldap-utils',
+                   'dnf': 'openldap-clients', 'zypper': 'openldap2-client',
+                   'apk': 'openldap-clients', 'brew': 'openldap'},
+    'binwalk': {'pacman': 'binwalk', 'apt': 'binwalk', 'dnf': 'binwalk',
+                'brew': 'binwalk'},
+    'exiftool': {'pacman': 'perl-image-exiftool', 'apt': 'libimage-exiftool-perl',
+                 'dnf': 'perl-Image-ExifTool', 'zypper': 'exiftool',
+                 'apk': 'exiftool', 'brew': 'exiftool'},
+    'sqlite3': {'pacman': 'sqlite', 'apt': 'sqlite3', 'dnf': 'sqlite',
+                'zypper': 'sqlite3', 'apk': 'sqlite', 'brew': 'sqlite'},
+    'netexec': {},        # pipx only: see COMMANDS
+    'msfconsole': {},     # never in the ordinary repositories: see COMMANDS
+    'vol': {},            # a Python project, not a package: see COMMANDS
+
+    # containers and the rest of the later roster
+    'docker': {'pacman': 'docker', 'apt': 'docker.io', 'dnf': 'docker',
+               'zypper': 'docker', 'apk': 'docker', 'brew': 'docker'},
+    'nft': {'pacman': 'nftables', 'apt': 'nftables', 'dnf': 'nftables',
+            'zypper': 'nftables', 'apk': 'nftables'},
+    'iptables': {'pacman': 'iptables', 'apt': 'iptables', 'dnf': 'iptables',
+                 'zypper': 'iptables', 'apk': 'iptables'},
 }
 
 #: Full commands that replace the template, where the package is not simply
 #: in the default repositories. Printing `pacman -S powershell` would be
 #: worse than printing nothing, because it fails and looks like our mistake.
 COMMANDS: dict[tuple[str, str], str] = {
+    # ffuf is a Go program packaged almost nowhere: AUR on Arch, and on
+    # Debian a release binary or `go install`. Saying so beats an apt line
+    # that does not exist.
+    ('ffuf', 'pacman'): 'paru -S ffuf      # AUR, or yay -S ffuf',
+    ('ffuf', 'apt'): 'go install github.com/ffuf/ffuf/v2@latest   '
+                     '# or grab a release binary from github.com/ffuf/ffuf',
+    ('ffuf', 'dnf'): 'go install github.com/ffuf/ffuf/v2@latest   '
+                     '# or grab a release binary from github.com/ffuf/ffuf',
+    ('ffuf', 'zypper'): 'go install github.com/ffuf/ffuf/v2@latest   '
+                        '# or grab a release binary from github.com/ffuf/ffuf',
     ('pwsh', 'pacman'): 'paru -S powershell-bin      # AUR, or yay -S powershell-bin',
     ('pwsh', 'apt'): 'sudo snap install powershell --classic',
     ('pwsh', 'dnf'): 'sudo snap install powershell --classic',
     ('pwsh', 'zypper'): 'sudo snap install powershell --classic',
     ('pwsh', 'brew'): 'brew install --cask powershell',
+
+    # Three security tools that no ordinary repository carries. Each is a real
+    # install route rather than a plausible-looking one, and each says which
+    # kind of thing it is, because "pipx" and "a git clone" fail differently
+    # from a package and are recovered from differently.
+    ('netexec', 'pacman'): 'pipx install git+https://github.com/Pennyw0rth/NetExec',
+    ('netexec', 'apt'): 'pipx install git+https://github.com/Pennyw0rth/NetExec',
+    ('netexec', 'dnf'): 'pipx install git+https://github.com/Pennyw0rth/NetExec',
+    ('netexec', 'zypper'): 'pipx install git+https://github.com/Pennyw0rth/NetExec',
+    ('netexec', 'brew'): 'pipx install git+https://github.com/Pennyw0rth/NetExec',
+    ('msfconsole', 'pacman'): 'paru -S metasploit       # AUR',
+    ('msfconsole', 'apt'): 'sudo apt install metasploit-framework   # Kali, or use the omnibus installer',
+    ('msfconsole', 'dnf'): 'use the Rapid7 omnibus installer: https://docs.metasploit.com',
+    ('msfconsole', 'zypper'): 'use the Rapid7 omnibus installer: https://docs.metasploit.com',
+    ('msfconsole', 'brew'): 'brew install --cask metasploit',
+    ('vol', 'pacman'): 'pipx install volatility3',
+    ('vol', 'apt'): 'pipx install volatility3',
+    ('vol', 'dnf'): 'pipx install volatility3',
+    ('vol', 'zypper'): 'pipx install volatility3',
+    ('vol', 'apk'): 'pipx install volatility3',
+    ('vol', 'brew'): 'pipx install volatility3',
 }
 
 #: Said once, next to a tool that needs more than installing.
@@ -86,7 +199,34 @@ NOTES: dict[str, str] = {
             'even if you never touch Windows',
     'tshark': 'the wireshark package will offer to let non-root users '
               'capture; you can say no and still read files',
+    'nmap': 'a SYN scan needs root; the connect scan the lab uses does not',
+    'strace': 'tracing your own processes needs nothing; tracing anyone '
+              'else\'s needs root or a relaxed ptrace_scope',
+    'msfconsole': 'large, and it wants its own database; the module is '
+                  'readable without it installed',
+    'vol': 'volatility3 needs symbol tables for the kernel of the machine '
+           'the memory image came from, not yours',
+    'netexec': 'the tool formerly called crackmapexec; the old name still '
+               'appears in most write-ups',
+    'john': 'Debian and Fedora ship the basic build; the jumbo build is the '
+            'one with the format zoo, and is what write-ups assume',
 }
+
+
+#: Other binary names that satisfy a declared need. A tool that renamed its
+#: executable is still installed, and reporting it missing sends someone to
+#: install a package they already have: FreeRDP 3 ships `xfreerdp3` and no
+#: `xfreerdp`, so a fully installed machine was being told it needed one.
+ALIASES: dict[str, tuple[str, ...]] = {
+    'xfreerdp': ('xfreerdp3', 'sdl-freerdp3'),
+    'vol': ('vol.py', 'volatility3'),
+    'netexec': ('nxc',),
+}
+
+
+def present(tool: str) -> bool:
+    """Is this tool usable here, under its own name or a known alias?"""
+    return any(shutil.which(n) for n in (tool, *ALIASES.get(tool, ())))
 
 
 def detect() -> str | None:
@@ -116,7 +256,7 @@ def known(tool: str) -> bool:
 
 
 def missing(tools) -> list[str]:
-    return [t for t in tools if not shutil.which(t)]
+    return [t for t in tools if not present(t)]
 
 
 def hint(tool: str) -> str:

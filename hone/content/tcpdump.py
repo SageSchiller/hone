@@ -41,12 +41,12 @@ MODULE = {
     'blurb': 'BPF filters, and why display filters are a different language.',
     'context': 'You are at a root shell on a machine whose traffic you are allowed to capture.',
     'needs': ('tcpdump', 'tshark'),
-    'prereqs': ['remote'],
+    'prereqs': ['ssh'],
     # Filters are run against a generated capture file. Capturing traffic is
     # still outside D1 and still not done: the fixture is written, not caught.
     'adapter': 'pcap',
     'estimate': '3-5 hours',
-    'order': 53,
+    'order': 57,
 
     'lessons': [
         {
@@ -123,11 +123,14 @@ MODULE = {
                 'optionally a **protocol** (`tcp`, `udp`, `icmp`, `ip`, '
                 '`arp`). `src host 10.0.0.1`, `dst port 443`, `tcp portrange '
                 '8000-8100`.\n\n'
-                'Combine them with `and`, `or` and `not`. The one trap is '
-                'precedence: `not` binds tightest, so `not tcp port 22` means '
-                '"not tcp, and port 22" rather than what you meant. Parenthesise '
-                'anything with more than two terms, and remember the shell '
-                'wants the parentheses quoted.'
+                'Combine them with `and`, `or` and `not`. A qualified '
+                'primitive is one unit, so `not tcp port 22` negates the whole '
+                'of it and means exactly what you hoped: everything except TCP '
+                'port 22. The trap is precedence between the operators, because '
+                '`not` outranks `and`: `not port 22 and tcp` reads as `(not '
+                'port 22) and tcp`, not as "not (port 22 and tcp)". '
+                'Parenthesise anything with more than two terms, and remember '
+                'the shell wants the parentheses quoted.'
             ),
             'examples': [
                 {
@@ -149,15 +152,18 @@ MODULE = {
                              "tcpdump 'tcp and not port 22'\n"
                              "tcpdump 'src net 10.0.0.0/8 and dst port 53'\n"
                              '\n'
-                             "wrong:  not tcp port 22\n"
-                             "right:  not (tcp port 22)"),
-                    'note': 'Quote the whole filter. Parentheses, and often the '
-                            'filter itself, are shell metacharacters.',
+                             "not tcp port 22        all of it negated\n"
+                             "not port 22 and tcp    reads as (not port 22) and tcp"),
+                    'note': 'A qualified primitive is one unit, so the first '
+                            'line means what you hoped. The second is the trap: '
+                            'not outranks and. Quote the whole filter, because '
+                            'parentheses are shell metacharacters.',
                 },
             ],
             'misconceptions': [
-                '`not tcp port 22` does not mean "everything except SSH". `not` '
-                'binds to the nearest primitive only.',
+'`not tcp port 22` does mean "everything except SSH": the qualified '
+                'primitive is negated as a whole. What bites is operator '
+                'precedence, because `not` outranks `and`.',
                 '`port 53` matches both TCP and UDP unless you say which, which '
                 'is usually helpful and occasionally surprising.',
                 'BPF has no concept of a connection. It matches packets, so '
@@ -424,8 +430,10 @@ MODULE = {
          'answer': "tcpdump -nn 'not (tcp port 22)'",
          'prompt': 'Capture everything except SSH, with the parentheses that '
                    'make it mean what you want.',
-         'teach': 'not binds to the nearest primitive, so without the '
-                  'parentheses this reads as "not tcp, and port 22".'},
+         'teach': '`not tcp port 22` works without them, but parenthesising '
+                  'is the habit worth having: `not` outranks `and`, so the '
+                  'moment a second operator appears the grouping stops being '
+                  'obvious.'},
         {'id': 'td-cmd-icmp', 'type': 'command', 'answer': "tcpdump -nn 'icmp'",
          'prompt': 'Capture only ICMP.',
          'teach': 'Blocking ICMP outright breaks path MTU discovery, so a '
@@ -659,6 +667,196 @@ MODULE = {
             'verify': {'kind': 'self'},
             'fallback': 'self',
         },
+        {
+            'id': 'td-read-file',
+            'title': 'Read a capture without guessing at anything',
+            'goal': 'Open the capture with the four flags that make output '
+                    'readable and reproducible, and save what you see.',
+            'setup': {'kind': 'pcapbox'},
+            'solution': {'shell': 'tcpdump -r capture.pcap -nn > all.txt '
+                                  '2>/dev/null && '
+                                  'tcpdump -r capture.pcap -nn -c 3 > first3.txt '
+                                  '2>/dev/null'},
+            'steps': [
+                {'instruction': 'Read capture.pcap with no name resolution at '
+                                'all, saving every line to all.txt.',
+                 'hint': 'tcpdump -r capture.pcap -nn > all.txt'},
+                {'instruction': 'Do it again limited to the first three '
+                                'packets, into first3.txt.',
+                 'hint': 'tcpdump -r capture.pcap -nn -c 3 > first3.txt'},
+                {'instruction': 'Note that -nn suppressed both host and port '
+                                'lookups. On current tcpdump a single -n does '
+                                'the same; -nn is a habit from other tools.'},
+            ],
+            'free': 'Produce all.txt holding every packet in capture.pcap '
+                    'with no name resolution, and first3.txt holding only the '
+                    'first three.',
+            'verify': {'kind': 'pcapbox', 'expect': {
+                'file_contains': {'all.txt': ['93.184.216.34.443',
+                                              '10.0.0.5.50000'],
+                                  'first3.txt': 'Flags [S]'},
+                'file_lacks': {'first3.txt': 'ICMP'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'td-filter-file',
+            'title': 'Apply a capture filter to a saved file',
+            'goal': 'The same BPF you would use live, applied while reading, '
+                    'which is how you narrow a capture you already have.',
+            'setup': {'kind': 'pcapbox'},
+            'solution': {'shell':
+                'tcpdump -r capture.pcap -nn "tcp port 443" > https.txt '
+                '2>/dev/null && '
+                'tcpdump -r capture.pcap -nn "icmp" > icmp.txt 2>/dev/null && '
+                'tcpdump -r capture.pcap -nn "udp port 53" > dns.txt '
+                '2>/dev/null'},
+            'steps': [
+                {'instruction': 'Select only the TCP traffic on port 443 into '
+                                'https.txt.',
+                 'hint': 'tcpdump -r capture.pcap -nn "tcp port 443"'},
+                {'instruction': 'Select only ICMP into icmp.txt.'},
+                {'instruction': 'Select only DNS, which is UDP port 53, into '
+                                'dns.txt.'},
+                {'instruction': 'Note that the filter is the same language '
+                                'whether you are reading or capturing.'},
+            ],
+            'free': 'Produce https.txt, icmp.txt and dns.txt by applying '
+                    'three capture filters while reading capture.pcap.',
+            'verify': {'kind': 'pcapbox', 'expect': {
+                'file_contains': {'https.txt': '443',
+                                  'icmp.txt': 'ICMP echo',
+                                  'dns.txt': 'example.com'},
+                'file_lacks': {'https.txt': 'ICMP',
+                               'icmp.txt': '443'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'td-flags-hunt',
+            'title': 'Find the connection that was refused',
+            'goal': 'Use a TCP flag filter to separate a handshake that '
+                    'completed from one that was reset.',
+            'setup': {'kind': 'pcapbox'},
+            'solution': {'shell':
+                'tcpdump -r capture.pcap -nn "tcp[tcpflags] & tcp-rst != 0" '
+                '> resets.txt 2>/dev/null && '
+                'tcpdump -r capture.pcap -nn "tcp[tcpflags] & tcp-syn != 0 '
+                'and tcp[tcpflags] & tcp-ack == 0" > syns.txt 2>/dev/null'},
+            'steps': [
+                {'instruction': 'Select every packet with the RST flag set '
+                                'into resets.txt.',
+                 'hint': 'tcpdump -r capture.pcap -nn "tcp[tcpflags] & '
+                         'tcp-rst != 0"'},
+                {'instruction': 'Select the opening SYNs only, meaning SYN '
+                                'set and ACK clear, into syns.txt.',
+                 'hint': 'tcp[tcpflags] & tcp-syn != 0 and tcp[tcpflags] & '
+                         'tcp-ack == 0'},
+                {'instruction': 'Compare the two. Which SYN never got a '
+                                'handshake, and what answered it instead?'},
+            ],
+            'free': 'Produce resets.txt containing the RST packets and '
+                    'syns.txt containing only the opening SYNs, using flag '
+                    'filters rather than reading by eye.',
+            'verify': {'kind': 'pcapbox', 'expect': {
+                'file_contains': {'resets.txt': '10.0.0.9.22',
+                                  'syns.txt': ['50000', '445']},
+                'file_lacks': {'syns.txt': 'Flags [S.]'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'td-host-net',
+            'title': 'Narrow by host, then by network',
+            'goal': 'Use the host, net and direction primitives, which are '
+                    'the ones that make a large capture manageable.',
+            'setup': {'kind': 'pcapbox'},
+            'solution': {'shell':
+                'tcpdump -r capture.pcap -nn "host 93.184.216.34" > one-host.txt '
+                '2>/dev/null && '
+                'tcpdump -r capture.pcap -nn "src net 192.168.50.0/24" '
+                '> from-net.txt 2>/dev/null && '
+                'tcpdump -r capture.pcap -nn "dst port 22 or dst port 445" '
+                '> to-services.txt 2>/dev/null'},
+            'steps': [
+                {'instruction': 'Select everything to or from 93.184.216.34 '
+                                'into one-host.txt.',
+                 'hint': 'tcpdump -r capture.pcap -nn "host 93.184.216.34"'},
+                {'instruction': 'Select only traffic whose source is in '
+                                '192.168.50.0/24, into from-net.txt.',
+                 'hint': '"src net 192.168.50.0/24"'},
+                {'instruction': 'Select traffic destined for either port 22 '
+                                'or port 445, into to-services.txt.'},
+            ],
+            'free': 'Produce one-host.txt, from-net.txt and to-services.txt '
+                    'using host, src net, and dst port with an or.',
+            'verify': {'kind': 'pcapbox', 'expect': {
+                'file_contains': {'one-host.txt': '93.184.216.34',
+                                  'from-net.txt': '192.168.50.4',
+                                  'to-services.txt': ['10.0.0.9.22',
+                                                      '10.0.0.5.445']},
+                'file_lacks': {'from-net.txt': 'ICMP'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'td-extract',
+            'title': 'Turn a capture into a list you can act on',
+            'goal': 'Pipe tcpdump output through the text tools to answer a '
+                    'question, rather than reading packets one at a time.',
+            'setup': {'kind': 'pcapbox'},
+            'solution': {'shell':
+                'tcpdump -r capture.pcap -nn "tcp" 2>/dev/null | '
+                "awk '{print $3}' | cut -d. -f1-4 | sort -u > talkers.txt && "
+                'tcpdump -r capture.pcap -nn 2>/dev/null | wc -l > count.txt'},
+            'steps': [
+                {'instruction': 'Read every TCP packet and pull out the '
+                                'source field, which is the third column.',
+                 'hint': "tcpdump -r capture.pcap -nn tcp | awk '{print $3}'"},
+                {'instruction': 'Strip the port off the end so you are left '
+                                'with addresses, then sort them unique into '
+                                'talkers.txt.',
+                 'hint': 'cut -d. -f1-4 | sort -u'},
+                {'instruction': 'Separately, count every packet in the file '
+                                'into count.txt.',
+                 'hint': 'tcpdump -r capture.pcap -nn | wc -l > count.txt'},
+            ],
+            'free': 'Produce talkers.txt listing each unique TCP source '
+                    'address once, and count.txt holding the total packet '
+                    'count.',
+            'verify': {'kind': 'pcapbox', 'expect': {
+                'file_contains': {'talkers.txt': ['10.0.0.5', '93.184.216.34'],
+                                  'count.txt': '15'},
+                'file_lacks': {'talkers.txt': '50000'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'td-write-subset',
+            'title': 'Write a smaller capture out of a bigger one',
+            'goal': 'Use -w to carve a subset, which is what you actually '
+                    'hand to someone else or open in Wireshark.',
+            'setup': {'kind': 'pcapbox'},
+            'solution': {'shell':
+                'tcpdump -r capture.pcap -w tcp-only.pcap "tcp" 2>/dev/null && '
+                'tcpdump -r tcp-only.pcap -nn > tcp-only.txt 2>/dev/null && '
+                'tcpdump -r capture.pcap -nn -X "icmp" > icmp-hex.txt '
+                '2>/dev/null'},
+            'steps': [
+                {'instruction': 'Read the capture, keep only TCP, and write '
+                                'the result to tcp-only.pcap.',
+                 'hint': 'tcpdump -r capture.pcap -w tcp-only.pcap "tcp"'},
+                {'instruction': 'Read your new file back as text into '
+                                'tcp-only.txt to prove it worked.'},
+                {'instruction': 'Separately, dump the ICMP packets with their '
+                                'payload in hex and ASCII, into icmp-hex.txt.',
+                 'hint': 'tcpdump -r capture.pcap -nn -X "icmp"'},
+            ],
+            'free': 'Produce tcp-only.pcap containing only the TCP packets, '
+                    'tcp-only.txt proving what is in it, and icmp-hex.txt '
+                    'showing ICMP payloads in hex.',
+            'verify': {'kind': 'pcapbox', 'expect': {
+                'is_file': ['tcp-only.pcap'],
+                'file_contains': {'tcp-only.txt': 'Flags',
+                                  'icmp-hex.txt': ['ICMP echo', '0x0000']},
+                'file_lacks': {'tcp-only.txt': 'ICMP'}}},
+            'fallback': 'self',
+        },
     ],
 
     'quiz': [
@@ -680,22 +878,29 @@ MODULE = {
                   'filter often matches nothing and looks like absent traffic.'},
 
         {'id': 'tdq-not', 'type': 'mcq',
-         'prompt': 'What does `not tcp port 22` actually mean?',
-         'answer': 'Not TCP, and port 22.',
-         'distractors': ['Everything except TCP port 22.',
-                         'Not TCP and not port 22.',
+         'prompt': 'What does `not port 22 and tcp` select?',
+         'answer': 'TCP traffic that is not on port 22, because not binds '
+                   'tighter than and.',
+         'distractors': ['Nothing on port 22, and nothing that is TCP.',
+                         'Everything, since the two halves cancel out.',
                          'It is a syntax error.'],
-         'teach': 'not binds to the nearest primitive. Parenthesise anything '
-                  'with more than two terms.'},
+         'teach': '`tcp port 22` is a single primitive, so `not tcp port 22` '
+                  'negates all of it and does mean "everything except TCP port '
+                  '22". The trap is precedence: not outranks and, so this reads '
+                  'as `(not port 22) and tcp`. Parenthesise anything with more '
+                  'than two terms.'},
 
         {'id': 'tdq-nn', 'type': 'mcq',
          'prompt': 'Why use -nn rather than -n?',
-         'answer': 'The second n also stops port names being resolved.',
-         'distractors': ['It doubles the verbosity.',
-                         'It disables promiscuous mode.',
-                         'It is the same; the second n is ignored.'],
-         'teach': 'You see 443 rather than https, which matches the filter you '
-                  'typed.'},
+         'answer': 'Habit: on current tcpdump -n already stops port names too, '
+                   'so the second n changes nothing.',
+         'distractors': ['The second n also stops port names being resolved.',
+                         'It doubles the verbosity.',
+                         'It disables promiscuous mode.'],
+         'teach': '-n turns off all name resolution, so you already see 443 '
+                  'rather than https. The -n versus -nn distinction is real in '
+                  'some other tools, which is where the habit comes from, and '
+                  'it costs nothing to keep.'},
 
         {'id': 'tdq-flags', 'type': 'mcq',
          'prompt': 'What does `Flags [S.]` mean?',

@@ -94,7 +94,8 @@ class App:
         return None
 
     def handoff(self, argv: list[str], cwd: str | None = None,
-                brief: list[str] | None = None) -> None:
+                brief: list[str] | None = None,
+                env: dict[str, str] | None = None) -> None:
         """D21: give the terminal back, run the real tool, take it back.
 
         With no terminal (tests, or a challenge with nothing to launch) this is
@@ -116,7 +117,7 @@ class App:
         # pane beside us instead of taking the whole terminal. Optional by
         # design, and any failure falls through to the base behaviour.
         if self.allow_split and HO.can_split():
-            if HO.split_and_wait(argv, cwd):
+            if HO.split_and_wait(argv, cwd, env=env):
                 return
 
         with self.tty.suspended():
@@ -134,7 +135,11 @@ class App:
                 print('\u2500' * 60)
                 print()
             try:
-                subprocess.run(argv, cwd=cwd)
+                # Overrides only, layered on the real environment: a shell
+                # handed a stripped env is a shell with no PATH, and the
+                # student would meet a broken prompt rather than a sandbox.
+                merged = {**os.environ, **env} if env else None
+                subprocess.run(argv, cwd=cwd, env=merged)
             except (OSError, subprocess.SubprocessError):
                 pass
 
@@ -215,6 +220,30 @@ class App:
 # --------------------------------------------------------------------------
 # Reset
 # --------------------------------------------------------------------------
+
+def met_total(state, registry) -> int:
+    """How many items have been genuinely met, across every module.
+
+    One number, used only to difference it against the same number taken at
+    launch, so the app can say what this session actually covered.
+    """
+    return sum(sum(state.counts(m.id).values()) for m in registry)
+
+
+def quit_summary(state, before: int, registry) -> str:
+    """The one line worth carrying out of a session, or nothing.
+
+    **Nothing is the common case and the important one.** D24 says the app
+    keeps no clock on you and has no opinion about your pace, so a session
+    where you read a page and left says nothing rather than reporting a zero,
+    which would read as a scold. What it will say is a plain count of what you
+    met, with no streak, no target and no comparison to last time.
+    """
+    gained = met_total(state, registry) - before
+    if gained <= 0:
+        return ''
+    return f'{gained} met this session'
+
 
 def _backup_path(base: Path, at: datetime) -> Path:
     """A backup name that never overwrites an earlier backup.
@@ -434,7 +463,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--tour', action='store_true',
                    help='show the first-run tour again')
     p.add_argument('--no-splash', action='store_true',
-                   help='skip the launch screen')
+                   help='skip the launch and exit animations')
     return p
 
 
@@ -547,22 +576,32 @@ def main(argv: list[str] | None = None) -> int:
         show = (not args.no_splash and state.settings.get('splash', True)
                 and splash.fits(caps))
         if show:
-            registry = splash.play(tty, caps, work=loader.load_all)
+            registry = splash.play(tty, caps, work=loader.load_all,
+                                   note_from=splash.roster_note)
         if registry is None:
             registry = loader.load_all()
         if args.tour:
             state.set_setting('seen_tour', False)
+        # Taken after the splash, because the splash is what loads the
+        # registry, and before any screen opens, so the difference at the end
+        # is exactly what this session covered.
+        before = met_total(state, registry)
         app = App(registry, state, now, caps, kitty=tty.kitty,
                   exit_chord=args.exit_key, allow_split=not args.no_split)
+        summary = ''
         try:
             app.run(tty)
         finally:
             app.shutdown()   # sandboxes die with the app, however it ends
             if state.dirty:
                 state.save()
-    line = quit_summary(state, before, st.now())
-    if line:
-        print(line)
+            summary = quit_summary(state, before, registry)
+            if show:
+                # Same switch as the entrance: someone who turned the splash
+                # off does not want an animation on the way out either.
+                splash.outro(tty, caps, note=summary)
+    if summary:
+        print(summary)
     if sync.path_of(state) is not None:
         ok, msg = sync.push(state, now)
         if not ok:

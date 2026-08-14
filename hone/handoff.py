@@ -67,7 +67,8 @@ def pane_exists(pane_id: str) -> bool:
 
 
 def split_and_wait(argv: list[str], cwd: str | None = None,
-                   vertical: bool = False, clock=time.monotonic) -> bool:
+                   vertical: bool = False, clock=time.monotonic,
+                   env: dict[str, str] | None = None) -> bool:
     """Open `argv` in a new tmux pane and block until that pane closes.
 
     Returns True if the split happened and completed. False means the caller
@@ -83,6 +84,13 @@ def split_and_wait(argv: list[str], cwd: str | None = None,
             '-v' if vertical else '-h']
     if cwd:
         args += ['-c', cwd]
+    # `-e` landed in tmux 3.0. An older tmux rejects the whole command, and
+    # the caller falls back to the suspended handover, which honours env
+    # properly. Failing over is right: silently dropping the override would
+    # point gpg at the student's real keyring, which is the one outcome the
+    # env plumbing exists to prevent.
+    for key, value in (env or {}).items():
+        args += ['-e', f'{key}={value}']
     args.append(inner)
 
     code, pane_id = _tmux(*args)

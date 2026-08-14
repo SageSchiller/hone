@@ -1,34 +1,440 @@
-"""Linux Utilities: openly a drill deck, not a course.
+"""Linux Utilities: the daily tools, taught as models rather than flags.
 
-**This module has no lessons on purpose**, and it is the first one that does.
-The roster's boundary rule says a tool earns its own module only if learning it
-changes how you think; if the difficulty is "I know what I want and cannot
-remember the flags", it is a drill deck instead. Everything here is that.
-
-The Walkthrough view still renders, because D16 rule 1 says hiding a view makes
-a deliberate choice look like a bug. It says what this module is and sends you
-to Drill, which is exactly the empty state that rule was written for.
-
-The teaching that does happen lives in the `teach` on each drill, where it can
-be read at the moment it is relevant rather than in a lesson nobody would open.
-That is the right shape for `tar`: nobody wants a page about it, everybody
-wants the flags at the moment they need them.
+This module was once a deliberate drill deck with no lessons, on the argument
+that these tools are "I know what I want and cannot remember the flags". That
+was reversed at the author's instruction: **every tool gets a full walkthrough,
+no drill decks.** The reversal turned out to improve the content rather than
+pad it, because each of these tools does have a model worth teaching. `find` is
+a small query language, not a search command. `lsof` rests on "everything is an
+open file", which is broader than it sounds. Links only make sense once you see
+that a name is a pointer to an inode. `df` and `du` disagree for a reason worth
+understanding. The flags are still the daily friction, and the drills still
+carry them, but the lessons now supply the idea the flags hang off.
 """
 
 MODULE = {
     'id': 'linuxutils',
     'title': 'Linux Utilities',
     'group': 'Linux',
-    'blurb': 'The flags you always forget. A drill deck, not a course.',
-    'context': 'You are at a shell prompt. These are the flags, not the ideas: the answer is a command you would actually type.',
+    'blurb': 'find, lsof, tar, links, and inspecting files, bytes and space.',
+    'context': 'You are at a shell prompt. The answer is a command you would actually type.',
     'prereqs': ['linux'],
     'adapter': 'sandbox',
-    'estimate': '2-3 hours, then repetition',
+    'estimate': '3-4 hours',
     'order': 43,
 
-    # No lessons. See the module docstring: this is deliberate, and the
-    # Walkthrough view says so rather than being hidden.
-    'lessons': [],
+    'lessons': [
+        {
+            'id': 'lu-find',
+            'title': 'find: a query language for the filesystem',
+            'next': 'lu-lsof',
+            'concept': (
+                'find is not a search command with a pile of flags. It is a '
+                'tiny query language, and once you see that, the flags stop '
+                'being arbitrary. You give it a starting directory, then a '
+                'series of **tests** each file is checked against, and '
+                '**actions** to take on the ones that pass. It walks the tree '
+                'and evaluates the tests left to right, short-circuiting like '
+                '`&&`.\n\n'
+                'The common tests are `-name` (by name, with globs), `-type` '
+                '(`f` file, `d` directory, `l` symlink), `-mtime` (by age in '
+                'days) and `-size`. The signs on `-mtime` and `-size` are the '
+                'thing everyone gets wrong: `-mtime -7` is "less than seven '
+                'days old", `+7` is "more than", and a bare `7` means the '
+                'seventh day exactly, which matches almost nothing. Tests '
+                'combine with an implied AND, and you can write `-o` for OR, '
+                '`!` for NOT, and escaped parentheses to group.\n\n'
+                'The default action is `-print`, but the powerful ones are '
+                '`-exec` and `-delete`. `-exec cmd {} \\;` runs the command '
+                'once per file, where `{}` is the file and `\\;` ends it. '
+                '`-exec cmd {} +` batches many files into one invocation '
+                'instead, which is dramatically faster on thousands of files. '
+                'When you need to pipe the results into another command '
+                'instead, `-print0` writes the names separated by null bytes '
+                'so `xargs -0` can survive filenames with spaces and newlines. '
+                'That is the entire reason both `-print0` and `-0` exist, and '
+                'it is the safety habit worth building.\n\n'
+                '`-prune` is the last piece: it tells find to skip a subtree, '
+                'which is how you keep it out of `.git` or `node_modules`.'
+            ),
+            'examples': [
+                {
+                    'label': 'The query shape',
+                    'code': ('find . -type f -name "*.log" -mtime -7\n'
+                             '     ^         ^            ^\n'
+                             '  where     tests, combined with implied AND\n'
+                             '\n'
+                             'find . \\( -name "*.tmp" -o -name "*.bak" \\) '
+                             '-delete'),
+                    'note': 'Put -type f before -name and it rejects '
+                            'directories before doing the string match, which '
+                            'is faster.',
+                },
+                {
+                    'label': 'Acting on what you found',
+                    'code': ('find . -name "*.py" -exec grep -l TODO {} \\;\n'
+                             '                                one run per file\n'
+                             'find . -name "*.py" -exec grep -l TODO {} +\n'
+                             '                                one run, many '
+                             'files, faster\n'
+                             'find . -print0 | xargs -0 rm\n'
+                             '                                survives spaces '
+                             'in names'),
+                    'note': '{} is the file, \\; ends a per-file -exec, and + '
+                            'batches instead. -print0 with xargs -0 is the '
+                            'safe pipe.',
+                },
+            ],
+            'misconceptions': [
+                'Quote the `-name` pattern. Unquoted, the shell expands `*.log` '
+                'against the current directory before find ever sees it.',
+                '`-mtime 7` is not "within seven days". It is the seventh day '
+                'exactly. You almost always want `-mtime -7`.',
+                '`-exec {} \\;` and `-exec {} +` are different: the first runs '
+                'the command once per file, the second batches them. On '
+                'thousands of files that is the difference between slow and '
+                'instant.',
+                'A pipe of `find | xargs` breaks on a filename with a space '
+                'unless you use `-print0` and `-0`. This is not paranoia; it is '
+                'the first bug you hit on real data.',
+            ],
+            'try_it': [
+                'In a directory tree, run `find . -type f -name "*.py"`, then '
+                'add `-mtime -1`, then swap the action for `-exec wc -l {} +`.',
+            ],
+        },
+        {
+            'id': 'lu-lsof',
+            'title': 'lsof: everything is an open file',
+            'next': 'lu-tar',
+            'concept': (
+                'lsof lists open files, and the reason it is so useful is that '
+                'on Linux "open file" means far more than a document. A network '
+                'connection is an open file. A running program is an open file. '
+                'A shared library mapped into memory is an open file. And a '
+                'file that has been deleted while a process still holds it open '
+                'is an open file that no longer has a name on disk. Once you '
+                'see open files that broadly, lsof answers a whole class of '
+                '"what is going on" questions.\n\n'
+                'The deleted-but-held case is the one worth remembering, '
+                'because it is the answer to a genuinely baffling situation: '
+                '`df` says the disk is full, but `du` cannot find the space. '
+                'That is almost always a log file that was deleted while a '
+                'process kept writing to it. The bytes stay allocated until the '
+                'process closes the handle, and `lsof +L1` lists exactly those '
+                'files, so you can find the process and restart it.\n\n'
+                'The everyday forms are short. `lsof -i :8080` shows who is '
+                'listening on a port, which is how you find what to kill before '
+                'starting your own server. `lsof -p 1234` shows everything one '
+                'process has open. And `lsof /mnt/disk` shows who is using a '
+                'path, which is the answer to "target is busy" when you cannot '
+                'unmount something.'
+            ),
+            'examples': [
+                {
+                    'label': 'The four questions it answers',
+                    'code': ('lsof -i :8080     who is on this port\n'
+                             'lsof -p 1234      what has this process open\n'
+                             'lsof /mnt/disk    who is holding this path busy\n'
+                             'lsof +L1          deleted files still held open'),
+                    'note': '+L1 means "link count below 1", which is exactly a '
+                            'file with no name left on disk.',
+                },
+            ],
+            'misconceptions': [
+                'The "disk full but du finds nothing" mystery is almost always '
+                'a deleted-but-held-open file. `lsof +L1` finds it; restarting '
+                'the process frees the space.',
+                'lsof needs privileges to see other users\' open files, so a '
+                'partial answer usually means you should try it with sudo.',
+                'A socket, a running binary and a mapped library all count as '
+                'open files here, which is why lsof output is longer than you '
+                'expect.',
+            ],
+            'try_it': [
+                'Run `lsof -p $$` to see what your own shell has open, then '
+                '`lsof -i` to see every network connection on the machine.',
+            ],
+        },
+        {
+            'id': 'lu-tar',
+            'title': 'tar: one verb, one file, and options',
+            'next': 'lu-inspect',
+            'concept': (
+                'tar\'s flags look like a random string and are not. Every tar '
+                'command picks exactly one **verb**, almost always names a '
+                '**file**, and optionally sets **compression**. The verb is '
+                '`c` to create, `x` to extract, or `t` to list. The `f` flag is '
+                'followed by the archive name, and it must come last among the '
+                'clustered flags because the next argument belongs to it. The '
+                'compression letter matches the extension: `z` for `.gz`, `j` '
+                'for `.bz2`, `J` for `.xz`.\n\n'
+                'So `tar -czf backup.tar.gz dir` reads as create, gzip, file, '
+                'and `tar -xzf backup.tar.gz` is extract, gzip, file. On '
+                'extraction modern tar detects the compression itself, so '
+                '`tar -xf` usually works without the letter, but naming it does '
+                'no harm.\n\n'
+                'Two options matter for staying out of trouble. `-C dir` '
+                'extracts into a directory you chose rather than the current '
+                'one, which contains a "tar bomb" that would otherwise scatter '
+                'files everywhere. And listing with `t` before extracting lets '
+                'you read the paths first: an archive with absolute paths or '
+                '`../` in it can write outside where you expected, and the '
+                'listing is where you catch that.'
+            ),
+            'examples': [
+                {
+                    'label': 'The verb, the file, the compression',
+                    'code': ('tar -czf out.tar.gz dir/   create, gzip\n'
+                             'tar -xzf out.tar.gz         extract\n'
+                             'tar -tzf out.tar.gz         list, do not extract\n'
+                             'tar -xzf out.tar.gz -C /tmp/here   extract there\n'
+                             'tar -xzf out.tar.gz --strip-components=1'),
+                    'note': 'z gzip, j bzip2, J xz. On extract, modern tar '
+                            'auto-detects, so -xf alone usually works.',
+                },
+            ],
+            'misconceptions': [
+                'The `f` must be immediately before the archive name, because '
+                'that name is its argument. `tar -cfz` puts z where the name '
+                'should be and fails confusingly.',
+                'List with `-tf` before you extract an archive you did not '
+                'make, and read the paths for a leading slash or a `../`.',
+                '`-C` changes directory before extracting, which is the clean '
+                'way to avoid an archive that has no top-level folder spraying '
+                'files into your current one.',
+            ],
+            'try_it': [
+                'Make a directory, `tar -czf` it, `tar -tzf` to list it, then '
+                '`tar -xzf` it into a fresh directory with `-C`.',
+            ],
+        },
+        {
+            'id': 'lu-inspect',
+            'title': 'What is this file, really',
+            'next': 'lu-space',
+            'concept': (
+                'Three questions come up about a file you did not write, and '
+                'each has its own tool. What are its properties? `stat` shows '
+                'the size, the permissions, the inode, the link count and the '
+                'four timestamps. What kind of file is it? `file` reads the '
+                'first bytes and tells you, ignoring the extension entirely, '
+                'which is why it disagrees with the name so usefully. What is '
+                'inside it? `strings` prints the readable runs of characters, '
+                'and `xxd` shows the raw bytes as hex when you need to see '
+                'exactly what is there.\n\n'
+                'Each of these has its own module, where the forensic angle '
+                'is taught in full: what the magic bytes mean, how to carve '
+                'data hidden after a file, how much to trust a timestamp. Here '
+                'you meet them as everyday utilities: `stat` to check a '
+                'timestamp, `file` to identify a download, `strings` to peek '
+                'inside a binary for a version or a path.\n\n'
+                '`xxd` has one trick worth knowing beyond the dump: `-s` seeks '
+                'to an offset and `-l` limits the length, so `xxd -s 512 -l 64` '
+                'shows 64 bytes starting half a kilobyte in. That is how you '
+                'look at one structure inside a disk image without reading the '
+                'whole thing.'
+            ),
+            'examples': [
+                {
+                    'label': 'Identity, type, and contents',
+                    'code': ('stat notes.txt        metadata and timestamps\n'
+                             'file mystery.bin      what it actually is\n'
+                             'strings -n 8 binary   readable runs, min length 8\n'
+                             'xxd file.bin | head   the raw bytes as hex\n'
+                             'xxd -s 512 -l 64 img  64 bytes at offset 512'),
+                    'note': 'file reads content, never the extension. strings '
+                            'defaults to a minimum run of 4, which is noisy; '
+                            '-n raises it.',
+                },
+            ],
+            'misconceptions': [
+                '`file` does not look at the extension. It reads the magic '
+                'bytes, which is why a `.jpg` that is really a zip is caught '
+                'here.',
+                '`strings` with no `-n` uses a minimum of four characters and '
+                'buries the real content in fragments. Raise it to 8 or 10.',
+                'xxd offsets are hexadecimal, so a length from `ls` (decimal) '
+                'and an offset in xxd need converting before they line up.',
+            ],
+            'try_it': [
+                'Run `file` on a few files in `/bin`, then `stat` one and read '
+                'every field, then `strings -n 8` a binary and skim it.',
+            ],
+        },
+        {
+            'id': 'lu-space',
+            'title': 'Where the space went, and watching it change',
+            'next': 'lu-links',
+            'concept': (
+                'Two tools answer "how full is the disk" and they disagree on '
+                'purpose. `df` asks the filesystem itself and reports what it '
+                'believes. `du` walks the tree and adds up the files it can '
+                'find. When they disagree, the gap is information: usually it '
+                'is a deleted file a process still holds open, which `df` counts '
+                'and `du` cannot see (back to lsof), or files hidden underneath '
+                'a mount point. `du -sh * | sort -h` is the one-liner for "what '
+                'is eating this directory", newest sorted so the biggest thing '
+                'is at the bottom.\n\n'
+                '`watch` reruns a command every few seconds and shows only the '
+                'latest output, which is how you watch a number move without '
+                'writing a loop. `watch -n 5 df -h` gives you a live disk meter. '
+                '`-d` highlights what changed between runs.\n\n'
+                '`tee` is a T-junction in a pipe. It writes its input to a file '
+                'and also passes it along, so you can watch output scroll past '
+                'and keep a copy at once. Its most-reached-for form is `sudo '
+                'tee`: a plain `sudo cmd > /etc/file` does not work, because the '
+                'shell opens the redirect as you before sudo runs, so `cmd | '
+                'sudo tee /etc/file` is how you write to a root-owned file.'
+            ),
+            'examples': [
+                {
+                    'label': 'Finding and watching space',
+                    'code': ('df -h                   how full each filesystem '
+                             'is\n'
+                             'du -sh * | sort -h      what is eating this '
+                             'directory\n'
+                             'watch -n 5 df -h        a live disk meter\n'
+                             'cmd | tee out.txt       see it and save it\n'
+                             'echo 1 | sudo tee /proc/sys/...   write as root'),
+                    'note': 'df asks the filesystem; du counts files. Their gap '
+                            'is usually a deleted-but-held file or a mount.',
+                },
+            ],
+            'misconceptions': [
+                '`df` and `du` disagreeing is not a bug. The usual cause is a '
+                'deleted file still held open, which df counts and du cannot '
+                'find.',
+                '`sudo cmd > /root/file` fails because the shell opens the '
+                'redirect as you, before sudo runs. `cmd | sudo tee /root/file` '
+                'is the fix.',
+                '`watch` does not return on its own; it reruns until you press '
+                'Ctrl-C. `-n` sets the interval and `-d` highlights changes.',
+            ],
+            'try_it': [
+                'Run `du -sh * | sort -h` in your home directory, then '
+                '`watch -n 2 ls -l` in a directory while you touch a file in '
+                'another terminal.',
+            ],
+        },
+        {
+            'id': 'lu-links',
+            'title': 'Names, inodes, and the two kinds of link',
+            'next': 'lu-less',
+            'concept': (
+                'A filename is not the file. The file is an **inode**: the data '
+                'plus its metadata, owner, permissions and timestamps. A '
+                'directory entry is just a name that points at an inode. Hold '
+                'that one fact and both kinds of link become obvious.\n\n'
+                'A **hard link**, `ln target link`, is a second name for the '
+                'same inode. The two names are completely equal; neither is the '
+                '"original", the data survives until the last name is removed, '
+                'and because it is a second directory entry for one inode, both '
+                'names must live on the same filesystem. A **symbolic link**, '
+                '`ln -s target link`, is different in kind: it is a small file '
+                'whose contents are a path. It can point across filesystems and '
+                'at directories, and it breaks silently if the target moves, '
+                'because it only ever held the path, not the data.\n\n'
+                '`readlink -f` follows a chain of symlinks to the real path at '
+                'the end. And the lookup tools answer a related question: what '
+                'will actually run when I type this name? `type -a python3` '
+                'shows every meaning the shell has for a name, in priority '
+                'order, which matters because an alias or a shell function '
+                'beats anything on `PATH`. `which` only sees the PATH '
+                'executables, so `type` is the more honest of the two.'
+            ),
+            'examples': [
+                {
+                    'label': 'Two links, one inode idea',
+                    'code': ('ln target link      hard link: another name for\n'
+                             '                    the same inode, same fs\n'
+                             'ln -s target link   symlink: a file holding a '
+                             'path\n'
+                             'readlink -f link    resolve to the real path\n'
+                             'ls -li              show inode numbers and link '
+                             'counts'),
+                    'note': 'ls -li shows the inode number: two hard links '
+                            'share it, a symlink has its own.',
+                },
+                {
+                    'label': 'What will actually run',
+                    'code': ('type -a python3    every meaning, in order\n'
+                             'which python3      only the PATH executable'),
+                    'note': 'type sees aliases and functions; which does not. '
+                            'An alias beats PATH, so type is the honest answer.',
+                },
+            ],
+            'misconceptions': [
+                'A hard link is not a copy. It is the same inode under a second '
+                'name, so an edit through either name changes the one file.',
+                'A symlink breaks if the target moves or is deleted, because it '
+                'only ever stored the path. A hard link does not, because it '
+                'shares the data.',
+                '`which` can lie about what runs, because it does not see '
+                'aliases or shell functions. `type -a` is the one that tells '
+                'the truth.',
+            ],
+            'try_it': [
+                'Make a file, hard-link it, symlink it, and run `ls -li` on all '
+                'three. Then delete the original and see which link still '
+                'works.',
+            ],
+        },
+        {
+            'id': 'lu-less',
+            'title': 'The pager, past the basics',
+            'concept': (
+                'Linux Basics taught `less` as the way to read a long file. It '
+                'repays going deeper, because a few more keys turn a log from '
+                'something you scroll into something you query.\n\n'
+                'Search is the core of it, and it is vim\'s search: `/pattern` '
+                'forward, `?pattern` backward, `n` and `N` to repeat. On a '
+                'thousand-line log, searching for the error beats scrolling to '
+                'it every time. `&pattern` goes further and hides every line '
+                'that does not match, so you can filter a noisy log down to '
+                'just the lines about one request.\n\n'
+                '`F` is the one worth building a habit around. It follows the '
+                'file as it grows, like `tail -f`, but with a difference that '
+                'matters: press Ctrl-C and you stop following and can scroll '
+                'back through everything you have seen, search it, then press '
+                '`F` again to resume. That is strictly better than `tail -f` '
+                'for a live log you also want to read. `-S` chops long lines '
+                'instead of wrapping them, which makes a wide log legible, and '
+                '`g` and `G` jump to the top and bottom.\n\n'
+                'All of this is worth learning once because `less` is what '
+                '`man` uses to display pages, so every one of these keys works '
+                'in a man page too.'
+            ),
+            'examples': [
+                {
+                    'label': 'Querying a log, not scrolling it',
+                    'code': ('/error     search forward     n  N   repeat\n'
+                             '&warning   show only lines matching warning\n'
+                             'F          follow the file as it grows\n'
+                             '           (Ctrl-C to stop and scroll back)\n'
+                             '-S         chop long lines instead of wrapping\n'
+                             'g   G      jump to the top / the end'),
+                    'note': 'The keys are vim\'s keys, and because man uses '
+                            'less, they all work in a man page as well.',
+                },
+            ],
+            'misconceptions': [
+                '`F` is not stuck. Ctrl-C stops following and lets you scroll '
+                'and search what you have seen; `F` resumes. That is why it '
+                'beats `tail -f` when you also want to read.',
+                'less loads only what it shows, so it opens a file too big to '
+                'fit in memory instantly. That is the whole reason to use it '
+                'over `cat`.',
+                '`&pattern` filters the view to matching lines, which is '
+                'different from `/pattern` that only jumps between them.',
+            ],
+            'try_it': [
+                'Open a long log with `less -S`, filter it with `&` to one '
+                'pattern, then open `man less` and use `/` to find the `-S` '
+                'flag.',
+            ],
+        },
+    ],
 
     'drills': [
         # find and xargs
@@ -329,6 +735,198 @@ MODULE = {
                 'is_symlink': {'soft.txt': 'data.txt'},
                 'is_file': ['hard.txt'],
                 'file_equals': {'hard.txt': 'original'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lu-find-predicates',
+            'title': 'Order the predicates so find does less work',
+            'goal': 'find evaluates left to right and stops early. Use that '
+                    'deliberately, and use -print0 where it matters.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'src/a.log': 'one\n',
+                'src/b.txt': 'two\n',
+                'src/deep/c.log': 'three\n',
+                'src/deep/d.md': 'four\n',
+                'src/odd name.log': 'five\n',
+            }},
+            'solution': {'shell':
+                'find src -type f -name "*.log" > logs.txt && '
+                'find src -maxdepth 1 -type f -name "*.log" > shallow.txt && '
+                'find src -type f -name "*.log" -print0 | '
+                'xargs -0 wc -l > counted.txt && '
+                'find src -type f -newer src/a.log > newer.txt'},
+            'steps': [
+                {'instruction': 'Find every regular file ending in .log '
+                                'anywhere under src, into logs.txt.',
+                 'hint': 'find src -type f -name "*.log"'},
+                {'instruction': 'Do it again limited to the top level, into '
+                                'shallow.txt.',
+                 'hint': '-maxdepth 1, and it goes before -name'},
+                {'instruction': 'Count the lines of every match, using '
+                                '-print0 and xargs -0 so the filename with a '
+                                'space survives.',
+                 'hint': 'find ... -print0 | xargs -0 wc -l > counted.txt'},
+                {'instruction': 'Find files newer than src/a.log into '
+                                'newer.txt.',
+                 'hint': 'find src -type f -newer src/a.log'},
+            ],
+            'free': 'Produce logs.txt, shallow.txt, counted.txt built with '
+                    '-print0 and xargs -0, and newer.txt.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'logs.txt': ['src/a.log', 'src/deep/c.log'],
+                                  'shallow.txt': 'src/a.log',
+                                  'counted.txt': 'odd name.log'},
+                'file_lacks': {'shallow.txt': 'deep/c.log',
+                               'logs.txt': 'b.txt'},
+                'is_file': ['newer.txt']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lu-stat-du',
+            'title': 'Ask precisely how big and how old',
+            'goal': 'stat, du and df answer three different size questions, '
+                    'and mixing them up is why numbers disagree.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'data/small.txt': 'x\n',
+                'data/notes.md': 'a longer file with rather more content\n',
+            }},
+            'solution': {'shell':
+                'stat -c "%n %s %y" data/*.* > sizes.txt && '
+                'du -sh data > dirsize.txt && '
+                'du -ab data | sort -rn > bybytes.txt && '
+                'df -h . > filesystem.txt'},
+            'steps': [
+                {'instruction': 'Write the name, byte size and modification '
+                                'time of each file in data to sizes.txt.',
+                 'hint': 'stat -c "%n %s %y" data/*.*'},
+                {'instruction': 'Record the total size of the directory, '
+                                'human readable, in dirsize.txt.',
+                 'hint': 'du -sh data'},
+                {'instruction': 'List every entry by apparent byte size, '
+                                'largest first, in bybytes.txt.',
+                 'hint': 'du -ab data | sort -rn'},
+                {'instruction': 'Record the free space of the filesystem in '
+                                'filesystem.txt, and note that du and df '
+                                'measure different things.'},
+            ],
+            'free': 'Produce sizes.txt from stat, dirsize.txt and bybytes.txt '
+                    'from du, and filesystem.txt from df.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'sizes.txt': ['small.txt', 'notes.md'],
+                                  'dirsize.txt': 'data',
+                                  'bybytes.txt': 'notes.md',
+                                  'filesystem.txt': '%'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lu-which-type',
+            'title': 'Find out what will actually run',
+            'goal': 'which, type and command -v disagree, and the '
+                    'disagreement is the point: an alias or a function beats '
+                    'anything on PATH.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+            'solution': {'shell':
+                'type -a ls > type-ls.txt 2>&1; '
+                'command -v grep > cv-grep.txt 2>&1; '
+                'greet() { echo hi; }; '
+                'type greet > type-func.txt 2>&1; '
+                'echo "$PATH" | tr ":" "\\n" > pathdirs.txt; true'},
+            'steps': [
+                {'instruction': 'Record every meaning of ls that the shell '
+                                'knows, into type-ls.txt.',
+                 'hint': 'type -a ls'},
+                {'instruction': 'Record the resolved path of grep into '
+                                'cv-grep.txt with the portable command.',
+                 'hint': 'command -v grep'},
+                {'instruction': 'Define a shell function and ask type about '
+                                'it, into type-func.txt. Note that which '
+                                'would not have found it at all.',
+                 'hint': 'greet() { echo hi; }; type greet'},
+                {'instruction': 'Split PATH onto one directory per line in '
+                                'pathdirs.txt, and read the order.',
+                 'hint': 'echo "$PATH" | tr ":" "\\n"'},
+            ],
+            'free': 'Produce type-ls.txt, cv-grep.txt, type-func.txt showing '
+                    'a function, and pathdirs.txt with one PATH entry per '
+                    'line.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'type-ls.txt': 'ls',
+                                  'cv-grep.txt': 'grep',
+                                  'type-func.txt': 'function',
+                                  'pathdirs.txt': '/'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lu-inspect-bytes',
+            'title': 'file, strings and xxd on the same three files',
+            'goal': 'The three inspection tools, applied together, so the '
+                    'division of labour between them is obvious.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'plain.txt': 'ordinary text file\n',
+                'script.sh': {'content': '#!/bin/bash\necho hello\n',
+                              'mode': '755'},
+                'weird.dat': '\x00\x01\x02hidden marker string here'
+                             '\x00\x03',
+            }},
+            'solution': {'shell':
+                'file plain.txt script.sh weird.dat > types.txt && '
+                'strings -n 6 weird.dat > found.txt && '
+                'xxd -l 16 weird.dat > head.txt && '
+                'head -c 2 script.sh > shebang.txt'},
+            'steps': [
+                {'instruction': 'Identify all three files by content into '
+                                'types.txt.',
+                 'hint': 'file plain.txt script.sh weird.dat'},
+                {'instruction': 'Pull the readable strings of at least six '
+                                'characters out of weird.dat into found.txt.',
+                 'hint': 'strings -n 6 weird.dat'},
+                {'instruction': 'Dump the first sixteen bytes of weird.dat as '
+                                'hex into head.txt.',
+                 'hint': 'xxd -l 16 weird.dat'},
+                {'instruction': 'Write just the first two bytes of script.sh '
+                                'to shebang.txt. Those two bytes are why it '
+                                'runs.',
+                 'hint': 'head -c 2 script.sh'},
+            ],
+            'free': 'Produce types.txt, found.txt with the embedded string, '
+                    'head.txt with a hex dump, and shebang.txt holding the '
+                    'first two bytes of the script.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'types.txt': ['plain.txt', 'script.sh'],
+                                  'found.txt': 'hidden marker string',
+                                  'head.txt': '00000000'},
+                'file_equals': {'shebang.txt': '#!'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lu-lsof-watch',
+            'title': 'The two tools you reach for when something is stuck',
+            'goal': 'lsof answers who is holding this, and watch answers is '
+                    'it changing. Both on your own machine, because both are '
+                    'about live state.',
+            'setup': {'kind': 'self'},
+            'steps': [
+                {'instruction': 'Find every process holding a file open under '
+                                'your home directory.',
+                 'hint': 'lsof +D ~ 2>/dev/null | head'},
+                {'instruction': 'Find what is listening on a port you know is '
+                                'in use.',
+                 'hint': 'lsof -i :22'},
+                {'instruction': 'Find deleted files that are still held open, '
+                                'which is the classic reason a disk is full '
+                                'and du disagrees.',
+                 'hint': 'lsof +L1 2>/dev/null'},
+                {'instruction': 'Watch a changing command every second and '
+                                'have it highlight the differences.',
+                 'hint': 'watch -n1 -d "ls -l /tmp | tail"'},
+                {'instruction': 'Explain, in a sentence, why lsof +L1 can '
+                                'find space that df says is used and du '
+                                'cannot account for.'},
+            ],
+            'free': 'On your own machine: use lsof to find open files by '
+                    'directory, by port, and deleted-but-held, and use watch '
+                    'with difference highlighting.',
+            'verify': {'kind': 'self'},
             'fallback': 'self',
         },
     ],

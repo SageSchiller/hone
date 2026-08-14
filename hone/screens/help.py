@@ -17,7 +17,7 @@ records having seen it.
 from __future__ import annotations
 
 from ..config import EXIT_CHORD
-from ..render import Caps, Text, wrap
+from ..render import Caps, Text, wrap_rich
 from . import POP, STAY, Screen
 
 
@@ -99,7 +99,7 @@ HELP = [
            ('hone --doctor', 'why something degrades on this machine'),
            ('hone --reset', 'erase progress and start over, backup written'),
            ('hone --ascii', 'no box drawing, for a plain terminal'),
-           ('hone --no-splash', 'skip the launch screen'),
+           ('hone --no-splash', 'skip the launch and exit animations'),
            ('hone --no-split', 'never open a second tmux pane')]),
 ]
 
@@ -133,8 +133,7 @@ class HelpScreen(Screen):
         rows: list[Text] = [Text(),
                             Text().add('  ' + c['title'], p.accent, bold=True),
                             Text()]
-        for ln in wrap(c['body'], caps.cols - 6, '  '):
-            rows.append(Text().add(ln, p.fg) if ln else Text())
+        rows += wrap_rich(caps, c['body'], caps.cols - 6, '  ', p.fg, p.accent)
         rows.append(Text())
 
         width = max((len(k) for k, _ in c['rows']), default=0)

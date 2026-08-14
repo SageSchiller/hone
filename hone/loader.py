@@ -165,6 +165,19 @@ class Registry:
     def ids(self) -> list[str]:
         return [m.id for m in self.modules]
 
+    def tally(self) -> dict[str, int]:
+        """How much content this build actually holds, counted not claimed.
+
+        One place, because two screens now answer "how much is here" and a
+        second hand-written total is a second number to go stale.
+        """
+        out = {'tools': len(self.modules),
+               'lessons': 0, 'drills': 0, 'challenges': 0, 'quiz': 0}
+        for m in self.modules:
+            for kind in ('lessons', 'drills', 'challenges', 'quiz'):
+                out[kind] += len(m.items(kind))
+        return out
+
     def providers(self) -> dict[str, str]:
         """Shared content packs (D9) mapped to the module that owns them.
 

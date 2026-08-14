@@ -131,7 +131,6 @@ MODULE = {
         {
             'id': 'lx-files',
             'title': 'Creating, moving and destroying',
-            'next': 'lx-permissions',
             'concept': (
                 'Five commands cover almost everything: `mkdir`, `touch`, `cp`, '
                 '`mv` and `rm`.\n\n'
@@ -176,10 +175,79 @@ MODULE = {
                 'Create a directory, put a file in it, rename the directory, and '
                 'confirm the file is still inside.',
             ],
+            'next': 'lx-viewing',
+        },
+        {
+            'id': 'lx-viewing',
+            'title': 'Reading a file without opening an editor',
+            'next': 'lx-permissions',
+            'concept': (
+                'Most of what you do on a Linux machine is look at files you are '
+                'not editing: a log, a config, the top of a huge data file. '
+                'Opening an editor for that is slow and, on a ten-gigabyte log, '
+                'a mistake. There are four tools, and each answers a different '
+                'question.\n\n'
+                '`cat` dumps the whole file to the screen. It is right for '
+                'something short, and wrong for anything long, because it all '
+                'scrolls past. `less` is the answer for long files: it opens a '
+                'pager you can scroll and search and then leave, and it loads '
+                'only what it shows, so it opens a huge file instantly. The '
+                'reason it is worth learning first is that its keys are vi\'s '
+                'keys: `/` searches, `n` repeats, `g` and `G` jump to the ends, '
+                '`q` quits. Learning `less` reinforces the vim module for free.\n\n'
+                '`head` and `tail` show the ends. `head` is the first ten lines, '
+                '`tail` the last ten, and both take `-n` to change the count. '
+                'The one worth building into muscle memory is `tail -f`, which '
+                'follows a file as it grows: point it at a log and watch new '
+                'lines appear live. That is how you watch a service while you '
+                'poke it.\n\n'
+                '`wc` counts: `wc -l` is lines, which answers "how big is this" '
+                'faster than reading it, and it is the end of a great many '
+                'pipelines.'
+            ),
+            'examples': [
+                {
+                    'label': 'The four, and when each fits',
+                    'code': ('cat f            dump it all (short files only)\n'
+                             'less f           page through it: / to search, q\n'
+                             'head f           first ten lines\n'
+                             'tail f           last ten lines\n'
+                             'tail -n 50 f     last fifty\n'
+                             'tail -f log      follow it live as it grows\n'
+                             'wc -l f          count the lines'),
+                    'note': 'less loads only what it shows, so it opens a '
+                            'ten-gigabyte file instantly where cat would flood '
+                            'the terminal.',
+                },
+                {
+                    'label': 'less is vi',
+                    'code': ('/pattern   search forward     n   next match\n'
+                             'g   G      top / bottom\n'
+                             'Space      down a page        b   up a page\n'
+                             'q          quit'),
+                    'note': 'The same keys as the vim module, which is why less '
+                            'feels familiar the moment you have met vim.',
+                },
+            ],
+            'misconceptions': [
+                'cat is not for reading long files. It has no paging, so '
+                'everything scrolls past; that is what less is for.',
+                'Piping cat into another command is usually pointless. '
+                '`cat f | grep x` should be `grep x f`; the joke name for the '
+                'habit is a "useless use of cat".',
+                'less does not load the whole file. That is exactly why it is '
+                'safe on a file too big to fit in memory.',
+                'tail -f follows the file, so it does not return on its own. '
+                'Ctrl-C leaves it.',
+            ],
+            'try_it': [
+                'Run `less /etc/services`, search for `http` with `/http`, press '
+                '`n` a couple of times, then `q`. Then `tail -n 5 /etc/passwd`.',
+            ],
         },
         {
             'id': 'lx-permissions',
-            'title': 'Permissions, and what x means on a directory',
+            'title': 'Permissions, ownership, and becoming root',
             'next': 'lx-redirection',
             'concept': (
                 'Every file has an owner, a group, and three sets of three bits: '
@@ -194,7 +262,23 @@ MODULE = {
                 'list the names in it. Execute means you can pass through it to '
                 'reach what is inside. A directory with read but not execute '
                 'lets you see the names and open nothing, which is a genuinely '
-                'confusing state until you know it exists.'
+                'confusing state until you know it exists.\n\n'
+                'All of this has one exception, and it is called **root**. Root '
+                'is the administrative user, user id 0, and the permission bits '
+                'simply do not apply to it: root reads, writes and traverses '
+                'anything. You should not log in as root, and on a modern '
+                'system you usually cannot. Instead you borrow root for one '
+                'command with `sudo`. `sudo` runs a single command as root '
+                'after checking you are allowed and asking for your own '
+                'password, so the danger is scoped to that one line rather than '
+                'a whole session. `sudo -i` gives you a root shell when you '
+                'genuinely need several commands, and in bash or zsh `sudo !!` '
+                'reruns the last command with sudo, which is the muscle-memory '
+                'fix for "permission denied" (fish has no history expansion, so '
+                'press Up and edit the line instead). Editing a system file '
+                'wants `sudoedit '
+                'file` rather than `sudo vim file`, because the former keeps '
+                'your own editor config and drops root the moment you are done.'
             ),
             'examples': [
                 {
@@ -219,6 +303,20 @@ MODULE = {
                     'note': 'umask is subtractive, which is why the default of '
                             '022 produces 755 directories and 644 files.',
                 },
+                {
+                    'label': 'Borrowing root, scoped to one command',
+                    'code': ('sudo systemctl restart nginx   run one as root\n'
+                             'sudo !!                        rerun the last\n'
+                             '                               command with sudo\n'
+                             'sudo -i                        a root shell, when\n'
+                             '                               you need several\n'
+                             'sudoedit /etc/hosts            edit a system file\n'
+                             '                               without editing as\n'
+                             '                               root'),
+                    'note': 'sudo asks for YOUR password, not root\'s, and logs '
+                            'what it ran. That audit trail is half the reason it '
+                            'exists.',
+                },
             ],
             'misconceptions': [
                 'On a directory, `x` is not "run it". It is permission to '
@@ -228,6 +326,12 @@ MODULE = {
                 'needs a shebang line, or to be passed to an interpreter.',
                 'Permissions are on the file, not on the name. A symlink to a '
                 'file you cannot read does not help you read it.',
+                'root is not bound by the permission bits at all. They are a '
+                'rule for everyone except user id 0, which is why a stray '
+                '`sudo rm -rf` has nothing to stop it.',
+                '`sudo command > /etc/file` does not write the file as root: '
+                'the shell opens the redirect as YOU, before sudo runs. That is '
+                'what `sudo tee` and `sudoedit` are for.',
                 'setuid, setgid and the sticky bit exist and are a fourth digit. '
                 'They are the Linux Advanced module\'s problem, not yours yet.',
             ],
@@ -464,10 +568,41 @@ MODULE = {
         {'id': 'lx-cmd-cpr', 'type': 'command', 'answer': 'cp -r src dst',
          'prompt': 'Copy the directory src to dst.',
          'teach': 'Without -r, cp refuses and says "omitting directory".'},
+
+        # viewing files
+        {'id': 'lx-cmd-less', 'type': 'command', 'answer': 'less /var/log/syslog',
+         'prompt': 'Page through the log file /var/log/syslog.',
+         'teach': 'less loads only what it shows, so it opens a huge file '
+                  'instantly. Its keys are vi keys: / searches, q quits.'},
+        {'id': 'lx-cmd-head', 'type': 'command', 'answer': 'head -n 20 access.log',
+         'prompt': 'Show the first 20 lines of access.log.',
+         'teach': 'head is the top, tail is the bottom, and -n sets how many.'},
+        {'id': 'lx-cmd-tailf', 'type': 'command', 'answer': 'tail -f access.log',
+         'prompt': 'Watch access.log live as new lines are written.',
+         'teach': 'tail -f follows the file and does not return; Ctrl-C leaves '
+                  'it. This is how you watch a service while you poke it.'},
+        {'id': 'lx-cmd-wc', 'type': 'command', 'answer': 'wc -l access.log',
+         'prompt': 'Count the lines in access.log.',
+         'teach': 'wc -l answers "how big is this" faster than reading it, and '
+                  'it ends a great many pipelines.'},
         {'id': 'lx-cmd-back', 'type': 'command', 'answer': 'cd -',
          'prompt': 'Return to the directory you were in before this one.',
          'teach': 'The dash means the previous directory, and it prints where '
                   'it took you. Same convention as git switch -.'},
+        {'id': 'lx-cmd-sudo', 'type': 'command',
+         'answer': 'sudo systemctl restart nginx',
+         'prompt': 'Restart the nginx service, which needs root.',
+         'teach': 'sudo runs one command as root after asking for your own '
+                  'password. The danger is scoped to that single line.'},
+        {'id': 'lx-cmd-sudo-bang', 'type': 'command', 'answer': 'sudo !!',
+         'prompt': 'Rerun the command you just ran, this time as root.',
+         'teach': 'The muscle-memory fix for "permission denied": !! is the '
+                  'previous command, and sudo puts root in front of it.'},
+        {'id': 'lx-cmd-sudoedit', 'type': 'command', 'answer': 'sudoedit /etc/hosts',
+         'prompt': 'Edit the system file /etc/hosts with elevated rights.',
+         'teach': 'sudoedit keeps your own editor config and drops root the '
+                  'moment you finish, unlike sudo vim which runs the editor '
+                  'itself as root.'},
         {'id': 'lx-cmd-chmod-x', 'type': 'command', 'answer': 'chmod +x script.sh',
          'prompt': 'Make script.sh executable.',
          'teach': '+x adds execute for everyone without touching the other '
@@ -805,6 +940,143 @@ MODULE = {
                                'missing': ['one.bak',
                                            'two.bak',
                                            'three.bak']}},
+         'fallback': 'self'},
+
+        {'id': 'lx-read-log',
+         'title': 'Answer questions about a file without editing it',
+         'goal': 'A file too long to read at once. Pull the answer out of it '
+                 'with head, tail and wc rather than opening an editor.',
+         'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+         'solution': {'shell':
+             'for i in $(seq 1 200); do echo "line $i"; done > big.log && '
+             'head -n 3 big.log > first.txt && '
+             'tail -n 3 big.log > last.txt && '
+             'wc -l big.log | awk \'{print $1}\' > count.txt'},
+         'steps': [{'instruction': 'Make a 200-line file to work on.',
+                    'hint': 'for i in $(seq 1 200); do echo "line $i"; done '
+                            '> big.log'},
+                   {'instruction': 'Write its first three lines to first.txt '
+                                   'and its last three to last.txt.',
+                    'hint': 'head -n 3 big.log; tail -n 3 big.log'},
+                   {'instruction': 'Write just the line count to count.txt.',
+                    'hint': 'wc -l, then pull off the number'}],
+         'free': 'Produce first.txt with the first three lines, last.txt with '
+                 'the last three, and count.txt holding just the line count of '
+                 'a 200-line file.',
+         'verify': {'kind': 'sandbox', 'expect': {
+             'file_contains': {'first.txt': 'line 1', 'last.txt': 'line 200'},
+             'file_equals': {'count.txt': '200'},
+             'file_lacks': {'first.txt': 'line 200'}}},
+         'fallback': 'self'},
+
+        {'id': 'lx-umask',
+         'title': 'Work out what umask did',
+         'goal': 'umask subtracts from the default permissions of new files. '
+                 'Set one, create things, and read the result back.',
+         'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+         'solution': {'shell':
+             'umask 077 && touch private.txt && mkdir privatedir && '
+             'umask 022 && touch shared.txt && mkdir shareddir && '
+             'stat -c "%n %a" private.txt privatedir shared.txt shareddir '
+             '> modes.txt && umask > current.txt'},
+         'steps': [{'instruction': 'Set the umask to 077, then create a file '
+                                   'and a directory.',
+                    'hint': 'umask 077; touch private.txt; mkdir privatedir'},
+                   {'instruction': 'Set it to 022 and create another of '
+                                   'each.'},
+                   {'instruction': 'Record the mode of all four with stat, '
+                                   'into modes.txt.',
+                    'hint': 'stat -c "%n %a" private.txt privatedir ...'},
+                   {'instruction': 'Save the current umask to current.txt, '
+                                   'and note that files start from 666 and '
+                                   'directories from 777.'}],
+         'free': 'Produce modes.txt showing a 600 file and 700 directory made '
+                 'under umask 077, and a 644 file and 755 directory made '
+                 'under 022.',
+         'verify': {'kind': 'sandbox', 'expect': {
+             'file_contains': {'modes.txt': ['private.txt 600',
+                                             'privatedir 700',
+                                             'shared.txt 644',
+                                             'shareddir 755']},
+             'mode': {'private.txt': '600', 'shared.txt': '644'}}},
+         'fallback': 'self'},
+
+        {'id': 'lx-jobs-signals',
+         'title': 'Background it, then signal it',
+         'goal': 'Job control is a few commands and one number. Use them on '
+                 'processes you started yourself.',
+         'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+         'solution': {'shell':
+             'sleep 40 &\n'
+             'first=$!\n'
+             'sleep 41 &\n'
+             'second=$!\n'
+             'jobs > jobs.txt 2>&1\n'
+             'echo "$first" > firstpid.txt\n'
+             'kill -TERM "$first"\n'
+             'sleep 1\n'
+             'ps -o pid= -p "$first" > gone.txt 2>/dev/null\n'
+             'ps -o pid= -p "$second" > alive.txt 2>/dev/null\n'
+             'kill "$second" 2>/dev/null\n'
+             'kill -l > signals.txt\n'
+             'true'},
+         'steps': [{'instruction': 'Start two background sleeps and record '
+                                   'the first pid.',
+                    'hint': 'sleep 40 & first=$!'},
+                   {'instruction': 'Write the jobs table to jobs.txt.',
+                    'hint': 'jobs > jobs.txt'},
+                   {'instruction': 'Send TERM to the first one only, then '
+                                   'check which of the two is still there.',
+                    'hint': 'kill -TERM "$first"; ps -o pid= -p "$first"'},
+                   {'instruction': 'List every signal name into signals.txt.',
+                    'hint': 'kill -l'}],
+         'free': 'Produce jobs.txt, firstpid.txt, an empty gone.txt, a '
+                 'non-empty alive.txt, and signals.txt listing the signal '
+                 'names.',
+         'verify': {'kind': 'sandbox', 'expect': {
+             'is_file': ['jobs.txt', 'firstpid.txt', 'gone.txt', 'alive.txt'],
+             'file_equals': {'gone.txt': ''},
+             'file_contains': {'signals.txt': ['TERM', 'KILL', 'HUP']}}},
+         'fallback': 'self'},
+
+        {'id': 'lx-env-path',
+         'title': 'Put your own directory on PATH',
+         'goal': 'Environment and PATH are how the shell decides what runs. '
+                 'Change both deliberately, and prove which one won.',
+         'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+         'solution': {'shell':
+             'mkdir -p bin\n'
+             'printf "#!/bin/bash\\necho custom greeting\\n" > bin/greet\n'
+             'chmod +x bin/greet\n'
+             'PATH="$PWD/bin:$PATH" greet > ran.txt\n'
+             'PATH="$PWD/bin:$PATH" command -v greet > which.txt\n'
+             'MYVAR=hello bash -c \'echo "$MYVAR"\' > exported.txt\n'
+             'bash -c \'echo "MYVAR is [${MYVAR:-unset}]"\' > notexported.txt\n'
+             'true'},
+         'steps': [{'instruction': 'Make a bin directory and put an '
+                                   'executable script called greet in it.',
+                    'hint': 'printf into bin/greet, then chmod +x bin/greet'},
+                   {'instruction': 'Run it by name with your bin directory '
+                                   'prepended to PATH, saving output to '
+                                   'ran.txt.',
+                    'hint': 'PATH="$PWD/bin:$PATH" greet > ran.txt'},
+                   {'instruction': 'Record where the shell resolved it to, in '
+                                   'which.txt.',
+                    'hint': 'command -v greet'},
+                   {'instruction': 'Show a variable set for one command '
+                                   'reaching its child, and the same variable '
+                                   'absent from a separate command.',
+                    'hint': 'MYVAR=hello bash -c ...'}],
+         'free': 'Produce ran.txt from a script found via a modified PATH, '
+                 'which.txt showing where it resolved, and exported.txt and '
+                 'notexported.txt showing a variable reaching one child and '
+                 'not another.',
+         'verify': {'kind': 'sandbox', 'expect': {
+             'executable': ['bin/greet'],
+             'file_equals': {'ran.txt': 'custom greeting',
+                             'exported.txt': 'hello'},
+             'file_contains': {'which.txt': 'bin/greet',
+                               'notexported.txt': 'unset'}}},
          'fallback': 'self'},
                   ],
 

@@ -25,6 +25,12 @@ MODULE = {
     'blurb': 'The pattern language, and the tools that read it.',
     'context': 'You are writing a pattern, not running a command. Assume no flags unless the drill says otherwise.',
     'prereqs': [],
+    # Four challenges drive real nvim, so the module genuinely needs it. It
+    # was the only module in the roster with a real adapter and no `needs`,
+    # which meant the picker promised checking on a machine that could not
+    # deliver it. (The `grep -oP` drills want a PCRE-enabled grep, which is
+    # not declarable here: grep itself is a given, and -P is a build option.)
+    'needs': ('nvim',),
     'adapter': 'nvim',
     'estimate': '4-6 hours',
     'order': 30,
@@ -642,7 +648,7 @@ MODULE = {
          'teach': '-E is extended regex. Without it you would need '
                   '^\\(ERROR\\|WARN\\).'},
         {'id': 'rx-cmd-grep-o', 'type': 'command',
-         'answer': 'grep -o "[0-9]*" file.log',
+         'answer': 'grep -oE "[0-9]+" file.log',
          'prompt': 'From your shell: print only the matching digits from '
                    'file.log rather than the whole line.',
          'teach': '-o turns grep from a locator into an extractor, and pairs '
@@ -755,6 +761,203 @@ MODULE = {
             'verify': {'kind': 'nvim',
                        'expect': {'lines': ['SEVERE: one', 'INFO: two',
                                             'SEVERE: three', 'DEBUG: four']}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'rx-greedy',
+            'title': 'Make a quantifier stop early',
+            'goal': 'The greedy quantifier eats the whole line. Fix it two '
+                    'ways, and see that both work.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'tags.txt': '<b>bold</b> and <i>italic</i>\n'
+                            '<p>para</p> then <span>end</span>\n',
+            }},
+            'solution': {'shell':
+                "grep -oP '<[^>]+>' tags.txt > classes.txt && "
+                "grep -oP '<.+?>' tags.txt > lazy.txt && "
+                "grep -oP '<.+>' tags.txt > greedy.txt"},
+            'steps': [
+                {'instruction': 'Extract every tag using a negated character '
+                                'class, into classes.txt. This is the fix '
+                                'that needs no lazy quantifier at all.',
+                 'hint': "grep -oP '<[^>]+>' tags.txt"},
+                {'instruction': 'Now do it with a lazy quantifier instead, '
+                                'into lazy.txt.',
+                 'hint': "grep -oP '<.+?>' tags.txt"},
+                {'instruction': 'Now do it greedily into greedy.txt, and see '
+                                'what one match per line looks like.',
+                 'hint': "grep -oP '<.+>' tags.txt"},
+                {'instruction': 'Compare all three. The negated class is '
+                                'usually the better habit, because it says '
+                                'what you mean.'},
+            ],
+            'free': 'Produce classes.txt and lazy.txt each holding the '
+                    'individual tags, and greedy.txt showing what a greedy '
+                    'quantifier swallows instead.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'classes.txt': ['<b>', '</b>', '<span>'],
+                                  'lazy.txt': ['<b>', '</i>'],
+                                  'greedy.txt': '<b>bold</b> and <i>italic</i>'},
+                'file_lacks': {'classes.txt': 'bold</b>'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'rx-dialects',
+            'title': 'The same pattern in three dialects',
+            'goal': 'Write one intent for basic grep, extended grep and Perl '
+                    'grep, and feel exactly where the backslashes move.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'log.txt': 'ERROR disk full\n'
+                           'WARN disk warm\n'
+                           'INFO all fine\n'
+                           'ERROR net down\n'
+                           'DEBUG noise\n',
+            }},
+            'solution': {'shell':
+                "grep '^\\(ERROR\\|WARN\\)' log.txt > basic.txt && "
+                "grep -E '^(ERROR|WARN)' log.txt > extended.txt && "
+                "grep -P '^(?:ERROR|WARN)\\s+\\w+' log.txt > perl.txt"},
+            'steps': [
+                {'instruction': 'Match lines starting with ERROR or WARN '
+                                'using basic grep, where groups and '
+                                'alternation need backslashes. Save to '
+                                'basic.txt.',
+                 'hint': "grep '^\\(ERROR\\|WARN\\)' log.txt"},
+                {'instruction': 'The same intent with -E, where they do not, '
+                                'into extended.txt.',
+                 'hint': "grep -E '^(ERROR|WARN)' log.txt"},
+                {'instruction': 'Now with -P, adding a non-capturing group '
+                                'and a shorthand class, into perl.txt.',
+                 'hint': "grep -P '^(?:ERROR|WARN)\\s+\\w+' log.txt"},
+                {'instruction': 'All three select the same lines. Only the '
+                                'spelling changed, and that is the entire '
+                                'dialect problem.'},
+            ],
+            'free': 'Produce basic.txt, extended.txt and perl.txt, each '
+                    'holding the ERROR and WARN lines, written in that '
+                    'dialect.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'basic.txt': ['ERROR disk full',
+                                                'WARN disk warm'],
+                                  'extended.txt': 'ERROR net down',
+                                  'perl.txt': 'WARN disk warm'},
+                'file_lacks': {'basic.txt': 'INFO', 'perl.txt': 'DEBUG'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'rx-sed-capture',
+            'title': 'Rewrite with captures in sed',
+            'goal': 'Capture groups on the left, backreferences on the '
+                    'right, which is the whole of sed substitution.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'dates.txt': '2026-08-12 deploy\n'
+                             '2025-01-03 rollback\n'
+                             '2024-12-25 holiday\n',
+            }},
+            'solution': {'shell':
+                "sed -E 's/^([0-9]{4})-([0-9]{2})-([0-9]{2})/\\3\\/\\2\\/\\1/' "
+                'dates.txt > uk.txt && '
+                "sed -E 's/^([0-9]{4})-.*/\\1/' dates.txt | sort -u > years.txt"},
+            'steps': [
+                {'instruction': 'Capture the year, month and day, and rewrite '
+                                'each line as day/month/year, into uk.txt.',
+                 'hint': "sed -E 's/^([0-9]{4})-([0-9]{2})-([0-9]{2})/"
+                         "\\3\\/\\2\\/\\1/'"},
+                {'instruction': 'Note that -E gives you the extended dialect '
+                                'in sed, exactly as it does in grep.'},
+                {'instruction': 'Now extract just the distinct years into '
+                                'years.txt.',
+                 'hint': "sed -E 's/^([0-9]{4})-.*/\\1/' | sort -u"},
+            ],
+            'free': 'Produce uk.txt with every date rewritten as '
+                    'day/month/year, and years.txt listing each distinct year '
+                    'once.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'uk.txt': ['12/08/2026 deploy',
+                                             '25/12/2024 holiday'],
+                                  'years.txt': ['2024', '2026']},
+                'file_lacks': {'uk.txt': '2026-08-12'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'rx-lookaround',
+            'title': 'Match what is next to something, without taking it',
+            'goal': 'Lookahead and lookbehind, and the reason they exist: the '
+                    'condition is not part of the match.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'prices.txt': 'cost 100 USD\n'
+                              'cost 250 EUR\n'
+                              'weight 100 kg\n'
+                              'cost 75 USD\n',
+            }},
+            'solution': {'shell':
+                "grep -oP '\\d+(?= USD)' prices.txt > usd.txt && "
+                "grep -oP '(?<=cost )\\d+' prices.txt > costs.txt && "
+                "grep -oP '\\d+(?! kg)(?= )' prices.txt > notweight.txt"},
+            'steps': [
+                {'instruction': 'Extract only the numbers followed by USD, '
+                                'without capturing USD itself, into usd.txt.',
+                 'hint': "grep -oP '\\d+(?= USD)'"},
+                {'instruction': 'Extract only the numbers preceded by the '
+                                'word cost, into costs.txt.',
+                 'hint': "grep -oP '(?<=cost )\\d+'"},
+                {'instruction': 'Use a negative lookahead to get the numbers '
+                                'not followed by kg, into notweight.txt.',
+                 'hint': "grep -oP '\\d+(?! kg)(?= )'"},
+                {'instruction': 'Note that lookbehind in most engines must be '
+                                'fixed width, which is why the two directions '
+                                'feel different.'},
+            ],
+            'free': 'Produce usd.txt, costs.txt and notweight.txt using '
+                    'lookahead, lookbehind and a negative lookahead, with the '
+                    'condition never appearing in the output.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'usd.txt': ['100', '75'],
+                                  'costs.txt': ['100', '250', '75']},
+                'file_lacks': {'usd.txt': ['USD', '250'],
+                               'costs.txt': 'cost'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'rx-anchors-words',
+            'title': 'Anchors and word boundaries earn their keep',
+            'goal': 'The same word, matched four ways, with only the anchors '
+                    'differing.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'words.txt': 'cat\n'
+                             'concatenate\n'
+                             'the cat sat\n'
+                             'bobcat\n'
+                             'cat food\n',
+            }},
+            'solution': {'shell':
+                "grep -c 'cat' words.txt > any.txt && "
+                "grep -E '^cat' words.txt > starts.txt && "
+                "grep -E '^cat$' words.txt > exactly.txt && "
+                "grep -E '\\bcat\\b' words.txt > wholeword.txt"},
+            'steps': [
+                {'instruction': 'Count every line containing cat anywhere, '
+                                'into any.txt.',
+                 'hint': "grep -c 'cat' words.txt"},
+                {'instruction': 'Keep only lines starting with cat, into '
+                                'starts.txt.'},
+                {'instruction': 'Keep only the line that is exactly cat, into '
+                                'exactly.txt.',
+                 'hint': "grep -E '^cat$'"},
+                {'instruction': 'Keep lines where cat appears as a whole '
+                                'word, into wholeword.txt.',
+                 'hint': "grep -E '\\bcat\\b'"},
+            ],
+            'free': 'Produce any.txt, starts.txt, exactly.txt and '
+                    'wholeword.txt, showing how each anchor narrows the same '
+                    'pattern.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_equals': {'any.txt': '5', 'exactly.txt': 'cat'},
+                'file_contains': {'starts.txt': ['cat', 'cat food'],
+                                  'wholeword.txt': ['the cat sat',
+                                                    'cat food']},
+                'file_lacks': {'starts.txt': 'bobcat',
+                               'wholeword.txt': 'concatenate'}}},
             'fallback': 'self',
         },
     ],

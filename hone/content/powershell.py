@@ -371,8 +371,8 @@ MODULE = {
                 },
                 {
                     'label': 'Reaching inside the event',
-                    'code': ('Get-WinEvent -LogName Security -FilterXPath \\\n'
-                             '  "*[System[EventID=4625]] and\n'
+                    'code': ('Get-WinEvent -LogName Security -FilterXPath "\n'
+                             '  *[System[EventID=4625]] and\n'
                              '   *[EventData[Data[@Name=\'TargetUserName\']\n'
                              '     =\'administrator\']]"\n'
                              '\n'
@@ -688,6 +688,284 @@ MODULE = {
             'free': 'Using filtering at the source, count and group failed '
                     'logons from the last day and export the result to CSV.',
             'verify': {'kind': 'self'},
+            'fallback': 'self',
+        },
+        {
+            'id': 'ps-getmember',
+            'title': 'Ask an object what it is',
+            'goal': 'Use Get-Member the way it is meant to be used: as the '
+                    'first thing you do with an unfamiliar object, not the '
+                    'last.',
+            'setup': {'kind': 'pwshbox', 'tree': {
+                'staff.csv': 'name,dept,salary\nalice,eng,100\n'
+                             'bob,sales,80\ncarol,eng,120\n',
+            }},
+            'solution': {'shell':
+                'pwsh -NoProfile -Command \'Import-Csv staff.csv | '
+                'Get-Member | Out-String | Set-Content members.txt; '
+                'Import-Csv staff.csv | Get-Member -MemberType NoteProperty | '
+                'ForEach-Object { $_.Name } | Set-Content props.txt\''},
+            'steps': [
+                {'instruction': 'Import staff.csv and pipe it into Get-Member. '
+                                'Add Out-String, or Set-Content records only '
+                                'each member and loses the type header.',
+                 'hint': 'Import-Csv staff.csv | Get-Member | Out-String | '
+                         'Set-Content members.txt'},
+                {'instruction': 'Now list just the property names, one per '
+                                'line, into props.txt.',
+                 'hint': '-MemberType NoteProperty, then ForEach-Object '
+                         '{ $_.Name }'},
+                {'instruction': 'Note that the type name at the top of '
+                                'members.txt is what tells you which cmdlets '
+                                'will accept this object.'},
+            ],
+            'free': 'Produce members.txt with the full Get-Member output for '
+                    'the imported CSV, and props.txt listing just its '
+                    'property names.',
+            'verify': {'kind': 'pwshbox', 'expect': {
+                'file_contains': {'members.txt': ['TypeName', 'NoteProperty'],
+                                  'props.txt': ['name', 'dept', 'salary']}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'ps-filter-sort',
+            'title': 'Filter, sort and select, in that order',
+            'goal': 'Build the pipeline everybody actually writes, and get '
+                    'the numeric sort right, which is where it usually goes '
+                    'wrong.',
+            'setup': {'kind': 'pwshbox', 'tree': {
+                'staff.csv': 'name,dept,salary\nalice,eng,100\n'
+                             'bob,sales,80\ncarol,eng,120\ndave,eng,90\n',
+            }},
+            'solution': {'shell':
+                'pwsh -NoProfile -Command \'Import-Csv staff.csv | '
+                'Where-Object { $_.dept -eq "eng" } | '
+                'Sort-Object { [int]$_.salary } -Descending | '
+                'Select-Object name,salary | '
+                'Export-Csv -NoTypeInformation eng.csv\''},
+            'steps': [
+                {'instruction': 'Import staff.csv and keep only the rows '
+                                'where dept is eng.',
+                 'hint': 'Where-Object { $_.dept -eq "eng" }'},
+                {'instruction': 'Sort them by salary, highest first. CSV '
+                                'gives you strings, so cast to int or you '
+                                'will sort alphabetically.',
+                 'hint': 'Sort-Object { [int]$_.salary } -Descending'},
+                {'instruction': 'Keep only name and salary, and export to '
+                                'eng.csv without the type header.',
+                 'hint': 'Export-Csv -NoTypeInformation eng.csv'},
+            ],
+            'free': 'Produce eng.csv containing only the engineering staff, '
+                    'sorted by salary descending, with just the name and '
+                    'salary columns.',
+            'verify': {'kind': 'pwshbox', 'expect': {
+                'file_contains': {'eng.csv': ['"carol","120"', '"alice","100"',
+                                              '"dave","90"']},
+                'file_lacks': {'eng.csv': 'bob'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'ps-calculated',
+            'title': 'Add a column that was not there',
+            'goal': 'Use a calculated property, which is the piece of syntax '
+                    'that turns Select-Object from a column picker into a '
+                    'transformer.',
+            'setup': {'kind': 'pwshbox', 'tree': {
+                'staff.csv': 'name,dept,salary\nalice,eng,100\n'
+                             'bob,sales,80\ncarol,eng,120\n',
+            }},
+            'solution': {'shell':
+                'pwsh -NoProfile -Command \'Import-Csv staff.csv | '
+                'Select-Object name,@{n="Annual";e={[int]$_.salary * 12}} | '
+                'Export-Csv -NoTypeInformation annual.csv\''},
+            'steps': [
+                {'instruction': 'Import the CSV and select the name column '
+                                'plus a new column called Annual.',
+                 'hint': '@{n="Annual";e={[int]$_.salary * 12}}'},
+                {'instruction': 'The expression runs per object, with $_ '
+                                'bound to that object. Multiply the salary by '
+                                'twelve.'},
+                {'instruction': 'Export to annual.csv without the type '
+                                'header.'},
+            ],
+            'free': 'Produce annual.csv with a name column and a computed '
+                    'Annual column holding twelve times the salary.',
+            'verify': {'kind': 'pwshbox', 'expect': {
+                'file_contains': {'annual.csv': ['"Annual"', '"alice","1200"',
+                                                 '"carol","1440"']}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'ps-group',
+            'title': 'Count by key, the object way',
+            'goal': 'Group-Object, which is the cmdlet that replaces sort '
+                    'and uniq -c, and produces objects rather than a table '
+                    'you have to parse back.',
+            'setup': {'kind': 'pwshbox', 'tree': {
+                'events.csv': 'user,action\nalice,login\nbob,login\n'
+                              'alice,logout\nalice,login\ncarol,login\n'
+                              'bob,logout\n',
+            }},
+            'solution': {'shell':
+                'pwsh -NoProfile -Command \'Import-Csv events.csv | '
+                'Group-Object user | Sort-Object Count -Descending | '
+                'ForEach-Object { "$($_.Count) $($_.Name)" } | '
+                'Set-Content byuser.txt; '
+                'Import-Csv events.csv | Group-Object action | '
+                'Select-Object Name,Count | '
+                'Export-Csv -NoTypeInformation byaction.csv\''},
+            'steps': [
+                {'instruction': 'Group the events by user, sort by count '
+                                'descending, and write "count name" lines to '
+                                'byuser.txt.',
+                 'hint': 'Group-Object user | Sort-Object Count -Descending'},
+                {'instruction': 'Separately group by action and export Name '
+                                'and Count to byaction.csv.'},
+                {'instruction': 'Note that Group-Object hands you objects '
+                                'with a Count and a Group, not text you have '
+                                'to parse.'},
+            ],
+            'free': 'Produce byuser.txt with counts per user, most frequent '
+                    'first, and byaction.csv with the count per action.',
+            'verify': {'kind': 'pwshbox', 'expect': {
+                'file_contains': {'byuser.txt': ['3 alice', '2 bob'],
+                                  'byaction.csv': ['"login","4"',
+                                                   '"logout","2"']}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'ps-formats',
+            'title': 'Export properly, and never through Format-Table',
+            'goal': 'Write the same data three ways, and see why a Format-* '
+                    'cmdlet must be the last thing in a pipeline.',
+            'setup': {'kind': 'pwshbox', 'tree': {
+                'staff.csv': 'name,dept,salary\nalice,eng,100\n'
+                             'bob,sales,80\n',
+            }},
+            'solution': {'shell':
+                'pwsh -NoProfile -Command \'$s = Import-Csv staff.csv; '
+                '$s | Export-Csv -NoTypeInformation out.csv; '
+                '$s | ConvertTo-Json | Set-Content out.json; '
+                '$s | Export-Clixml out.xml; '
+                '$s | Format-Table | Out-String | Set-Content formatted.txt; '
+                '$s | Format-Table | Get-Member | '
+                'Select-Object -First 1 -ExpandProperty TypeName | '
+                'Set-Content whatformatgives.txt\''},
+            'steps': [
+                {'instruction': 'Import the CSV once into a variable, then '
+                                'export it to out.csv, out.json and out.xml.',
+                 'hint': 'Export-Csv, ConvertTo-Json, Export-Clixml'},
+                {'instruction': 'Now pipe it through Format-Table into '
+                                'formatted.txt, and note that this is text '
+                                'for a human.'},
+                {'instruction': 'Pipe Format-Table into Get-Member and write '
+                                'the type name you get to '
+                                'whatformatgives.txt. That type is why '
+                                'nothing downstream of Format-* works.',
+                 'hint': 'Format-Table | Get-Member'},
+            ],
+            'free': 'Produce out.csv, out.json, out.xml, formatted.txt, and '
+                    'whatformatgives.txt showing the format object type that '
+                    'Format-Table emits.',
+            'verify': {'kind': 'pwshbox', 'expect': {
+                'is_file': ['out.csv', 'out.json', 'out.xml',
+                            'formatted.txt'],
+                'file_contains': {'out.json': 'alice',
+                                  'whatformatgives.txt': 'Format'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'ps-xpath-xml',
+            'title': 'Filter event XML with XPath, on this machine',
+            'goal': 'Get-WinEvent needs Windows, but the XPath does not. '
+                    'Practise the filter language against real event XML '
+                    'here.',
+            'setup': {'kind': 'pwshbox', 'tree': {
+                'events.xml':
+                    '<Events>\n'
+                    '<Event><System><EventID>4625</EventID></System>'
+                    '<EventData><Data Name="TargetUserName">admin</Data>'
+                    '</EventData></Event>\n'
+                    '<Event><System><EventID>4625</EventID></System>'
+                    '<EventData><Data Name="TargetUserName">root</Data>'
+                    '</EventData></Event>\n'
+                    '<Event><System><EventID>4624</EventID></System>'
+                    '<EventData><Data Name="TargetUserName">sage</Data>'
+                    '</EventData></Event>\n'
+                    '</Events>\n',
+            }},
+            'solution': {'shell':
+                'pwsh -NoProfile -Command \'(Select-Xml -Path events.xml '
+                '-XPath "//Event[System/EventID=4625]").Count | '
+                'Set-Content failed.txt; '
+                'Select-Xml -Path events.xml -XPath '
+                '"//Event[System/EventID=4625]" | ForEach-Object '
+                '{ ($_.Node.EventData.Data)."#text" } | '
+                'Set-Content who.txt\''},
+            'steps': [
+                {'instruction': 'Count the 4625 events in events.xml and '
+                                'write the number to failed.txt.',
+                 'hint': '(Select-Xml -Path events.xml -XPath '
+                         '"//Event[System/EventID=4625]").Count'},
+                {'instruction': 'Write the target username from each of those '
+                                'events to who.txt, one per line.'},
+                {'instruction': 'This is the same filter shape Get-WinEvent '
+                                'takes, which is why the skill transfers even '
+                                'though the cmdlet does not.'},
+            ],
+            'free': 'Produce failed.txt holding the count of 4625 events, and '
+                    'who.txt listing the target usernames from them.',
+            'verify': {'kind': 'pwshbox', 'expect': {
+                'file_contains': {'failed.txt': '2',
+                                  'who.txt': ['admin', 'root']},
+                'file_lacks': {'who.txt': 'sage'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'ps-function',
+            'title': 'Write a function that behaves like a cmdlet',
+            'goal': 'Parameters, a pipeline input block, and returning '
+                    'objects rather than printing text.',
+            'setup': {'kind': 'pwshbox', 'tree': {
+                'nums.txt': '4\n9\n16\n25\n',
+            }},
+            'solution': {'shell':
+                "cat > roots.ps1 <<'PS1'\n"
+                'function Get-Root {\n'
+                '    param(\n'
+                '        [Parameter(ValueFromPipeline=$true)]\n'
+                '        [int]$Number\n'
+                '    )\n'
+                '    process {\n'
+                '        [pscustomobject]@{ Number = $Number; Root = '
+                '[math]::Sqrt($Number) }\n'
+                '    }\n'
+                '}\n'
+                'PS1\n'
+                'pwsh -NoProfile -Command \'. ./roots.ps1; '
+                'Get-Content nums.txt | Get-Root | '
+                'Export-Csv -NoTypeInformation roots.csv\''},
+            'steps': [
+                {'instruction': 'Write roots.ps1 defining a function Get-Root '
+                                'with an int parameter that accepts pipeline '
+                                'input.',
+                 'hint': '[Parameter(ValueFromPipeline=$true)]'},
+                {'instruction': 'Inside a process block, emit a custom object '
+                                'with Number and Root properties. Emit, do '
+                                'not Write-Host.',
+                 'hint': '[pscustomobject]@{ Number = $Number; Root = '
+                         '[math]::Sqrt($Number) }'},
+                {'instruction': 'Dot source it, pipe nums.txt through it, and '
+                                'export to roots.csv.',
+                 'hint': '. ./roots.ps1; Get-Content nums.txt | Get-Root'},
+            ],
+            'free': 'Produce roots.ps1 defining a pipeline-capable Get-Root '
+                    'function, and roots.csv holding each number with its '
+                    'square root.',
+            'verify': {'kind': 'pwshbox', 'expect': {
+                'file_contains': {'roots.ps1': ['function Get-Root',
+                                                'ValueFromPipeline'],
+                                  'roots.csv': ['"4","2"', '"25","5"']}}},
             'fallback': 'self',
         },
     ],

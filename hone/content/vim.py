@@ -299,7 +299,6 @@ MODULE = {
         {
             'id': 'vim-counts',
             'title': 'Counts, and where they go',
-            'next': 'vim-repeat',
             'concept': (
                 'Any command takes a count, and the count multiplies it. `3dd` '
                 'deletes three lines, `2w` moves two words, `5x` deletes five '
@@ -332,8 +331,82 @@ MODULE = {
                 'motion instead.',
             ],
             'try_it': [
-                'Delete three lines two ways: `3dd`, undo, then `d2j`. Notice '
-                'they are not the same three lines.',
+                'Delete three lines two ways: `3dd`, undo, then `d3j`. Notice '
+                'the second one takes four lines, not three.',
+            ],
+            'next': 'vim-search',
+        },
+        {
+            'id': 'vim-search',
+            'title': 'Search, and substitute',
+            'next': 'vim-repeat',
+            'concept': (
+                'Searching is how you move a long way without counting, and it '
+                'is also a motion, so it composes with verbs like everything '
+                'else.\n\n'
+                '`/pattern` searches forward, `?pattern` searches backward, and '
+                'Enter jumps to the first match. `n` repeats the search in the '
+                'same direction, `N` in the opposite one. The pair you will '
+                'reach for constantly is `*` and `#`: they search for the word '
+                'under the cursor, forward and backward, with no typing at all. '
+                '`*` then `cgn` then `.` is one of the fastest rename loops '
+                'there is.\n\n'
+                'Because a search is a motion, `d/foo` deletes from the cursor '
+                'up to the next `foo`, and `y?bar` yanks back to the previous '
+                '`bar`. Highlighting stays on the screen after a search; `:noh` '
+                'clears it, and `set incsearch hlsearch` are the two settings '
+                'that make search feel alive.\n\n'
+                'Substitution is the other half. `:s/old/new/` changes the '
+                'first `old` on the current line, `:s/old/new/g` changes every '
+                'one on the line, and `:%s/old/new/g` changes every one in the '
+                'file. Add the `c` flag, `:%s/old/new/gc`, and vim asks about '
+                'each match, which is the safe way to do a big replace. The '
+                'left half is a regex, so everything the regex module teaches '
+                'applies here, and `\\1` on the right pastes back a group you '
+                'captured on the left.'
+            ),
+            'examples': [
+                {
+                    'label': 'Searching and moving',
+                    'code': ('/error       forward to the next "error"\n'
+                             '?error       backward to the previous one\n'
+                             'n   N        repeat, same and opposite direction\n'
+                             '*   #        search the word under the cursor\n'
+                             'd/;          delete up to the next semicolon\n'
+                             ':noh         turn off the leftover highlight'),
+                    'note': 'A search is a motion, so it works after d, c and y '
+                            'exactly like w or $.',
+                },
+                {
+                    'label': 'Substitution, widening the range',
+                    'code': (':s/old/new/      first on this line\n'
+                             ':s/old/new/g     all on this line\n'
+                             ':%s/old/new/g    all in the file\n'
+                             ':%s/old/new/gc   all in the file, asking each\n'
+                             ":'<,'>s/old/new/g   only the visual selection\n"
+                             ':%s/\\(\\w\\+\\)@/\\1 at /   reuse a captured group'),
+                    'note': 'The range is before the s, the flags are after the '
+                            'last slash. c asks, g means every match not just '
+                            'the first.',
+                },
+            ],
+            'misconceptions': [
+                'Without `g`, substitute changes only the FIRST match on each '
+                'line, not the whole line. That default surprises everyone once.',
+                '`:s` with no range is the current line only, so a `:%s` that '
+                'seems to do nothing is often a `:s` you forgot the `%` on.',
+                'The left side of a substitution is a regex in vim\'s own '
+                'dialect, where `(` is literal and `\\(` groups. `\\v` at the '
+                'front switches to the sane spelling, exactly as in the regex '
+                'module.',
+                'A blind `:%s///g` is not reviewable and not repeatable with '
+                '`.`. When you want to see each change, use `gc`, or use the '
+                'n-dot loop from the next lesson instead.',
+            ],
+            'try_it': [
+                'Put the cursor on a word that repeats, press `*`, then `n` a '
+                'few times. Then run `:%s/that-word/OTHER/gc` and answer the '
+                'prompts.',
             ],
         },
         {
@@ -387,7 +460,7 @@ MODULE = {
                 'Named registers let you keep several things at once. `"ayy` '
                 'yanks a line into register a, `"ap` pastes it back. The '
                 'numbered registers hold your recent deletes automatically, so '
-                '`"1p` pastes what you deleted before last.\n\n'
+                '`"1p` pastes your last delete and `"2p` the one before it.\n\n'
                 'The one to remember on a desktop is `"+`, the system '
                 'clipboard. `"+y` copies out to other applications and `"+p` '
                 'pastes in.'
@@ -662,8 +735,8 @@ MODULE = {
         # counts, visual, macros
         {'id': 'vim-3dd', 'type': 'keys', 'keys': ['3', 'd', 'd'],
          'prompt': 'Delete three lines.',
-         'teach': 'The count can also go inside: d2j is not the same three '
-                  'lines, which is worth trying once.'},
+         'teach': 'The count can also go inside: d2j is the same three lines, '
+                  'but d3j takes four, which is worth trying once.'},
         {'id': 'vim-d2w', 'type': 'keys', 'keys': ['d', '2', 'w'],
          'prompt': 'Delete two words, with the count between verb and motion.',
          'teach': '2dw means the same thing. Type whichever is faster for '
@@ -688,6 +761,51 @@ MODULE = {
          'prompt': 'Yank the current line to the system clipboard.',
          'teach': 'The " prefix picks a register. + is the system clipboard '
                   'on a desktop.'},
+
+        # search: normal-mode keys, captured
+        {'id': 'vim-star', 'type': 'keys', 'keys': ['*'],
+         'prompt': 'Search for the next occurrence of the word under the '
+                   'cursor.',
+         'teach': '# searches backward. This needs no typing, which is why '
+                  '* then cgn then dot is the fastest rename loop there is.'},
+        {'id': 'vim-n', 'type': 'keys', 'keys': ['n'],
+         'prompt': 'Jump to the next match of the last search.',
+         'teach': 'N goes the other way. n keeps the direction the search '
+                  'started in.'},
+        {'id': 'vim-search-fwd', 'type': 'keys',
+         'keys': ['/', 'e', 'r', 'r', 'o', 'r', 'RET'],
+         'prompt': 'Search forward for the word error.',
+         'teach': 'A search is a motion, so d/error deletes up to the next '
+                  'match. ? searches backward.'},
+
+        # substitution: typed ex-commands, graded as text
+        {'id': 'vim-subst-line', 'type': 'command',
+         'prompt': 'On the current line, replace the first old with new.',
+         'answer': ':s/old/new/',
+         'teach': 'No range means this line only, and no g means the first '
+                  'match only. Both defaults surprise everyone once.'},
+        {'id': 'vim-subst-line-g', 'type': 'command',
+         'prompt': 'On the current line, replace every old with new.',
+         'answer': ':s/old/new/g',
+         'teach': 'The g flag means every match on the line rather than just '
+                  'the first.'},
+        {'id': 'vim-subst-file', 'type': 'command',
+         'prompt': 'In the whole file, replace every old with new.',
+         'answer': ':%s/old/new/g',
+         'teach': '% is the range meaning every line. This is the blind '
+                  'global replace, so reach for it only when you are sure.'},
+        {'id': 'vim-subst-confirm', 'type': 'command',
+         'prompt': 'In the whole file, replace every old with new, asking '
+                   'about each one.',
+         'answer': ':%s/old/new/gc',
+         'teach': 'The c flag makes vim confirm each match. This is the safe '
+                  'way to do a big replace.'},
+        {'id': 'vim-noh', 'type': 'command',
+         'prompt': 'Clear the search highlight left on the screen.',
+         'answer': ':noh',
+         'accepts': [':nohlsearch'],
+         'teach': 'The matches stay lit after a search until you clear them, '
+                  'which is what :noh is for.'},
     ],
 
     # ------------------------------------------------------------------
@@ -972,6 +1090,82 @@ MODULE = {
                     'expect': {'lines': ['the quick brown fox',
                                          'jumps over the tired dog']}},
          'fallback': 'self'},
+
+        {'id': 'vim-registers',
+         'title': 'Yank into a named register and use it',
+         'goal': 'The unnamed register is overwritten constantly. Put text '
+                 'somewhere it will survive, then paste it.',
+         'setup': {'kind': 'nvim',
+                   'start': ['keep this line',
+                             'delete me',
+                             'delete me too',
+                             'paste target']},
+         'solution': {'keys': 'gg"ayyjddddG"ap:wq\r'},
+         'steps': [{'instruction': 'Yank the first line into register a.',
+                    'hint': '"ayy, where "a selects the register'},
+                   {'instruction': 'Delete a couple of lines, which would '
+                                   'normally clobber what you yanked.',
+                    'hint': 'dd'},
+                   {'instruction': 'Paste register a at the end of the file.',
+                    'hint': 'G then "ap'},
+                   {'instruction': 'Save. Note that "0 always holds the last '
+                                   'yank, which is the other way out of this '
+                                   'problem.',
+                    'hint': ':wq'}],
+         'free': 'Using a named register, copy the first line and paste it at '
+                 'the end, with deletions in between.',
+         'verify': {'kind': 'nvim',
+                    'expect': {'contains': ['keep this line', 'paste target']}},
+         'fallback': 'self'},
+
+        {'id': 'vim-counts-motions',
+         'title': 'Put a count on a verb and a motion',
+         'goal': 'A count multiplies, and it can go on either half of the '
+                 'grammar. Use both places.',
+         'setup': {'kind': 'nvim',
+                   'start': ['alpha bravo charlie delta echo',
+                             'one', 'two', 'three', 'four', 'five', 'keep']},
+         'solution': {'keys': 'gg3dwj4dd:wq\r'},
+         'steps': [{'instruction': 'On the first line, delete the first three '
+                                   'words with one command.',
+                    'hint': '3dw, or d3w. Both mean the same thing'},
+                   {'instruction': 'Go to the second line and delete four '
+                                   'lines from there.',
+                    'hint': 'j then 4dd'},
+                   {'instruction': 'Save.',
+                    'hint': ':wq'}],
+         'free': 'Delete the first three words of line one, then four whole '
+                 'lines starting at line two.',
+         'verify': {'kind': 'nvim',
+                    'expect': {'lines': ['delta echo', 'five', 'keep']}},
+         'fallback': 'self'},
+
+        {'id': 'vim-visual-block',
+         'title': 'Edit a column with visual block',
+         'goal': 'Visual block is the mode that has no equivalent anywhere '
+                 'else. Use it to prefix several lines at once.',
+         'setup': {'kind': 'nvim',
+                   'start': ['alpha', 'bravo', 'charlie', 'delta']},
+         'solution': {'keys': 'gg\x16jjjI# \x1b:wq\r'},
+         'steps': [{'instruction': 'Enter visual block mode at the start of '
+                                   'the first line.',
+                    'hint': 'Ctrl-v'},
+                   {'instruction': 'Extend the block down over all four '
+                                   'lines.',
+                    'hint': 'jjj'},
+                   {'instruction': 'Insert a comment marker at the start of '
+                                   'the block, then escape. The edit applies '
+                                   'to every line when you leave insert '
+                                   'mode.',
+                    'hint': 'I then a hash and a space, then Esc'},
+                   {'instruction': 'Save.',
+                    'hint': ':wq'}],
+         'free': 'Prefix all four lines with a hash and a space, in one '
+                 'visual block edit.',
+         'verify': {'kind': 'nvim',
+                    'expect': {'lines': ['# alpha', '# bravo', '# charlie',
+                                         '# delta']}},
+         'fallback': 'self'},
                   ],
 
     # ------------------------------------------------------------------
@@ -999,7 +1193,7 @@ MODULE = {
         {'id': 'vq-count-position', 'type': 'mcq',
          'prompt': 'Which pair does the same thing?',
          'answer': 'd2w and 2dw',
-         'distractors': ['3dd and d3j', 'diw and daw', '42G and 42gg'],
+         'distractors': ['3dd and d3j', 'diw and daw', 'x and X'],
          'teach': 'A count can sit before the verb or between verb and motion. '
                   '3dd and d3j differ because d3j takes four lines.'},
 

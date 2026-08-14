@@ -121,10 +121,15 @@ class Screen:
         """Override for screen-specific keys, then `return super().handle(key)`."""
         name = key.name
         if name == 'ESC':
-            # At the root there is nothing to pop back to, and the footer says
-            # 'quit' there, so it must actually quit. A key that does nothing
-            # while the footer claims otherwise is the D19 rule 4 failure.
-            return POP if self.can_pop else QUIT
+            # Esc goes back, and at the root there is nowhere back to, so it
+            # does nothing. It used to quit, which made the most-pressed key
+            # in the app also the one that threw away your session from the
+            # one screen you return to most: press it once too often on the
+            # way out of a lesson and hone was gone. Nothing is lost by
+            # ignoring it, `q` is the advertised way out, and the home footer
+            # never offered Esc in the first place, so this takes away a
+            # behaviour nobody was told about rather than one anybody used.
+            return POP if self.can_pop else STAY
         if name == 'H' and not key.ctrl and not key.alt:
             # Deliberately uppercase. Every lowercase letter is an answer
             # somewhere in this app, and the screens where H would be typed

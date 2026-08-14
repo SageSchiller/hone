@@ -219,7 +219,6 @@ MODULE = {
         {
             'id': 'py-control',
             'title': 'Control flow, truthiness and comprehensions',
-            'next': 'py-files',
             'concept': (
                 'Indentation is the block structure, which means there are no '
                 'braces and no `end`. Four spaces, consistently. Mixing tabs '
@@ -277,6 +276,91 @@ MODULE = {
             'try_it': [
                 'Rewrite one of your awk one-liners as a Python loop and decide '
                 'which you would rather read next year.',
+            ],
+            'next': 'py-functions',
+        },
+        {
+            'id': 'py-functions',
+            'title': 'Functions, and handling what goes wrong',
+            'next': 'py-files',
+            'concept': (
+                'A function is `def name(args):` and an indented body, and the '
+                'moment a script does one job more than once it wants to become '
+                'one. Arguments can be positional or passed by name, and a '
+                'default value makes an argument optional: `def greet(name, '
+                'punct="!"):` can be called `greet("Sam")` or `greet("Sam", '
+                'punct=".")`. A function hands a value back with `return`, and a '
+                'function that never returns hands back `None`, which is a real '
+                'value you can accidentally use.\n\n'
+                'One trap is worth stating early because it bites everyone: **do '
+                'not use a mutable default**. `def f(items=[])` shares one list '
+                'across every call, so it fills up over time. Write '
+                '`def f(items=None):` and build the list inside. Variables '
+                'assigned inside a function are local to it, which is what keeps '
+                'functions from stepping on each other.\n\n'
+                'Errors in Python are **exceptions**, and the model is to try '
+                'the thing and catch the failure rather than check first. '
+                '`int("nope")` raises `ValueError`, opening a missing file '
+                'raises `FileNotFoundError`, and a `try`/`except` block catches '
+                'exactly the type you name. Catch the specific error, not a bare '
+                '`except:`, because a bare except also swallows the Ctrl-C you '
+                'pressed to stop it and the typo in your own code.\n\n'
+                'The full shape is `try` / `except` / `else` / `finally`: the '
+                '`else` runs only if nothing was raised, and the `finally` runs '
+                'no matter what, which is where cleanup goes. You raise your own '
+                'with `raise ValueError("message")` when an argument makes no '
+                'sense, and that is how a function refuses bad input instead of '
+                'limping on.'
+            ),
+            'examples': [
+                {
+                    'label': 'Defining and calling',
+                    'code': ('def newest(paths, limit=1):\n'
+                             '    ordered = sorted(paths, reverse=True)\n'
+                             '    return ordered[:limit]\n'
+                             '\n'
+                             'newest(files)              # limit defaults to 1\n'
+                             'newest(files, limit=3)     # by name\n'
+                             '\n'
+                             'def f(items=None):         # NOT items=[]\n'
+                             '    if items is None:\n'
+                             '        items = []'),
+                    'note': 'A mutable default is shared across calls, which is '
+                            'the single most common Python surprise.',
+                },
+                {
+                    'label': 'try, except, and raising',
+                    'code': ('try:\n'
+                             '    value = int(text)\n'
+                             'except ValueError:\n'
+                             '    value = 0            # a sensible default\n'
+                             'else:\n'
+                             '    log("parsed ok")     # only if no error\n'
+                             'finally:\n'
+                             '    cleanup()            # always\n'
+                             '\n'
+                             'if n < 0:\n'
+                             '    raise ValueError("n must be non-negative")'),
+                    'note': 'Catch the specific type. A bare except also traps '
+                            'Ctrl-C and your own typos.',
+                },
+            ],
+            'misconceptions': [
+                'A function with no `return` returns `None`, not the last value '
+                'it computed. Forgetting the return is why a caller gets None.',
+                'A default argument is evaluated once, when the function is '
+                'defined, so a mutable default like `[]` or `{}` persists '
+                'between calls.',
+                'A bare `except:` is almost always a bug. It hides the error '
+                'you did not expect, including KeyboardInterrupt and your own '
+                'mistakes. Name the exception.',
+                'Checking before acting is not the Python style. Try the '
+                'operation and catch the failure; it is both faster and less '
+                'racy than looking first.',
+            ],
+            'try_it': [
+                'Write a function that divides two numbers and returns 0 on a '
+                'ZeroDivisionError, then call it both ways.',
             ],
         },
         {
@@ -579,6 +663,33 @@ MODULE = {
         {'id': 'py-cmd-intdiv', 'type': 'command', 'answer': 'total // count',
          'prompt': 'Divide two integers and get an integer back.',
          'teach': 'A single slash always produces a float in Python 3.'},
+
+        # functions and exceptions
+        {'id': 'py-cmd-def', 'type': 'command',
+         'answer': 'def double(n): return n * 2',
+         'prompt': 'Define a one-line function double that returns its '
+                   'argument times two.',
+         'teach': 'A function with no return hands back None, which a caller '
+                  'can accidentally use.'},
+        {'id': 'py-cmd-default', 'type': 'command',
+         'answer': 'def greet(name, punct="!"): return name + punct',
+         'prompt': 'Define greet(name, punct) where punct defaults to "!", '
+                   'returning the two joined.',
+         'teach': 'A default makes an argument optional. Never default it to a '
+                  'mutable like [] or {}: that one list is shared across '
+                  'calls.'},
+        {'id': 'py-cmd-except', 'type': 'command',
+         'answer': 'except FileNotFoundError as e:',
+         'prompt': 'Write the except clause that catches a missing-file error '
+                   'and binds it to e.',
+         'teach': 'Catch the specific type, not a bare except, which also '
+                  'swallows Ctrl-C and your own typos.'},
+        {'id': 'py-cmd-raise', 'type': 'command',
+         'answer': 'raise ValueError("n must be non-negative")',
+         'prompt': 'Raise a ValueError complaining that n must be '
+                   'non-negative.',
+         'teach': 'Raising is how a function refuses bad input rather than '
+                  'limping on with it.'},
     ],
 
     'challenges': [
@@ -708,6 +819,316 @@ MODULE = {
                 'file_contains': {'head.py': ['argparse', '__main__',
                                               'sys.exit']},
                 'file_equals': {'out.txt': 'alpha\nbravo\ncharlie'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'py-comprehensions',
+            'title': 'Write the loop as an expression',
+            'goal': 'List, dict and set comprehensions, and the moment one '
+                    'stops being clearer than the loop it replaces.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'words.txt': 'alpha\nbravo\ncharlie\ndelta\necho\nalpha\n',
+            }},
+            'solution': {'shell':
+                'cat > comp.py <<\'EOF\'\n'
+                'words = [w.strip() for w in open("words.txt")]\n'
+                'long_words = [w for w in words if len(w) > 4]\n'
+                'lengths = {w: len(w) for w in words}\n'
+                'initials = {w[0] for w in words}\n'
+                'with open("out.txt", "w") as f:\n'
+                '    f.write("long: " + ",".join(long_words) + "\\n")\n'
+                '    f.write("count: %d\\n" % len(lengths))\n'
+                '    f.write("initials: " + ",".join(sorted(initials)) + "\\n")\n'
+                'EOF\n'
+                'python3 comp.py'},
+            'steps': [
+                {'instruction': 'Read words.txt into a list, stripping each '
+                                'line, with a list comprehension.',
+                 'hint': '[w.strip() for w in open("words.txt")]'},
+                {'instruction': 'Build a filtered list of words longer than '
+                                'four characters.',
+                 'hint': '[w for w in words if len(w) > 4]'},
+                {'instruction': 'Build a dict of word to length, and a set of '
+                                'first letters. Note that both collapse '
+                                'duplicates differently.',
+                 'hint': '{w: len(w) for w in words} and {w[0] for w in words}'},
+                {'instruction': 'Write all three results to out.txt.'},
+            ],
+            'free': 'Produce comp.py using a list, a dict and a set '
+                    'comprehension, and out.txt reporting the long words, the '
+                    'number of distinct words, and the distinct initials.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'comp.py': ['for w in', 'if len(w)'],
+                                  'out.txt': ['long: alpha,bravo,charlie,delta',
+                                              'count: 5',
+                                              'initials: a,b,c,d,e']}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'py-errors',
+            'title': 'Handle the error you expected, not all of them',
+            'goal': 'try, except with a named exception, else and finally, '
+                    'and why a bare except is the wrong habit.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'nums.txt': '10\n20\nnot-a-number\n30\n',
+            }},
+            'solution': {'shell':
+                'cat > safe.py <<\'EOF\'\n'
+                'total = 0\n'
+                'bad = []\n'
+                'for line in open("nums.txt"):\n'
+                '    line = line.strip()\n'
+                '    try:\n'
+                '        value = int(line)\n'
+                '    except ValueError:\n'
+                '        bad.append(line)\n'
+                '    else:\n'
+                '        total += value\n'
+                'try:\n'
+                '    missing = open("nope.txt")\n'
+                'except FileNotFoundError as e:\n'
+                '    note = "FileNotFoundError: %s" % e.filename\n'
+                'finally:\n'
+                '    pass\n'
+                'with open("result.txt", "w") as f:\n'
+                '    f.write("total: %d\\n" % total)\n'
+                '    f.write("skipped: %s\\n" % ",".join(bad))\n'
+                '    f.write(note + "\\n")\n'
+                'EOF\n'
+                'python3 safe.py'},
+            'steps': [
+                {'instruction': 'Sum the numbers in nums.txt, catching only '
+                                'ValueError for the line that is not a '
+                                'number.',
+                 'hint': 'except ValueError:'},
+                {'instruction': 'Use an else block for the case where no '
+                                'exception was raised, so the add only '
+                                'happens on success.'},
+                {'instruction': 'Separately, try to open a file that does not '
+                                'exist and catch FileNotFoundError, keeping '
+                                'the filename from the exception object.',
+                 'hint': 'except FileNotFoundError as e: e.filename'},
+                {'instruction': 'Write the total, the skipped lines and the '
+                                'error note to result.txt.'},
+            ],
+            'free': 'Produce safe.py catching ValueError and '
+                    'FileNotFoundError by name, and result.txt holding the '
+                    'total, the skipped line and the error note.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'safe.py': ['except ValueError',
+                                              'except FileNotFoundError'],
+                                  'result.txt': ['total: 60',
+                                                 'skipped: not-a-number',
+                                                 'FileNotFoundError']},
+                'file_lacks': {'safe.py': 'except:'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'py-pathlib',
+            'title': 'Work with paths as objects',
+            'goal': 'pathlib replaces most of os.path and all of the string '
+                    'concatenation people still write.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'tree/a.txt': 'one\n',
+                'tree/b.log': 'two\n',
+                'tree/sub/c.txt': 'three\n',
+            }},
+            'solution': {'shell':
+                'cat > paths.py <<\'EOF\'\n'
+                'from pathlib import Path\n'
+                'root = Path("tree")\n'
+                'txt = sorted(p.as_posix() for p in root.rglob("*.txt"))\n'
+                'sizes = {p.name: p.stat().st_size for p in root.rglob("*") '
+                'if p.is_file()}\n'
+                'Path("found.txt").write_text("\\n".join(txt) + "\\n")\n'
+                'Path("sizes.txt").write_text(\n'
+                '    "\\n".join("%s %d" % (k, sizes[k]) for k in sorted(sizes))\n'
+                '    + "\\n")\n'
+                'Path("out").mkdir(exist_ok=True)\n'
+                'Path("out/copy.txt").write_text(Path("tree/a.txt").read_text())\n'
+                'EOF\n'
+                'python3 paths.py'},
+            'steps': [
+                {'instruction': 'Use Path and rglob to find every .txt file '
+                                'under tree, and write their posix paths to '
+                                'found.txt, sorted.',
+                 'hint': 'Path("tree").rglob("*.txt")'},
+                {'instruction': 'Build a mapping of filename to size for '
+                                'every regular file, and write it to '
+                                'sizes.txt.',
+                 'hint': 'p.stat().st_size, guarded by p.is_file()'},
+                {'instruction': 'Make an out directory that does not fail if '
+                                'it already exists, and copy a file into it '
+                                'with read_text and write_text.',
+                 'hint': 'Path("out").mkdir(exist_ok=True)'},
+            ],
+            'free': 'Produce paths.py using pathlib, found.txt listing the '
+                    'txt files under tree, sizes.txt with each filename and '
+                    'size, and out/copy.txt.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'paths.py': ['pathlib', 'rglob'],
+                                  'found.txt': ['tree/a.txt', 'tree/sub/c.txt'],
+                                  'sizes.txt': 'b.log'},
+                'file_equals': {'out/copy.txt': 'one'},
+                'file_lacks': {'found.txt': 'b.log'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'py-csv-module',
+            'title': 'Use the csv module rather than split on comma',
+            'goal': 'The reason the module exists is one quoted field with a '
+                    'comma in it, and this challenge contains exactly that.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'people.csv': 'name,role,note\n'
+                              'alice,engineer,"likes tea, strongly"\n'
+                              'bob,analyst,plain\n'
+                              'carol,engineer,"reports to alice, mostly"\n',
+            }},
+            'solution': {'shell':
+                'cat > readcsv.py <<\'EOF\'\n'
+                'import csv\n'
+                'rows = list(csv.DictReader(open("people.csv", newline="")))\n'
+                'engineers = [r for r in rows if r["role"] == "engineer"]\n'
+                'with open("engineers.csv", "w", newline="") as f:\n'
+                '    w = csv.DictWriter(f, fieldnames=["name", "note"])\n'
+                '    w.writeheader()\n'
+                '    for r in engineers:\n'
+                '        w.writerow({"name": r["name"], "note": r["note"]})\n'
+                'naive = open("people.csv").readlines()[1].split(",")\n'
+                'with open("why.txt", "w") as f:\n'
+                '    f.write("naive fields: %d\\n" % len(naive))\n'
+                '    f.write("csv fields: %d\\n" % len(rows[0]))\n'
+                'EOF\n'
+                'python3 readcsv.py'},
+            'steps': [
+                {'instruction': 'Read people.csv with csv.DictReader and keep '
+                                'the engineers.',
+                 'hint': 'csv.DictReader(open("people.csv", newline=""))'},
+                {'instruction': 'Write their name and note to engineers.csv '
+                                'with DictWriter, including a header row.',
+                 'hint': 'csv.DictWriter(f, fieldnames=["name", "note"])'},
+                {'instruction': 'Now split the same data line naively on '
+                                'commas and record both field counts in '
+                                'why.txt. They will differ, and that is the '
+                                'whole argument for the module.'},
+            ],
+            'free': 'Produce engineers.csv containing only the engineers with '
+                    'their notes intact, and why.txt comparing the field '
+                    'count from a naive split against the csv module.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'readcsv.py': ['import csv', 'DictReader'],
+                                  'engineers.csv': ['alice', 'carol',
+                                                    'likes tea, strongly'],
+                                  'why.txt': ['naive fields: 4',
+                                              'csv fields: 3']},
+                'file_lacks': {'engineers.csv': 'bob'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'py-modules',
+            'title': 'Split it into two files and import one',
+            'goal': 'The import machinery, the name equals main guard, and '
+                    'why a module runs its top level code exactly once.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+            'solution': {'shell':
+                'cat > helpers.py <<\'EOF\'\n'
+                'LOADED = "helpers imported"\n'
+                '\n'
+                '\n'
+                'def shout(text):\n'
+                '    return text.upper() + "!"\n'
+                '\n'
+                '\n'
+                'if __name__ == "__main__":\n'
+                '    print("helpers run directly")\n'
+                'EOF\n'
+                'cat > main.py <<\'EOF\'\n'
+                'import helpers\n'
+                'from helpers import shout\n'
+                '\n'
+                'with open("out.txt", "w") as f:\n'
+                '    f.write(shout("hello") + "\\n")\n'
+                '    f.write(helpers.LOADED + "\\n")\n'
+                '    f.write("name in main: %s\\n" % __name__)\n'
+                'EOF\n'
+                'python3 main.py && python3 helpers.py > direct.txt'},
+            'steps': [
+                {'instruction': 'Write helpers.py with a constant, a function '
+                                'shout that uppercases and appends an '
+                                'exclamation mark, and a main guard that '
+                                'prints something.',
+                 'hint': 'if __name__ == "__main__":'},
+                {'instruction': 'Write main.py that imports helpers both ways '
+                                'and writes three lines to out.txt: the '
+                                'shouted text, the constant, and its own '
+                                '__name__.'},
+                {'instruction': 'Run main.py, then run helpers.py directly '
+                                'into direct.txt, and compare what the guard '
+                                'did in each case.'},
+            ],
+            'free': 'Produce helpers.py and main.py, out.txt showing the '
+                    'imported function and constant plus __main__, and '
+                    'direct.txt showing what the guard prints when run '
+                    'directly.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'helpers.py': '__name__',
+                                  'out.txt': ['HELLO!', 'helpers imported',
+                                              'name in main: __main__'],
+                                  'direct.txt': 'helpers run directly'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'py-subprocess',
+            'title': 'Run a command without a shell',
+            'goal': 'subprocess.run with a list, capture_output, check, and '
+                    'the reason shell equals True is the wrong default.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'data.txt': 'gamma\nalpha\nbeta\nalpha\n',
+                'weird name.txt': 'has a space in the name\n',
+            }},
+            'solution': {'shell':
+                'cat > runner.py <<\'EOF\'\n'
+                'import subprocess\n'
+                'r = subprocess.run(["sort", "-u", "data.txt"],\n'
+                '                   capture_output=True, text=True, check=True)\n'
+                'open("sorted.txt", "w").write(r.stdout)\n'
+                'open("rc.txt", "w").write("returncode: %d\\n" % r.returncode)\n'
+                'w = subprocess.run(["wc", "-l", "weird name.txt"],\n'
+                '                   capture_output=True, text=True)\n'
+                'open("spaced.txt", "w").write(w.stdout)\n'
+                'try:\n'
+                '    subprocess.run(["false"], check=True)\n'
+                'except subprocess.CalledProcessError as e:\n'
+                '    open("failed.txt", "w").write("raised: %d\\n" '
+                '% e.returncode)\n'
+                'EOF\n'
+                'python3 runner.py'},
+            'steps': [
+                {'instruction': 'Run sort -u over data.txt with a list of '
+                                'arguments, capturing the output, and write '
+                                'it to sorted.txt.',
+                 'hint': 'subprocess.run(["sort", "-u", "data.txt"], '
+                         'capture_output=True, text=True)'},
+                {'instruction': 'Record the return code in rc.txt.'},
+                {'instruction': 'Run wc -l on the file whose name has a space '
+                                'in it. With a list there is nothing to '
+                                'quote, which is the whole point.',
+                 'hint': '["wc", "-l", "weird name.txt"]'},
+                {'instruction': 'Run something that fails with check=True and '
+                                'catch CalledProcessError, writing its return '
+                                'code to failed.txt.'},
+            ],
+            'free': 'Produce runner.py using subprocess with argument lists, '
+                    'and sorted.txt, rc.txt, spaced.txt and failed.txt as its '
+                    'output.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'runner.py': ['subprocess.run',
+                                                'capture_output'],
+                                  'sorted.txt': ['alpha', 'beta', 'gamma'],
+                                  'rc.txt': 'returncode: 0',
+                                  'spaced.txt': 'weird name.txt',
+                                  'failed.txt': 'raised: 1'},
+                'file_lacks': {'runner.py': 'shell=True'}}},
             'fallback': 'self',
         },
     ],

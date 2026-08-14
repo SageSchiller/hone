@@ -19,8 +19,18 @@ it records that you scrolled to the bottom, which is exactly what it knows.
 
 from __future__ import annotations
 
-from ..render import Caps, Text, wrap
+from ..render import Caps, Span, Text, strip_markup, wrap_rich
 from . import POP, STAY, Screen, push
+
+
+def _marked(rows: list[Text], marker: Span) -> list[Text]:
+    """Hang `marker` in the first row's indent, so the bullet sits left of the
+    text and every later line stays aligned under it."""
+    if rows and rows[0].spans and not rows[0].spans[0].text.strip():
+        rows[0].spans[0] = marker
+    elif rows:
+        rows[0].spans.insert(0, marker)
+    return rows
 
 
 class LessonScreen(Screen):
@@ -52,42 +62,30 @@ class LessonScreen(Screen):
         L = self.lesson
         out: list[Text] = [Text()]
 
-        for ln in wrap(str(L.get('concept', '')), w, '  '):
-            out.append(Text().add(ln, p.fg) if ln else Text())
+        out += wrap_rich(caps, str(L.get('concept', '')), w, '  ', p.fg, p.accent)
 
         for ex in L.get('examples') or ():
             out.append(Text())
             if ex.get('label'):
-                out.append(Text().add('  ' + str(ex['label']), p.accent, bold=True))
+                out.append(Text().add('  ' + strip_markup(str(ex['label'])),
+                                      p.accent, bold=True))
             for code_line in str(ex.get('code', '')).split('\n'):
                 out.append(Text().add('    ', p.bg)
                                  .add(code_line.ljust(max(0, w - 2)), p.ok, p.panel))
-            for ln in wrap(str(ex.get('note', '')), w, '    '):
-                out.append(Text().add(ln, p.dim) if ln else Text())
+            out += wrap_rich(caps, str(ex.get('note', '')), w, '    ', p.dim, p.muted)
 
         for mis in L.get('misconceptions') or ():
             out.append(Text())
-            first = True
-            for ln in wrap(str(mis), w - 4, '      '):
-                if first and ln:
-                    out.append(Text().add('  ! ', p.warn, bold=True)
-                                     .add(ln.strip(), p.warn))
-                    first = False
-                else:
-                    out.append(Text().add(ln, p.warn) if ln else Text())
+            out += _marked(wrap_rich(caps, str(mis), w - 4, '      ', p.warn, p.accent),
+                           Span('  ! ', p.warn, None, True))
 
         tries = L.get('try_it') or ()
         if tries:
             out += [Text(), Text().add('  TRY IT FOR REAL', p.accent2, bold=True)]
             for item in tries:
-                first = True
-                for ln in wrap(str(item), w - 4, '      '):
-                    if first and ln:
-                        out.append(Text().add('  ' + caps.g('arrow') + ' ', p.accent)
-                                         .add(ln.strip(), p.fg))
-                        first = False
-                    else:
-                        out.append(Text().add(ln, p.fg) if ln else Text())
+                out += _marked(
+                    wrap_rich(caps, str(item), w - 4, '      ', p.fg, p.accent),
+                    Span('  ' + caps.g('arrow') + ' ', p.accent, None, False))
 
         out.append(Text())
         self._lines_cache = (caps.cols, out)

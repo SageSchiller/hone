@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from .. import adapters as A
 from .. import handover, install
-from ..render import Caps, Text, wrap
+from ..render import Caps, Span, Text, strip_markup, wrap, wrap_rich
 from . import POP, STAY, Screen
 
 RIGORS = ('guided', 'coached', 'free')
@@ -98,8 +98,8 @@ class ChallengeScreen(Screen):
         c = self.challenge
         rows: list[Text] = [Text()]
 
-        for ln in wrap(str(c.get('goal', '')), caps.cols - 6, '  '):
-            rows.append(Text().add(ln, p.fg) if ln else Text())
+        rows += wrap_rich(caps, str(c.get('goal', '')), caps.cols - 6, '  ',
+                          p.fg, p.accent)
         rows.append(Text())
 
         # D16 rule 4: say how this gets checked before it starts, not after.
@@ -126,8 +126,8 @@ class ChallengeScreen(Screen):
                 elif text.startswith('    '):
                     rows.append(Text().add('    ' + text.strip(), p.accent))
                 else:
-                    for ln in wrap(text, caps.cols - 8, '    '):
-                        rows.append(Text().add(ln, p.muted) if ln else Text())
+                    rows += wrap_rich(caps, text, caps.cols - 8, '    ', p.muted,
+                                      p.accent)
             rows.append(Text())
 
         # The label is a heading, not a fourth chip. Dim text sitting flush
@@ -146,18 +146,18 @@ class ChallengeScreen(Screen):
         rows += [bar, Text()]
 
         if self.rigor == 'free':
-            for ln in wrap(str(c.get('free', c.get('goal', ''))),
-                           caps.cols - 6, '  '):
-                rows.append(Text().add(ln, p.fg, bold=True) if ln else Text())
+            for row in wrap_rich(caps, str(c.get('free', c.get('goal', ''))),
+                                 caps.cols - 6, '  ', p.fg, p.accent):
+                for sp in row.spans:
+                    sp.bold = True
+                rows.append(row)
         else:
             for i, step in enumerate(c.get('steps') or (), 1):
-                for j, ln in enumerate(wrap(str(step.get('instruction', '')),
-                                            caps.cols - 10, '     ')):
-                    if j == 0 and ln:
-                        rows.append(Text().add(f'  {i}. ', p.accent, bold=True)
-                                          .add(ln.strip(), p.fg))
-                    else:
-                        rows.append(Text().add(ln, p.fg) if ln else Text())
+                srows = wrap_rich(caps, str(step.get('instruction', '')),
+                                  caps.cols - 10, '     ', p.fg, p.accent)
+                if srows and srows[0].spans:
+                    srows[0].spans[0] = Span(f'  {i}. ', p.accent, None, True)
+                rows += srows
                 hint = step.get('hint')
                 if hint and (self.rigor == 'guided' or self.show_hints):
                     rows.append(Text().add('       ', p.dim)
@@ -200,7 +200,7 @@ class ChallengeScreen(Screen):
                               .add('not there yet', p.fg, bold=True))
         if self.detail:
             rows += [Text()]
-            for ln in wrap(self.detail, caps.cols - 8, '     '):
+            for ln in wrap(strip_markup(self.detail), caps.cols - 8, '     '):
                 rows.append(Text().add(ln, p.muted) if ln else Text())
         if not self.passed:
             rows += [Text(),
@@ -214,7 +214,8 @@ class ChallengeScreen(Screen):
         p = caps.palette
         c = self.challenge
         rows = [Text(), Text().add('  Did you complete it?', p.fg, bold=True), Text()]
-        for ln in wrap(str(c.get('free', c.get('goal', ''))), caps.cols - 8, '     '):
+        for ln in wrap(strip_markup(str(c.get('free', c.get('goal', '')))),
+                       caps.cols - 8, '     '):
             rows.append(Text().add(ln, p.muted) if ln else Text())
         rows += [Text(),
                  Text().add('     This one is on your honour: ', p.dim)
@@ -318,11 +319,12 @@ class ChallengeScreen(Screen):
             spec['brief'] = handover.inline(self.challenge, adapter.return_hint)
             argv = adapter.handoff(spec)
             cwd = adapter.handoff_cwd(spec)
+            env = adapter.handoff_env(spec)
         else:
-            argv, cwd = [], None
+            argv, cwd, env = [], None, {}
 
         if self._handoff is not None:
-            self._handoff(argv, cwd, self._shell_brief())
+            self._handoff(argv, cwd, self._shell_brief(), env=env)
 
         if adapter is None:
             # Whatever the plan said, what happens next is self-marking, and

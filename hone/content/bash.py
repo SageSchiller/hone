@@ -44,7 +44,7 @@ MODULE = {
                 'fish is a genuinely nicer interactive shell and is '
                 'deliberately not POSIX compatible. Variables are `set x y` '
                 'rather than `x=y`. The exit status is `$status` rather than '
-                '`$?`. There is no word splitting, no `export`, and a different '
+                '`$?`. There is no word splitting, exporting is `set -gx`, and a different '
                 'function syntax. None of that transfers.\n\n'
                 'It matters because bash is what exists everywhere else: on '
                 'every server you ssh into, inside every container, in CI, in '
@@ -306,7 +306,6 @@ MODULE = {
         {
             'id': 'sh-exit',
             'title': 'Exit codes and failing loudly',
-            'next': 'sh-vocabulary',
             'concept': (
                 'Every command returns a number. Zero means success and '
                 'anything else means failure, which is backwards from most '
@@ -347,6 +346,89 @@ MODULE = {
             'try_it': [
                 'Run `false | true; echo $?`, then `set -o pipefail` and run it '
                 'again.',
+            ],
+            'next': 'sh-control',
+        },
+        {
+            'id': 'sh-control',
+            'title': 'if, for, while, case, and functions',
+            'next': 'sh-vocabulary',
+            'concept': (
+                'Control flow is where bash syntax stops looking like anything '
+                'else, and the punctuation is what people get wrong. Learn the '
+                'shapes once and they stop being mysterious.\n\n'
+                '`if` runs a command and branches on its exit code, so there is '
+                'no comparison operator involved: `if grep -q x f; then ... fi`. '
+                'When you do want to test a string or a file, the command you '
+                'run is `[[ ... ]]`, which is why `if [[ -f "$path" ]]; then` '
+                'reads the way it does. The block ends with `fi`, and `elif` and '
+                '`else` sit between.\n\n'
+                '`for` iterates a list: `for f in *.log; do ... done`. `while` '
+                'repeats while a command succeeds, and its most useful form is '
+                'reading a file line by line, `while read -r line; do ... done < '
+                'file`, where `read -r` stops backslashes being eaten. `case` '
+                'matches a value against glob patterns and is cleaner than a '
+                'stack of elifs; each branch ends with `;;`.\n\n'
+                'Functions are `name() { ... }`. Arguments arrive as `$1`, `$2` '
+                'and `"$@"`, exactly as in a script, because a function is a '
+                'little script. Declare working variables `local` or they leak '
+                'into the whole shell, and return a result by echoing it and '
+                'capturing with `$(...)`: the numeric `return` is an exit code, '
+                'not a value.'
+            ),
+            'examples': [
+                {
+                    'label': 'The four shapes',
+                    'code': ('if [[ -d "$d" ]]; then\n'
+                             '  echo yes\n'
+                             'elif [[ -f "$d" ]]; then\n'
+                             '  echo file\n'
+                             'else\n'
+                             '  echo no\n'
+                             'fi\n'
+                             '\n'
+                             'for f in *.log; do echo "$f"; done\n'
+                             'while read -r line; do echo "$line"; done < in\n'
+                             '\n'
+                             'case "$1" in\n'
+                             '  start) run ;;\n'
+                             '  stop)  halt ;;\n'
+                             '  *)     echo "usage: ..." ;;\n'
+                             'esac'),
+                    'note': 'The terminators are the trap: then/fi, do/done, '
+                            'the double semicolon in case, and esac at the end.',
+                },
+                {
+                    'label': 'A function that returns a value',
+                    'code': ('newest() {\n'
+                             '  local dir="$1"\n'
+                             '  ls -t "$dir" | head -1\n'
+                             '}\n'
+                             '\n'
+                             'latest=$(newest /var/log)'),
+                    'note': 'It returns by printing and being captured with '
+                            '$(...). return is for the exit code, not the '
+                            'value.',
+                },
+            ],
+            'misconceptions': [
+                '`if` does not take a condition, it takes a command. `[[ ]]` is '
+                'that command when you want a test, which is why the brackets '
+                'are there.',
+                'A `while read` loop that eats leading spaces or backslashes '
+                'is missing `-r` and the `IFS=` guard: `while IFS= read -r '
+                'line`.',
+                'A function variable without `local` is global, so a loop '
+                'counter named `i` inside a function can silently clobber one '
+                'outside it.',
+                'A bare `return 5` from a function is an exit code, not a '
+                'returned five. To hand back data, echo it and capture the '
+                'output.',
+            ],
+            'try_it': [
+                'Write a function that takes a directory and prints how many '
+                'files are in it, then call it two ways and capture the answer '
+                'with `$(...)`.',
             ],
         },
         {
@@ -413,10 +495,11 @@ MODULE = {
                 'lives. Follow with `set -euo pipefail`. Quote every variable. '
                 'Check your arguments before doing anything destructive, and '
                 '`${1:?usage: ...}` does that in one line.\n\n'
-                'Then the ordinary constructs: `if`, `for`, `while`, and '
-                'functions. Use `[[ ]]` rather than `[ ]` in bash, because it '
-                'does not word-split and has proper `&&`, `||` and pattern '
-                'matching.'
+                'The control-flow constructs from the previous lesson, `if`, '
+                '`for`, `while` and functions, are the body of most scripts; '
+                'the habits here are the frame around them. Use `[[ ]]` rather '
+                'than `[ ]` throughout, because it does not word-split and has '
+                'proper `&&`, `||` and pattern matching.'
             ),
             'examples': [
                 {
@@ -556,6 +639,37 @@ MODULE = {
          'teach': 'The quotes are the point: without them a filename with a '
                   'space becomes two arguments. If nothing matches, the glob '
                   'stays literal.'},
+
+        # control flow
+        {'id': 'sh-cmd-if', 'type': 'command',
+         'answer': 'if [[ -d "$dir" ]]; then echo yes; fi',
+         'prompt': 'If the path in $dir is a directory, echo yes.',
+         'teach': 'if takes a command; [[ ]] is that command when you want a '
+                  'test. The block ends with fi.'},
+        {'id': 'sh-cmd-ifgrep', 'type': 'command',
+         'answer': 'if grep -q error log; then echo found; fi',
+         'prompt': 'If log contains the word error, echo found, with no '
+                   'comparison.',
+         'teach': 'if branches on the exit code of the command, so grep -q '
+                  'needs no [[ ]] around it.'},
+        {'id': 'sh-cmd-while', 'type': 'command',
+         'answer': 'while IFS= read -r line; do echo "$line"; done < in.txt',
+         'prompt': 'Read in.txt line by line, echoing each line verbatim.',
+         'teach': 'IFS= stops leading spaces being trimmed and -r stops '
+                  'backslashes being eaten. Without both, the loop mangles '
+                  'input.'},
+        {'id': 'sh-cmd-case', 'type': 'command',
+         'answer': 'case "$1" in start) run ;; stop) halt ;; *) usage ;; esac',
+         'prompt': 'Branch on $1: run for start, halt for stop, usage for '
+                   'anything else.',
+         'teach': 'case matches glob patterns, each branch ends with ;;, and '
+                  'the whole thing ends with esac. * is the catch-all.'},
+        {'id': 'sh-cmd-func', 'type': 'command',
+         'answer': 'greet() { echo "hi $1"; }',
+         'prompt': 'Define a function greet that echoes hi followed by its '
+                   'first argument.',
+         'teach': 'A function is a little script: arguments arrive as $1, $2 '
+                  'and "$@". Return data by echoing it and capturing $(...).'},
     ],
 
     'challenges': [
@@ -833,6 +947,180 @@ MODULE = {
                     'expect': {'file_contains': {'config.ini': ['[server]',
                                                                 'localhost',
                                                                 '8080']}}},
+         'fallback': 'self'},
+
+        {'id': 'sh-array-args',
+         'title': 'Quote the array, and quote the arguments',
+         'goal': 'Arrays and "$@" exist for the same reason: a list of things '
+                 'that may contain spaces. Prove both forms.',
+         'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {'.keep': ''}},
+         'solution': {'shell':
+             'cat > show.sh <<\'EOF\'\n'
+             '#!/bin/bash\n'
+             'files=("one file.txt" "two file.txt" "three.txt")\n'
+             'printf "%s\\n" "${files[@]}" > quoted.txt\n'
+             'printf "%s\\n" ${files[@]} > unquoted.txt\n'
+             'echo "count: ${#files[@]}" > count.txt\n'
+             'count_args() { echo "$#" ; }\n'
+             'count_args "$@" > dollar-at.txt\n'
+             'EOF\n'
+             'chmod +x show.sh\n'
+             './show.sh "a b" "c d"'},
+         'steps': [{'instruction': 'Write show.sh declaring an array of three '
+                                   'names, two of which contain spaces.',
+                    'hint': 'files=("one file.txt" "two file.txt" "three.txt")'},
+                   {'instruction': 'Print the array quoted into quoted.txt '
+                                   'and unquoted into unquoted.txt, then '
+                                   'compare the line counts.',
+                    'hint': 'printf "%s\\n" "${files[@]}"'},
+                   {'instruction': 'Write the element count to count.txt.',
+                    'hint': 'the hash form, ${#files[@]}'},
+                   {'instruction': 'Add a function that echoes the argument '
+                                   'count, call it with "$@", and run the '
+                                   'script with two spaced arguments.',
+                    'hint': 'count_args "$@"'}],
+         'free': 'Produce quoted.txt with three lines, unquoted.txt with '
+                 'more, count.txt holding 3, and dollar-at.txt holding the '
+                 'argument count.',
+         'verify': {'kind': 'sandbox', 'expect': {
+             'file_equals': {'quoted.txt': 'one file.txt\ntwo file.txt\n'
+                                           'three.txt',
+                             'count.txt': 'count: 3',
+                             'dollar-at.txt': '2'},
+             'file_contains': {'unquoted.txt': 'one'}}},
+         'fallback': 'self'},
+
+        {'id': 'sh-ifs-splitting',
+         'title': 'Change what counts as a separator',
+         'goal': 'Word splitting is driven by IFS, and setting it '
+                 'deliberately is how you read a colon separated line without '
+                 'reaching for cut.',
+         'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+             'passwd.line': 'deploy:x:1001:1001:Deploy User:/home/deploy:'
+                            '/bin/bash\n'}},
+         'solution': {'shell':
+             'cat > split.sh <<\'EOF\'\n'
+             '#!/bin/bash\n'
+             'line=$(cat passwd.line)\n'
+             'IFS=: read -r user pass uid gid gecos home shell <<< "$line"\n'
+             'printf "%s\\n" "$user" "$uid" "$home" "$shell" > fields.txt\n'
+             'IFS=: read -ra parts <<< "$line"\n'
+             'echo "${#parts[@]}" > nfields.txt\n'
+             'EOF\n'
+             'chmod +x split.sh\n'
+             './split.sh'},
+         'steps': [{'instruction': 'Read the line and split it on colons into '
+                                   'named variables, setting IFS for that one '
+                                   'command only.',
+                    'hint': 'IFS=: read -r user pass uid gid gecos home shell '
+                            '<<< "$line"'},
+                   {'instruction': 'Write the user, uid, home and shell to '
+                                   'fields.txt, one per line.'},
+                   {'instruction': 'Read it again into an array and write the '
+                                   'field count to nfields.txt.',
+                    'hint': 'IFS=: read -ra parts <<< "$line"'},
+                   {'instruction': 'Note that setting IFS before the command '
+                                   'applies to that command only, which is '
+                                   'why nothing afterwards breaks.'}],
+         'free': 'Produce fields.txt holding the user, uid, home and shell '
+                 'from the passwd line, and nfields.txt holding 7.',
+         'verify': {'kind': 'sandbox', 'expect': {
+             'file_equals': {'fields.txt': 'deploy\n1001\n/home/deploy\n'
+                                           '/bin/bash',
+                             'nfields.txt': '7'}}},
+         'fallback': 'self'},
+
+        {'id': 'sh-globs-nullglob',
+         'title': 'Make a glob that matches nothing behave',
+         'goal': 'An unmatched glob stays as literal text, which is the '
+                 'source of a whole family of bugs. See it, then fix it.',
+         'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+             'a.txt': 'one\n', 'b.txt': 'two\n'}},
+         'solution': {'shell':
+             'cat > globs.sh <<\'EOF\'\n'
+             '#!/bin/bash\n'
+             'for f in *.md; do echo "$f"; done > literal.txt\n'
+             'shopt -s nullglob\n'
+             'count=0\n'
+             'for f in *.md; do count=$((count+1)); done\n'
+             'echo "nullglob matches: $count" > fixed.txt\n'
+             'shopt -u nullglob\n'
+             'for f in *.txt; do echo "$f"; done > real.txt\n'
+             'EOF\n'
+             'chmod +x globs.sh\n'
+             './globs.sh'},
+         'steps': [{'instruction': 'Loop over a glob that matches nothing '
+                                   'here, and write what the loop variable '
+                                   'actually held to literal.txt.',
+                    'hint': 'for f in *.md; do echo "$f"; done > literal.txt'},
+                   {'instruction': 'Turn on nullglob and count the iterations '
+                                   'of the same loop, into fixed.txt.',
+                    'hint': 'shopt -s nullglob'},
+                   {'instruction': 'Turn it back off and loop over the txt '
+                                   'files into real.txt, to show the ordinary '
+                                   'case still works.'}],
+         'free': 'Produce literal.txt showing the unmatched glob surviving as '
+                 'text, fixed.txt showing nullglob gives zero iterations, and '
+                 'real.txt listing the two txt files.',
+         'verify': {'kind': 'sandbox', 'expect': {
+             'file_equals': {'literal.txt': '*.md',
+                             'fixed.txt': 'nullglob matches: 0'},
+             'file_contains': {'real.txt': ['a.txt', 'b.txt']}}},
+         'fallback': 'self'},
+
+        {'id': 'sh-control-script',
+         'title': 'Write a script with every control structure',
+         'goal': 'Put if, for, while, case and a function together into one '
+                 'small script that classifies files, the way a real one does.',
+         'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+             'data/a.txt': 'one\n',
+             'data/b.log': 'two\nthree\n',
+             'data/c.txt': 'four\n'}},
+         'solution': {'shell':
+             'cat > classify.sh <<\'EOF\'\n'
+             '#!/usr/bin/env bash\n'
+             'set -euo pipefail\n'
+             'count_lines() { wc -l < "$1"; }\n'
+             'for f in data/*; do\n'
+             '  [[ -f "$f" ]] || continue\n'
+             '  case "$f" in\n'
+             '    *.txt) kind=text ;;\n'
+             '    *.log) kind=log ;;\n'
+             '    *)     kind=other ;;\n'
+             '  esac\n'
+             '  n=$(count_lines "$f")\n'
+             '  if (( n > 1 )); then\n'
+             '    echo "$f $kind multi" >> report.txt\n'
+             '  else\n'
+             '    echo "$f $kind single" >> report.txt\n'
+             '  fi\n'
+             'done\n'
+             'while IFS= read -r line; do echo "seen: $line"; done < report.txt '
+             '> seen.txt\n'
+             'EOF\n'
+             'chmod +x classify.sh\n'
+             './classify.sh'},
+         'steps': [{'instruction': 'Write classify.sh with the safe header, '
+                                   'and a function that counts a file\'s '
+                                   'lines.',
+                    'hint': 'count_lines() { wc -l < "$1"; }'},
+                   {'instruction': 'Loop over data/*, skip non-files, and use '
+                                   'case to label each by extension.',
+                    'hint': 'case "$f" in *.txt) kind=text ;; ... esac'},
+                   {'instruction': 'Use if with an arithmetic test to record '
+                                   'whether each file has more than one line, '
+                                   'appending to report.txt.',
+                    'hint': 'if (( n > 1 )); then ... else ... fi'},
+                   {'instruction': 'Finally, read report.txt back with a while '
+                                   'loop into seen.txt.'}],
+         'free': 'Produce classify.sh and its output report.txt (each file '
+                 'labelled by type and single/multi) and seen.txt, using if, '
+                 'for, while, case and a function.',
+         'verify': {'kind': 'sandbox', 'expect': {
+             'executable': ['classify.sh'],
+             'file_contains': {'report.txt': ['data/a.txt text single',
+                                              'data/b.log log multi'],
+                               'seen.txt': 'seen: data/a.txt'}}},
          'fallback': 'self'},
                   ],
 
