@@ -2998,6 +2998,15 @@ def test_sheet(t: Runner) -> None:
     t.eq('still non-zero', rc, 1)
     t.ok('points at --list', '--list' in err, err)
 
+    t.head('sheet / "all" prints the whole set, in curriculum order')
+    rc, out, _ = run('all')
+    t.eq('succeeds', rc, 0)
+    for mid in ('vim', 'ssh', 'systemd', 'sleuthkit', 'impacket'):
+        t.ok(f'includes {mid}', reg.get(mid).title in out, mid)
+    t.ok('separated for printing', '\f' in out)
+    t.ok('substantial', out.count('COMMANDS') + out.count('KEYS') >= len(reg),
+         out.count('COMMANDS'))
+
     t.head('sheet / every module produces a card without raising')
     for mod in reg:
         rc, out, _ = run(mod.id)

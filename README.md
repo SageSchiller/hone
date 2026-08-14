@@ -52,6 +52,7 @@ changes what you see and never what is checked.
 
 ```
 hone --list        what is installed, and what can be verified here
+hone --sheet ssh   one tool as a reference card; "all" for every tool
 hone --doctor      why something degrades on this machine, and how to fix it
 hone --export f    your progress, as one JSON file
 hone --ascii       no box drawing, for a plain terminal

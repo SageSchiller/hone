@@ -374,6 +374,17 @@ def sheet(registry, tool: str) -> int:
     nothing and records nothing, so D24 is untouched: this is a reference,
     not a review.
     """
+    if tool.lower() == 'all':
+        # The whole set, in curriculum order, so it can be piped to a file
+        # or a printer in one go. Form feeds between tools because that is
+        # what a printer does with them, and they are invisible otherwise.
+        mods = list(registry)
+        for i, m in enumerate(mods):
+            if i:
+                print('\f')
+            sheet(registry, m.id)
+        return 0
+
     mod = registry.get(tool)
     if mod is None:
         near = [m.id for m in registry if tool.lower() in m.id.lower()
@@ -538,7 +549,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--list', action='store_true',
                    help='list installed tools and exit')
     p.add_argument('--sheet', metavar='TOOL',
-                   help='print a tool\'s commands as a reference card and exit')
+                   help='print a tool as a reference card and exit; '
+                        'use "all" for every tool')
     p.add_argument('--doctor', action='store_true',
                    help='report what this machine supports and exit')
     p.add_argument('--reset', nargs='?', const='all', metavar='TOOL',
