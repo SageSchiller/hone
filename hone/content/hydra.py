@@ -20,7 +20,7 @@ MODULE = {
     ],
     'adapter': None,
     'estimate': '2-3 hours',
-    'order': 78,
+    'order': 83,
     'lessons': [
         {
             'id': 'hyd-what',

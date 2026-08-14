@@ -20,7 +20,7 @@ MODULE = {
     ],
     'adapter': 'sandbox',
     'estimate': '2-3 hours',
-    'order': 79,
+    'order': 86,
     'lessons': [
         {
             'id': 'sa-ldap',

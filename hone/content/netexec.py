@@ -20,7 +20,7 @@ MODULE = {
     ],
     'adapter': 'sandbox',
     'estimate': '2-3 hours',
-    'order': 80,
+    'order': 87,
     'lessons': [
         {
             'id': 'sa-netexec',

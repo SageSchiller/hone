@@ -38,7 +38,7 @@ MODULE = {
     'prereqs': ['file', 'python'],
     'adapter': None,
     'estimate': '4-5 hours',
-    'order': 81,
+    'order': 93,
 
     'lessons': [
         {

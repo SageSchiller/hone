@@ -20,7 +20,7 @@ MODULE = {
     ],
     'adapter': 'sandbox',
     'estimate': '2-3 hours',
-    'order': 77,
+    'order': 82,
     'lessons': [
         {
             'id': 'jtr-what',

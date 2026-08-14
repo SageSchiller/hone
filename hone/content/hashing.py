@@ -15,7 +15,7 @@ MODULE = {
     'title': 'hashing',
     'needs': [],
     'estimate': '1-2 hours',
-    'order': 72,
+    'order': 75,
     'blurb': 'sha256sum for identity and integrity, -c to verify, and why MD5 is not enough.',
     'lessons': [
         {

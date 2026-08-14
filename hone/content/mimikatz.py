@@ -33,7 +33,7 @@ MODULE = {
     'prereqs': ['smbenum', 'dfirwin'],
     'adapter': None,
     'estimate': '4-5 hours',
-    'order': 82,
+    'order': 90,
 
     'lessons': [
         {

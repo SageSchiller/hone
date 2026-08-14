@@ -39,7 +39,7 @@ MODULE = {
     'prereqs': ['systemd', 'linuxadv'],
     'adapter': 'sandbox',
     'estimate': '4-5 hours',
-    'order': 85,
+    'order': 94,
 
     'lessons': [
         {

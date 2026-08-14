@@ -108,7 +108,7 @@ MODULE = {
     'prereqs': ['file', 'xxd'],
     'adapter': 'sandbox',
     'estimate': '3-4 hours',
-    'order': 83,
+    'order': 92,
 
     'lessons': [
         {

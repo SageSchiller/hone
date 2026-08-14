@@ -20,7 +20,7 @@ MODULE = {
     ],
     'adapter': 'sandbox',
     'estimate': '3-4 hours',
-    'order': 76,
+    'order': 81,
     'lessons': [
         {
             'id': 'hc-what',

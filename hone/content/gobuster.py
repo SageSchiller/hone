@@ -18,7 +18,7 @@ MODULE = {
     ],
     'adapter': None,
     'estimate': '2 hours',
-    'order': 75,
+    'order': 80,
     'lessons': [
         {
             'id': 'gob-what',

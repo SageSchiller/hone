@@ -41,7 +41,7 @@ MODULE = {
     'prereqs': ['smbenum', 'ldapsearch'],
     'adapter': 'sandbox',
     'estimate': '3-4 hours',
-    'order': 84,
+    'order': 88,
 
     'lessons': [
         {

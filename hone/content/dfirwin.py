@@ -34,7 +34,7 @@ MODULE = {
     'prereqs': ['powershell'],
     'adapter': 'pwshbox',
     'estimate': '4-5 hours',
-    'order': 77,
+    'order': 89,
 
     'lessons': [
         {

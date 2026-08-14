@@ -35,7 +35,7 @@ MODULE = {
     'prereqs': ['linux', 'ssh'],
     'adapter': 'sandbox',
     'estimate': '3-4 hours',
-    'order': 73,
+    'order': 77,
 
     'lessons': [
         {

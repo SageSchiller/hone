@@ -32,7 +32,7 @@ MODULE = {
     'prereqs': ['linux'],
     'adapter': 'sandbox',
     'estimate': '3-4 hours',
-    'order': 74,
+    'order': 78,
 
     'lessons': [
         {

@@ -17,7 +17,7 @@ MODULE = {
         'xxd',
     ],
     'estimate': '2 hours',
-    'order': 72,
+    'order': 74,
     'blurb': 'Hex dumps, offsets, reversing a dump, and carving data hidden after EOF.',
     'lessons': [
         {

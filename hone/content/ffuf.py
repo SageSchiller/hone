@@ -20,7 +20,7 @@ MODULE = {
     ],
     'adapter': 'weblab',
     'estimate': '3-4 hours',
-    'order': 75,
+    'order': 79,
     'lessons': [
         {
             'id': 'wd-model',

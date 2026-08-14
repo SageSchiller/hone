@@ -21,7 +21,7 @@ MODULE = {
     ],
     'adapter': 'sandbox',
     'estimate': '3 hours',
-    'order': 79,
+    'order': 85,
     'lessons': [
         {
             'id': 'sa-model',

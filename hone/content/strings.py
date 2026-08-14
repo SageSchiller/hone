@@ -17,7 +17,7 @@ MODULE = {
         'strings',
     ],
     'estimate': '1-2 hours',
-    'order': 72,
+    'order': 73,
     'blurb': 'Readable runs, the minimum length, and the UTF-16 pass Windows needs.',
     'lessons': [
         {

@@ -37,7 +37,7 @@ MODULE = {
     'prereqs': ['regex', 'file'],
     'adapter': 'yaralab',
     'estimate': '3-4 hours',
-    'order': 78,
+    'order': 84,
 
     'lessons': [
         {

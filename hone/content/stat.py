@@ -15,7 +15,7 @@ MODULE = {
     'title': 'stat',
     'needs': [],
     'estimate': '1-2 hours',
-    'order': 72,
+    'order': 76,
     'blurb': 'The four timestamps, mtime versus ctime, and why touch does not fool ctime.',
     'lessons': [
         {
