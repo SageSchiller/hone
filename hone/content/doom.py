@@ -296,7 +296,7 @@ MODULE = {
                     'label': 'Finding things',
                     'code': ('SPC s p   search the whole project\n'
                              'SPC s b   search this buffer\n'
-                             'SPC s s   jump to a line in this buffer\n'
+                             'SPC s d   search this directory\n'
                              'SPC *     search the project for the word\n'
                              '          under the cursor\n'
                              'SPC s i   jump to a heading or symbol'),
@@ -329,8 +329,8 @@ MODULE = {
                 'the status buffer, and from there every action is a single key '
                 'with a menu one keystroke away.\n\n'
                 'The status buffer is the whole interface. It shows unstaged and '
-                'staged changes as foldable sections. `Tab` folds a section to '
-                'see which files changed, and folds again into the diff. On any '
+                'staged changes as foldable sections. `Tab` expands a section to '
+                'show which files changed, and again to show the diff. On any '
                 'change, `s` stages it and `u` unstages it, and crucially you '
                 'can stage a single hunk, or even a single line in visual mode, '
                 'rather than the whole file. That is the feature that changes '
@@ -890,7 +890,7 @@ MODULE = {
                    {'instruction': 'Change a file, then open the magit status '
                                    'buffer.',
                     'hint': 'SPC g g'},
-                   {'instruction': 'Fold a change with Tab to see its diff, '
+                   {'instruction': 'Expand a change with Tab to see its diff, '
                                    'then stage just one hunk rather than the '
                                    'whole file.',
                     'hint': 'move onto a hunk, press s'},

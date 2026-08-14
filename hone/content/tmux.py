@@ -830,7 +830,7 @@ MODULE = {
                 {'instruction': 'Write tmux.conf here in the sandbox. This is '
                                 'not your real config, and the trainer will '
                                 'never touch that.'},
-                {'instruction': 'Move the prefix to C-a, unbinding C-b and '
+                {'instruction': 'Move the prefix to C-a. This is the rebinding the lesson told you to postpone: do it here so you have seen the syntax, and then decide for yourself, unbinding C-b and '
                                 'binding C-a to send itself through.',
                  'hint': 'unbind C-b; set -g prefix C-a; bind C-a send-prefix'},
                 {'instruction': 'Set base-index and pane-base-index to 1, so '

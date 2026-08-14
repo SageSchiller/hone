@@ -650,7 +650,7 @@ MODULE = {
          'teach': '-A appends, --dport matches the port, -j sets the verdict. '
                   'The chains are fixed and named in capitals.'},
         {'id': 'fwd-ipt-established', 'type': 'command',
-         'answer': 'iptables -A INPUT -m state --state ESTABLISHED,RELATED '
+         'answer': 'iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED '
                    '-j ACCEPT',
          'prompt': 'Append the iptables rule accepting established and related '
                    'connections.',
@@ -686,6 +686,18 @@ MODULE = {
                    'route.',
          'teach': 'A forward-hook firewall rule is not enough on its own; the '
                   'kernel also has to be told it may forward packets.'},
+        {'id': 'fwd-nft-handles', 'type': 'command',
+         'answer': 'nft -a list ruleset',
+         'prompt': 'List the ruleset with the handles needed to delete a rule.',
+         'teach': 'Without -a there are no handles, and a handle is the only way to name one rule for deletion.'},
+        {'id': 'fwd-nft-delete', 'type': 'command',
+         'answer': 'nft delete rule inet filter input handle 7',
+         'prompt': 'Delete one rule by its handle, leaving the rest alone.',
+         'teach': 'The third real task after add and list. Get the handle from nft -a list ruleset first.'},
+        {'id': 'fwd-ipt-delete', 'type': 'command',
+         'answer': 'iptables -D INPUT 3',
+         'prompt': 'Delete rule number 3 from the iptables INPUT chain.',
+         'teach': 'Numbers shift as soon as you delete one, so re-read with --line-numbers between deletions.'},
     ],
 
     'challenges': [

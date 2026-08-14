@@ -78,7 +78,9 @@ MODULE = {
                  'code': 'openssl pkcs12 -export -inkey key.pem -in cert.pem '
                          '-certfile chain.pem -out bundle.p12',
                  'note': 'One encrypted file with everything in it. It will '
-                         'ask for an export password.'},
+                         'ask for an export password. OpenSSL 3 defaults to '
+                         'AES-256 and PBKDF2, which older Windows and Java '
+                         'cannot read: add -legacy when the consumer is old.'},
                 {'label': 'Take a p12 apart again',
                  'code': 'openssl pkcs12 -in bundle.p12 -nodes -out all.pem',
                  'note': '-nodes leaves the private key unencrypted, which is '

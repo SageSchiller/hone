@@ -323,7 +323,7 @@ MODULE = {
                 'container owns, bind mounts for files you own and want to '
                 'share in.\n\n'
                 'Networking has two parts you meet early. **Publishing a port** '
-                'with `-p 8080:80` is how the outside world reaches a service '
+                'with `-p 8080:80` is how the outside world reaches a service, and it means the outside world: a published port binds 0.0.0.0 and is reachable from the network, not just from your host. `-p 127.0.0.1:8080:80` is the localhost-only form, and Docker writes its own firewall rules that bypass your INPUT chain '
                 'inside a container; without it, the service is only reachable '
                 'from other containers, not from your host. **Container '
                 'networks** are how containers reach each other: put two '
@@ -643,6 +643,14 @@ MODULE = {
                    'abc123.',
          'teach': 'Runtime environment is where secrets belong, never baked '
                   'into the image with ENV or COPY.'},
+        {'id': 'dkd-cp', 'type': 'command',
+         'answer': 'docker cp web:/etc/nginx/nginx.conf ./nginx.conf',
+         'prompt': 'Copy a file out of a running container to the host.',
+         'teach': 'Works in both directions, and on stopped containers too, which makes it the quick way to inspect or patch one file.'},
+        {'id': 'dkd-start', 'type': 'command',
+         'answer': 'docker start -ai web',
+         'prompt': 'Restart an existing stopped container and attach to it.',
+         'teach': 'start reuses the container you already made; run would build a second one from the image and confuse you later.'},
     ],
 
     'challenges': [

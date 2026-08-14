@@ -327,11 +327,13 @@ MODULE = {
                     'label': 'Not filling the disk',
                     'code': ('-c 1000              stop after 1000 packets\n'
                              '-G 3600 -w cap-%H.pcap   rotate hourly\n'
-                             '-W 24                keep 24 files, then reuse\n'
+                             '-W 24                stop after 24 files\n'
                              '-Z user              drop privileges after '
                              'opening'),
-                    'note': '`-G` with `-W` gives you a rolling window, which is '
-                            'how you leave a capture running overnight.',
+                    'note': 'With `-G`, `-W` limits the count and then exits: '
+                            'it is a ceiling, not a ring. A rolling day comes '
+                            'free from the filename instead, because `%H` wraps '
+                            'after 24 hours and overwrites.',
                 },
             ],
             'misconceptions': [
@@ -491,9 +493,10 @@ MODULE = {
                   'incident, which is the worst possible moment for it.'},
         {'id': 'td-cmd-rotate', 'type': 'command',
          'answer': 'tcpdump -nn -G 3600 -W 24 -w cap-%H.pcap',
-         'prompt': 'Capture into hourly files, keeping a rolling day of them.',
-         'teach': '-G is the seconds per file and -W the number kept, so the '
-                  'pair puts a fixed ceiling on how much disk this can use.'},
+         'prompt': 'Capture into hourly files, stopping after a day of them.',
+         'teach': '-G is the seconds per file and -W the number of files, after '
+                  'which tcpdump exits. Drop -W and %H wraps after 24 hours, '
+                  'which is the rolling window people actually mean.'},
         {'id': 'td-cmd-tshark-capture', 'type': 'command',
          'answer': 'tshark -f "tcp port 443"',
          'prompt': 'Give tshark a CAPTURE filter, in BPF.',
@@ -615,6 +618,14 @@ MODULE = {
                   '`ip.addr` is either direction, and reaching for it when '
                   'you meant `ip.src` is the display-filter version of '
                   'forgetting `src`.'},
+        {'id': 'td-cmd-list-if', 'type': 'command',
+         'answer': 'tcpdump -D',
+         'prompt': 'List the interfaces available to capture on.',
+         'teach': 'The first live stumble is which interface to name, and this answers it without guessing.'},
+        {'id': 'td-cmd-ascii', 'type': 'command',
+         'answer': 'tcpdump -r capture.pcap -A',
+         'prompt': 'Print packet payloads as ASCII while reading a capture.',
+         'teach': '-A is ASCII and -X is hex with ASCII beside it. Both show payload, which the default header line does not.'},
     ],
 
     'challenges': [
