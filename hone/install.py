@@ -135,6 +135,16 @@ PACKAGES: dict[str, dict[str, str]] = {
     'ldapsearch': {'pacman': 'openldap', 'apt': 'ldap-utils',
                    'dnf': 'openldap-clients', 'zypper': 'openldap2-client',
                    'apk': 'openldap-clients', 'brew': 'openldap'},
+    # The Sleuth Kit: one package, many binaries (mmls, fls, icat...).
+    'fls': {'pacman': 'sleuthkit', 'apt': 'sleuthkit', 'dnf': 'sleuthkit',
+            'zypper': 'sleuthkit', 'apk': 'sleuthkit', 'brew': 'sleuthkit'},
+    'icat': {'pacman': 'sleuthkit', 'apt': 'sleuthkit', 'dnf': 'sleuthkit',
+             'zypper': 'sleuthkit', 'apk': 'sleuthkit', 'brew': 'sleuthkit'},
+    # impacket is in the official repos on Arch as `impacket`, not
+    # `python-impacket`, which is what a real paste of the wrong name
+    # taught us. Debian ships the scripts as python3-impacket.
+    'secretsdump.py': {'pacman': 'impacket', 'apt': 'python3-impacket',
+                       'dnf': 'python3-impacket'},
     'binwalk': {'pacman': 'binwalk', 'apt': 'binwalk', 'dnf': 'binwalk',
                 'brew': 'binwalk'},
     'exiftool': {'pacman': 'perl-image-exiftool', 'apt': 'libimage-exiftool-perl',
