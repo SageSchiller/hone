@@ -119,7 +119,7 @@ MODULE = {
                 },
                 {
                     'label': 'Walk the RIDs when enumeration is blocked',
-                    'code': 'for i in $(seq 500 1100); do rpcclient -U "" -N -c "lookupsids S-1-5-21-1-2-3-$i" 10.0.0.10; done',
+                    'code': 'rpcclient -U "" -N -c lsaquery 10.0.0.10   # get the real SID first\nfor i in $(seq 500 1100); do rpcclient -U "" -N -c "lookupsids S-1-5-21-1-2-3-$i" 10.0.0.10; done',
                     'note': 'The lookup call is often permitted where the enumerate call is not.',
                 },
                 {

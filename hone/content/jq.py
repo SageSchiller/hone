@@ -305,6 +305,18 @@ MODULE = {
                    'reflects the result.',
          'teach': '-e exits non-zero when the result is false or null, which '
                   'is the only way to branch on jq inside a shell if.'},
+        {'id': 'jqd-interp', 'type': 'command',
+         'answer': 'jq -r \'"\\(.client) \\(.status)"\' log.json',
+         'prompt': 'Build one text line out of two fields of each object.',
+         'teach': 'String interpolation is backslash-paren inside a jq string, and with -r it is how you get plain text out rather than JSON.'},
+        {'id': 'jqd-sortby', 'type': 'command',
+         'answer': 'jq \'sort_by(-.count)\' data.json',
+         'prompt': 'Sort an array by a field, largest first.',
+         'teach': 'sort_by orders by any expression, and negating a number reverses it without a separate reverse step.'},
+        {'id': 'jqd-groupby', 'type': 'command',
+         'answer': 'jq \'group_by(.status)\' log.json',
+         'prompt': 'Collect array elements into groups by a shared field.',
+         'teach': 'group_by returns an array of arrays, one per distinct value, and it expects the input sorted on the same key.'},
     ],
 
     'challenges': [

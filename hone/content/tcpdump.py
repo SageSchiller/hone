@@ -459,7 +459,7 @@ MODULE = {
                   'rejecting rather than dropping. Silence is what dropping '
                   'looks like.'},
         {'id': 'td-cmd-greater', 'type': 'command', 'answer': "tcpdump -nn 'greater 1000'",
-         'prompt': 'Capture packets larger than 1000 bytes.',
+         'prompt': 'Capture packets of at least 1000 bytes.',
          'teach': 'It matches the whole frame length, so the comparison '
                   'counts headers as well as payload.'},
         {'id': 'td-cmd-ttl', 'type': 'command', 'answer': "tcpdump -nn 'ip[8] < 5'",

@@ -86,7 +86,7 @@ MODULE = {
                 },
                 {
                     'label': 'Clock skew, which breaks everything',
-                    'code': 'ntpdate -q 10.0.0.10',
+                    'code': 'sntp 10.0.0.10        # or chronyd -Q, ntpdate is long gone',
                     'note': 'Kerberos rejects requests more than five minutes out. Most mysterious Kerberos failures are this.',
                 },
             ],

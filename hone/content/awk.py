@@ -345,6 +345,22 @@ MODULE = {
          'prompt': 'Print lines longer than 80 characters.',
          'teach': 'length with no argument is the length of $0. It is a '
                   'pattern, so the default action prints.'},
+        {'id': 'awkd-gsub', 'type': 'command',
+         'answer': 'awk \'{gsub(/ERROR/, "E")} 1\' app.log',
+         'prompt': 'Replace every ERROR with E and print every line.',
+         'teach': 'gsub edits $0 in place and returns a count rather than the line, so you still need a trailing 1 to print it.'},
+        {'id': 'awkd-sub', 'type': 'command',
+         'answer': 'awk \'{sub(/^ +/, "")} 1\' file.txt',
+         'prompt': 'Strip the leading spaces from each line, then print it.',
+         'teach': 'sub replaces the first match only and gsub replaces them all. Both work on $0 unless you name a field.'},
+        {'id': 'awkd-printf', 'type': 'command',
+         'answer': 'awk \'{printf "%-10s %5d\\n", $1, $2}\' data.txt',
+         'prompt': 'Print two fields as aligned columns.',
+         'teach': 'printf takes a format string and needs its own newline. This is how awk output stops looking ragged.'},
+        {'id': 'awkd-v', 'type': 'command',
+         'answer': 'awk -v threshold=100 \'$2 > threshold\' data.txt',
+         'prompt': 'Pass a shell value into an awk program as a variable.',
+         'teach': '-v sets it before the first line is read. Interpolating a shell variable into the program text instead is where the quoting bugs come from.'},
     ],
 
     'challenges': [

@@ -92,6 +92,10 @@ MODULE = {
             'answer': 'tar cf - dir/ | sha256sum',
             'teach': 'Anything on stdin can be hashed, which is how a directory or a download in flight gets a fingerprint.',
         },
+        {'id': 'hshd-md5', 'type': 'command',
+         'answer': 'md5sum sample.bin',
+         'prompt': 'Compute the MD5 of a file, to use as a lookup key.',
+         'teach': 'Fine for looking something up in a threat-intel set, and not fine for proving nobody tampered with it.'},
     ],
     'challenges': [
         {

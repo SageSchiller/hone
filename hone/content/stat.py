@@ -85,6 +85,10 @@ MODULE = {
             'answer': 'find . -newermt "-1 day" -type f',
             'teach': '-newermt compares mtime, -newerct compares ctime, and the second is the harder one to forge.',
         },
+        {'id': 'std-octal', 'type': 'command',
+         'answer': 'stat -c "%a %n" *',
+         'prompt': 'Print the octal permissions and name of every file here.',
+         'teach': 'The most common scripting use of stat: 644 is far easier to test in a script than the rw-r--r-- that ls prints.'},
     ],
     'challenges': [
         {
