@@ -4,7 +4,7 @@ An offline terminal trainer for command-line tools. It teaches one tool per
 module, hands you the real tool to practise in, and then reads back what you
 actually did.
 
-46 tools, 250 lessons, 929 drills, 276 practice sessions.
+50 tools, 269 lessons, 1020 drills, 285 practice sessions.
 
 ```
 python3 dist/hone.pyz
@@ -65,14 +65,15 @@ Progress is one JSON file in `~/.local/share/hone/`. Nothing is sent anywhere.
 **Editors** vim/neovim, Doom Emacs, org-mode ·
 **Terminal** tmux, bash ·
 **Text** regex, awk, jq, SQL ·
-**Linux** basics, advanced, utilities ·
+**Linux** basics, advanced, utilities, systemd ·
 **Version control** git ·
 **Network** ssh, scp/rsync, dig, curl, netcat/socat, xfreerdp, nftables/iptables, tcpdump ·
 **Scripting** Python, PowerShell ·
 **Containers** Docker ·
 **Security** nmap, strace, file, strings, xxd, hashing, stat, openssl, gpg, ffuf,
 gobuster, hashcat, John the Ripper, hydra, YARA, smbclient/rpcclient, ldapsearch,
-netexec, Metasploit, Volatility, mimikatz, Windows/Sysmon DFIR
+netexec, impacket, Metasploit, Volatility, mimikatz, Windows/Sysmon DFIR,
+Linux DFIR, The Sleuth Kit
 
 A tool earns a module by being **useful and hard to learn**. The security modules
 teach the tool and never the engagement: how it works and what its output means,
@@ -89,7 +90,7 @@ leaving you at a dead end. It never installs anything itself.
 
 ```
 python3 validate.py --lint    # content graph and prose
-python3 test.py               # 10094 checks
+python3 test.py               # 11000 checks
 bash build.sh                 # dist/hone.pyz
 bash build.sh --per-tool      # plus one .pyz per tool
 ```
