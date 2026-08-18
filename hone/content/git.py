@@ -30,15 +30,112 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'git-why',
+            'title': 'The problem git is solving',
+            'next': 'git-model',
+            'concept': (
+                'Before any commands, the problem. Everyone who has written '
+                'anything has invented a worse version of git by accident:\n\n'
+                '```\n'
+                'report.doc\n'
+                'report-v2.doc\n'
+                'report-final.doc\n'
+                'report-final-ACTUAL.doc\n'
+                'report-final-ACTUAL-jos-edits.doc\n'
+                '```\n\n'
+                'That directory is a version control system. It is just a bad '
+                'one. It cannot tell you what changed between two of those '
+                'files, it cannot merge Jo\'s edits with yours, it cannot say '
+                'who wrote which sentence or why, and it grows forever.\n\n'
+                '**git is a program that keeps the history of a directory.** '
+                'You tell it, at moments you choose, "save the state of '
+                'everything right now, and here is why". It stores that, '
+                'cheaply, forever. Later you can see any past state, compare '
+                'any two, find when a particular line appeared, and combine '
+                'work done by several people who were all editing at '
+                'once.\n\n'
+                'Two things make it feel harder than that description '
+                'sounds.\n\n'
+                '**It is distributed.** There is no central server that owns '
+                'the truth. Every copy is complete, with the full history, '
+                'and services like GitHub are just another copy that everyone '
+                'agrees to meet at. This is why you can commit on a plane.\n\n'
+                '**Its command names are historical rather than logical.** '
+                'The model underneath is small and clean; the interface grew '
+                'over twenty years and it shows. Someone who understands the '
+                'model can work out what a command probably does. Someone who '
+                'has memorised commands is lost the first time something goes '
+                'sideways. So the next lesson is the model, and it is the '
+                'most valuable one here.'
+            ),
+            'examples': [
+                {
+                    'label': 'The same directory, both ways',
+                    'code': ('without git        with git\n'
+                             '-----------        --------\n'
+                             'report.doc         report.doc\n'
+                             'report-v2.doc      + a history of every\n'
+                             'report-final.doc     version, each with\n'
+                             'report-FINAL2.doc    a message and an author'),
+                    'note': 'One file on disk, always the current one. The '
+                            'history lives in a hidden .git directory beside '
+                            'it and never clutters your view.',
+                },
+                {
+                    'label': 'What it lets you ask',
+                    'code': ('what changed since yesterday?\n'
+                             'who wrote this line, and why?\n'
+                             'what did this look like last Tuesday?\n'
+                             'combine my work with theirs\n'
+                             'undo that, but keep the rest'),
+                    'note': 'Every one of these is a command you will meet. '
+                            'They are all reading the same history from a '
+                            'different angle.',
+                },
+                {
+                    'label': 'The three places a file can be',
+                    'code': ('working tree   the files you are editing\n'
+                             '     |  git add\n'
+                             'index          what will go in next commit\n'
+                             '     |  git commit\n'
+                             'history        saved, permanently'),
+                    'note': 'The middle one is the bit no other tool has, and '
+                            'it is the source of most early confusion. It has '
+                            'a lesson of its own shortly.',
+                },
+            ],
+            'misconceptions': [
+                'git is not GitHub. git is the program on your machine; '
+                'GitHub is a company hosting copies of git repositories. You '
+                'can use git for years without an account anywhere.',
+                'A commit is not a backup of changed files. It is a snapshot '
+                'of the whole project at a moment, which is why checking out '
+                'an old commit gives you the entire project as it was.',
+                'git does not need a network. Committing, branching, viewing '
+                'history and searching are all local, and only push and pull '
+                'talk to anyone.',
+            ],
+            'try_it': [
+                'Run `git init` in a throwaway directory and look at what '
+                'appeared: `ls -a` shows one hidden directory, and that is '
+                'the entire system.',
+                'Think of the last time you kept a file named "-final". That '
+                'instinct is correct and git is the version of it that '
+                'works.',
+            ],
+        },
+        {
             'id': 'git-model',
             'title': 'Commits, refs, and why branches are cheap',
             'next': 'git-three-trees',
             'concept': (
-                'A commit is a **snapshot** of your whole project, not a diff. '
-                'It also records its parent, which is what turns a pile of '
-                'snapshots into a graph. Diffs are computed between two '
-                'commits when you ask for them; they are not what is '
-                'stored.\n\n'
+                'Commits, refs and branches are how git stores history as a '
+                'graph of snapshots. That is why a branch is a 41-byte file, '
+                'and why checking out an old commit restores the whole '
+                'project. A commit is not a diff. It also records its parent, '
+                'which is what turns a pile of snapshots into a graph. Diffs '
+                'are computed between two commits when you ask for them; they '
+                'are not what is stored.\n\n'
                 'A branch is a **pointer to one commit**, stored as a file '
                 'containing a hash. That is the entire implementation. Making a '
                 'branch writes forty-one bytes, which is why branching in git '
@@ -48,7 +145,16 @@ MODULE = {
                 'branch rather than directly at a commit. Committing moves the '
                 'branch forward and HEAD follows. Almost every git command you '
                 'will learn is moving one of these pointers or building a new '
-                'commit for one to point at.'
+                'commit for one to point at.\n\n'
+                'That is why branches are cheap: you are writing a 41-byte '
+                'file, not copying a project. Deleting a branch deletes that '
+                'file. The commits stay if any other name still reaches them, '
+                'and vanish later if nothing does. People treat "delete the '
+                'branch" as "delete the work" because other systems stored '
+                'the work *in* the branch. git stores the work in the graph '
+                'and hangs labels on it.\n\n'
+                'The next lesson is the three places a file exists at once, '
+                'because that is what `git status` is actually reporting.'
             ),
             'examples': [
                 {
@@ -109,7 +215,17 @@ MODULE = {
                 'justification, and once you use it once it stops feeling like '
                 'bureaucracy.\n\n'
                 '`git status` is a report on the two gaps: between HEAD and the '
-                'index, and between the index and the working tree.'
+                'index, and between the index and the working tree.\n\n'
+                '`git restore file` copies from the index onto disk, so you '
+                'lose unstaged edits. `git restore --source=HEAD file` copies '
+                'from the last commit, skipping the index. `git restore '
+                '--staged file` copies from HEAD into the index and leaves '
+                'the working tree alone, which is how you unstage without '
+                'undoing the edit. Mixing those up is why "I unstaged it and '
+                'my file went back" is sometimes true and sometimes not: it '
+                'depends which restore you ran.\n\n'
+                'The next lesson is the daily loop that moves files across '
+                'those three places: status, add, commit, log.'
             ),
             'examples': [
                 {
@@ -154,7 +270,11 @@ MODULE = {
             'title': 'The daily loop',
             'next': 'git-branches',
             'concept': (
-                'Status, add, commit, log. Most days are only these.\n\n'
+                'Status, add, commit, log. Most days are only these. A '
+                'machine that has never committed needs `git config '
+                '--global user.name` and `user.email` first, or commit '
+                'refuses. `git clone url` copies a remote; `git init` '
+                'starts an empty one.\n\n'
                 '`git status` first, always. It tells you which branch you are '
                 'on, what is staged, what is not, and what is untracked, and it '
                 'suggests the command for whatever you probably want next. '
@@ -165,7 +285,39 @@ MODULE = {
                 'fifty characters, and if there is more to say a blank line '
                 'then prose. The reason is that git tooling everywhere shows '
                 'you only the first line, so "fix stuff" is a message you will '
-                'meet again when you least want it.'
+                'meet again when you least want it.\n\n'
+                '`git add file` does not mean "this is a new file". It means '
+                '"put the current bytes of this path into the index". You do '
+                'it every time the file changes, including the twentieth '
+                'edit. Forgetting that is why people commit an old version: '
+                'they edited after `add` and never added again. `git status` '
+                'says `modified` under "Changes not staged" when that has '
+                'happened.\n\n'
+                '`git show HEAD` is one commit as a message and a patch. '
+                '`git log -p` is the same idea walking history: each commit, '
+                'then its diff. `--oneline` is the summary; `-p` is the '
+                'change. Read `show` when you know which commit. Read '
+                '`log -p` when you do not.\n\n'
+                'A commit is local. Nothing has left the machine.\n\n'
+                '`git stash` puts the working-tree mess aside without making '
+                'a commit. `git stash pop` brings it back. The stash is a '
+                'scratch pile, not history: it is not on a branch, it does '
+                'not show in `git log`, and a drop loses it. Stash when the '
+                'tree is dirty and a switch is needed. Commit when the '
+                'change is meant to stay.\n\n'
+                '`git commit --amend` folds the current index into the last '
+                'commit and rewrites that commit. That is safe only if the '
+                'commit has not been pushed, because anyone who already '
+                'pulled the old hash now has a different history. After a '
+                'push, a new commit is the honest fix.\n\n'
+                '`.gitignore` stops untracked files from appearing in `git '
+                'status`. It does not untrack a file that is already in the '
+                'index. A secret committed and then added to `.gitignore` is '
+                'still in history. `git rm --cached file` drops it from the '
+                'index and leaves the working copy.\n\n'
+                'The next lesson is branches: how those local commits grow a '
+                'second line of history, and what merge does when the lines '
+                'meet.'
             ),
             'examples': [
                 {
@@ -175,7 +327,8 @@ MODULE = {
                              'git add -p                 stage part of one\n'
                              'git commit -m "message"    commit the index\n'
                              'git log --oneline --graph  read the history\n'
-                             'git show HEAD              what was in that one'),
+                             'git show HEAD              what was in that one\n'
+                             'git log -p                 history as patches'),
                     'note': '`git log --oneline --graph --all --decorate` is '
                             'worth an alias. It draws the picture from lesson '
                             'one.',
@@ -193,6 +346,21 @@ MODULE = {
                     'note': 'Imperative mood, because it completes the sentence '
                             '"applying this commit will...".',
                 },
+                {
+                    'label': 'Stash, amend, and ignore',
+                    'code': (
+                        'git stash                 put the mess aside\n'
+                        'git stash pop             bring it back\n'
+                        'git commit --amend        rewrite the last commit\n'
+                        '                           only if it was not pushed\n'
+                        '\n'
+                        'echo "*.o" >> .gitignore  stop tracking new objects\n'
+                        'git rm --cached secret    untrack, leave the file'
+                    ),
+                    'note': 'stash is not a commit. amend rewrites history. '
+                            '.gitignore does not untrack what is already in '
+                            'the index.',
+                },
             ],
             'misconceptions': [
                 '`git add` does not mean "add a new file". It means "put this '
@@ -202,6 +370,12 @@ MODULE = {
                 'message aborts the commit, which is the escape hatch when you '
                 'did not mean to commit.',
                 'Committing is local. Nothing has gone anywhere until you push.',
+                '`git stash` is not a commit. It is a scratch pile, and a '
+                'drop loses the work because it was never in history.',
+                '`.gitignore` does not untrack a file already in the index. '
+                '`git rm --cached` is the extra step.',
+                '`git commit --amend` is only safe before a push. After a '
+                'push it rewrites a hash other people already have.',
             ],
             'try_it': [
                 'Run `git log --oneline --graph --all --decorate` in a repo '
@@ -213,8 +387,9 @@ MODULE = {
             'title': 'Branching and merging',
             'next': 'git-remotes',
             'concept': (
-                'Since a branch is a pointer, making one is free and switching '
-                'is just moving HEAD and updating your files to match.\n\n'
+                'Branching is how you grow a second line of history without '
+                'copying the project. That is why a feature can be committed '
+                'on its own and merged later.\n\n'
                 '`git switch -c name` creates and moves to a branch. `git '
                 'switch name` moves to an existing one. These are newer and '
                 'clearer than `checkout`, which did both of those jobs plus '
@@ -298,10 +473,10 @@ MODULE = {
             'title': 'Remotes, fetch and push',
             'next': 'git-undo',
             'concept': (
-                'A remote is a nickname for another copy of the repository, '
-                'usually called `origin`. Your local `main` and the remote\'s '
-                '`main` are different branches that happen to share a name, and '
-                'internalising that removes most confusion about pushing.\n\n'
+                'A remote is how this repository talks to a copy on another '
+                'machine, usually called `origin`. That is why your `main` '
+                'and `origin/main` are different branches that share a name, '
+                'and why you cannot commit to `origin/main`.\n\n'
                 '`git fetch` downloads their commits and updates your '
                 '`origin/main` pointer. It changes nothing you are working on. '
                 '`git pull` is fetch **plus** a merge into your current branch, '
@@ -310,9 +485,28 @@ MODULE = {
                 '..origin/main` to see what arrived, then merge or rebase '
                 'deliberately. `pull` is fine when you know your branch is '
                 'clean and behind; it is where accidental merge commits come '
-                'from otherwise.'
+                'from otherwise.\n\n'
+                '`origin/main` is a local file under `.git/refs/remotes/`. '
+                'It moves when you fetch, not when they push. That is why '
+                '`git log main..origin/main` can look stale: you have not '
+                'fetched. A rejected push (`failed to push some refs`) almost '
+                'always means their `main` has commits your `main` does not. '
+                'Fetch, integrate, push again. `--force` overwrites their '
+                'copy with yours, which is how shared branches lose work.\n\n'
+                'The next lesson is undoing: restore, reset, revert, and the '
+                'reflog that makes most of those reversible.'
             ),
             'examples': [
+                {
+                    'label': 'Two branches that share a name',
+                    'code': ('main           your pointer, you commit here\n'
+                             'origin/main    last fetched copy of theirs\n'
+                             '\n'
+                             'git fetch      origin/main moves\n'
+                             'git push       their main moves, if allowed'),
+                    'note': 'Same name, two pointers, two machines. Mixing '
+                            'them up is most of "I pushed and it vanished".',
+                },
                 {
                     'label': 'Talking to a remote',
                     'code': ('git clone URL              copy it locally\n'
@@ -345,9 +539,9 @@ MODULE = {
             'title': 'Undoing things, and the reflog',
             'next': 'git-rewrite',
             'concept': (
-                'The commands here look similar and do very different things, '
-                'which is why undoing feels dangerous. Sorted by what they '
-                'touch, they stop overlapping.\n\n'
+                'Restore, reset and revert are how you undo, and each touches '
+                'a different place. That is why the same instinct, go back, is '
+                'three commands rather than one.\n\n'
                 '`git restore file` throws away working-tree changes to that '
                 'file. `git restore --staged file` unstages without touching '
                 'the file. `git reset --soft C` moves the branch to C and keeps '
@@ -360,7 +554,16 @@ MODULE = {
                 'And the safety net: **`git reflog`** records every position '
                 'HEAD has held, including ones no branch points at any more. '
                 'Almost anything you think you destroyed is in there for weeks. '
-                'It is the single most reassuring command in git.'
+                'It is the single most reassuring command in git.\n\n'
+                '`reset --hard` and `restore` without `--staged` are the two '
+                'that destroy uncommitted work, and the reflog cannot help: '
+                'it only records commits and HEAD moves. Work that was never '
+                'committed is not in there. That is why `status` first is not '
+                'politeness. On anything already pushed, `revert` is the '
+                'undo, because it adds a commit instead of moving a pointer '
+                'other people already have.\n\n'
+                'The next lesson is rebase, which also moves history, and '
+                'the rule that keeps it from becoming other people\'s problem.'
             ),
             'examples': [
                 {
@@ -414,7 +617,23 @@ MODULE = {
                 'have pushed and others may have.** Rewriting makes new '
                 'commits, so anyone holding the old ones now has a divergent '
                 'history and their next pull is a mess. Rebase your own '
-                'unpushed work freely, and merge everything else.'
+                'unpushed work freely, and merge everything else.\n\n'
+                'A rebase conflict stops on each replayed commit, so one '
+                'rebase can ask you to fix the same file three times. That '
+                'is not a loop. It is commit A, then B, then C, each applied '
+                'onto the new base. `git rebase --abort` puts the branch '
+                'back where it started. After a rebase you have already '
+                'pushed, `git push --force-with-lease` updates the remote '
+                'only if nobody else pushed in the meantime; `--force` does '
+                'not check.\n\n'
+                '`git cherry-pick HASH` copies one commit onto this branch. '
+                '`git tag -a v1.0` names a commit; `git push --tags` sends '
+                'the names. `git bisect start` then `good`/`bad` walks '
+                'history to the first bad commit. `git blame file` names '
+                'who last touched each line. Those four are how you move, '
+                'name, hunt, and attribute a commit after the daily loop.\n\n'
+                'The last lesson is detached HEAD, which is the same pointer '
+                'model with the branch label taken off.'
             ),
             'examples': [
                 {
@@ -460,10 +679,9 @@ MODULE = {
             'id': 'git-detached',
             'title': 'Detached HEAD, and why it is not a problem',
             'concept': (
-                'Checking out a commit rather than a branch leaves HEAD '
-                'pointing straight at that commit instead of at a label. git '
-                'prints a paragraph about it that reads like an error and is '
-                'not one.\n\n'
+                'Detached HEAD is how you look at an old commit without moving '
+                'a branch. That is why git warns: commits you make there '
+                'vanish unless you hang a label on them.\n\n'
                 'It matters for one reason: commits you make there have no '
                 'branch pointing at them, so when you switch away nothing '
                 'refers to them and they eventually get cleaned up. That is the '
@@ -471,9 +689,30 @@ MODULE = {
                 'by giving them a label.\n\n'
                 'Once lesson one is solid this is obvious rather than '
                 'frightening: HEAD is a pointer, it usually points at a branch, '
-                'and sometimes it does not.'
+                'and sometimes it does not.\n\n'
+                'You get here by checking out a commit hash, a tag, or '
+                '`HEAD~2`. git prints a long warning because the next '
+                '`commit` has no branch to advance, so `switch main` later '
+                'leaves those commits reachable only from the reflog. That '
+                'is the entire danger. It is not a corrupt repository. '
+                '`git switch -c rescue` at any moment hangs a label on '
+                'where you are, and the warning goes away because HEAD '
+                'points at a branch again.\n\n'
+                'If you already switched away, `git reflog` still has the '
+                'hash. This module ends here because once the pointers are '
+                'solid, the rest of git is names for moving them.'
             ),
             'examples': [
+                {
+                    'label': 'What detached means in the files',
+                    'code': ('on a branch:    .git/HEAD -> ref: refs/heads/main\n'
+                             'detached:       .git/HEAD -> a1b2c3d4...\n'
+                             '\n'
+                             'commit now:     new hash, no branch file updated\n'
+                             'switch -c fix:  new branch file, HEAD points at it'),
+                    'note': 'Read .git/HEAD. The warning is that file no '
+                            'longer saying ref:.',
+                },
                 {
                     'label': 'Getting there and back',
                     'code': ('git switch --detach HEAD~2   deliberately\n'
@@ -505,6 +744,26 @@ MODULE = {
                    'are on.',
          'teach': 'Run it first, always. It also suggests the command for '
                   'whatever you probably want next.'},
+        {'id': 'g-clone', 'type': 'command',
+         'answer': 'git clone url',
+         'prompt': 'Copy a remote repository to this machine.',
+         'teach': 'clone is how you start from someone else\'s history. init is an empty one.'},
+        {'id': 'g-cherry', 'type': 'command',
+         'answer': 'git cherry-pick HASH',
+         'prompt': 'Copy one existing commit onto this branch.',
+         'teach': 'cherry-pick copies a commit. merge brings a whole line of history.'},
+        {'id': 'g-add', 'type': 'command', 'answer': 'git add file',
+         'prompt': 'Stage the current bytes of a path called file.',
+         'teach': 'add means put these bytes in the index, not "this is a new file". Do it again after every edit.'},
+        {'id': 'g-show', 'type': 'command', 'answer': 'git show HEAD',
+         'prompt': 'Print the latest commit, message and patch.',
+         'teach': 'show is one commit. log -p is the same idea, walking history.'},
+        {'id': 'g-log-p', 'type': 'command', 'answer': 'git log -p',
+         'prompt': 'Walk history and show each commit as a patch.',
+         'teach': '-p is the diff. --oneline is the summary. Use both.'},
+        {'id': 'g-merge-abort', 'type': 'command', 'answer': 'git merge --abort',
+         'prompt': 'Give up on a merge that stopped with conflicts.',
+         'teach': 'Puts the branch back as if you never merged. rebase --abort is the sibling.'},
         {'id': 'g-add-p', 'type': 'command', 'answer': 'git add -p',
          'prompt': 'Stage some of your changes but not all of them, choosing '
                    'hunk by hunk.',
@@ -1243,5 +1502,15 @@ MODULE = {
                          'It only rewrites commits you authored.'],
          'teach': 'Plain --force does not check, which is the difference '
                   'between careful and destructive.'},
+
+        {'id': 'gq-merge-abort', 'type': 'mcq',
+         'prompt': 'A merge stopped with conflicts. You want the branch as if '
+                   'the merge never started. What do you run?',
+         'answer': 'git merge --abort',
+         'distractors': ['git reset --hard HEAD',
+                         'git revert HEAD',
+                         'git checkout -- .'],
+         'teach': 'abort puts the branch back as if you never merged. reset '
+                  '--hard throws away unrelated work sitting in the tree.'},
     ],
 }

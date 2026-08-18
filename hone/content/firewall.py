@@ -43,10 +43,12 @@ MODULE = {
             'title': 'Filtering packets: hooks, rules, and verdicts',
             'next': 'fw-shift',
             'concept': (
-                'A firewall is a decision made per packet: accept it, drop it, '
-                'or reject it. The machinery that makes that decision lives in '
-                'the Linux kernel and is called netfilter, and understanding '
-                'three things about it removes most of the mystery.\n\n'
+                'A firewall is how you accept, drop, or reject each packet '
+                'that hits a machine. That is why it is the tool for deciding '
+                'what a host will take from the network, and what it will '
+                'refuse. The machinery lives in the Linux kernel and is '
+                'called netfilter, and three things about it remove most of '
+                'the mystery.\n\n'
                 'First, **hooks**. A packet does not appear at one gate; it '
                 'passes fixed points on its way through the kernel, and rules '
                 'attach to those points. The ones that matter are `input` '
@@ -165,6 +167,46 @@ MODULE = {
                             'which is how you migrate a ruleset a piece at a '
                             'time.',
                 },
+                {
+                    # -P, -D and -m were all drilled by this module and taught
+                    # by none of it. A student met them first as an exam
+                    # question, which is the failure ramp.py exists to find.
+                    'label': 'The iptables verbs, since you will inherit them',
+                    'code': ('-A INPUT ...     append to the end\n'
+                             '-I INPUT 1 ...   insert at position 1\n'
+                             '-D INPUT 3       delete rule number 3\n'
+                             '-P INPUT DROP    set the chain policy\n'
+                             '-F INPUT         flush every rule\n'
+                             '-L INPUT -n --line-numbers   list them'),
+                    'note': 'Order matters and the first match wins, which is '
+                            'why -I and -D take a position. -L with '
+                            '--line-numbers is how you find out what to pass '
+                            'to -D.',
+                },
+                {
+                    'label': 'The policy is the default, not a rule',
+                    'code': ('iptables -P INPUT DROP\n'
+                             '\n'
+                             'applies when no rule matched at all.\n'
+                             'set it last, or set the accept rules first,\n'
+                             'or you will be watching a very quiet ssh'),
+                    'note': 'A chain policy has no counterpart in a rule '
+                            'list: it is what the chain does when it runs out '
+                            'of rules to try.',
+                },
+                {
+                    'label': 'Match modules, which is what -m means',
+                    'code': ('-m conntrack --ctstate ESTABLISHED,RELATED\n'
+                             '-m multiport --dports 80,443\n'
+                             '-m limit --limit 5/min\n'
+                             '\n'
+                             '-m loads an extension, then its own\n'
+                             '--flags become available'),
+                    'note': 'This is why iptables syntax looks like two '
+                            'languages: -m names an extension and everything '
+                            'after it belongs to that extension rather than '
+                            'to iptables.',
+                },
             ],
             'misconceptions': [
                 'nftables is not a different firewall from iptables. Both drive '
@@ -187,21 +229,17 @@ MODULE = {
             'title': 'Writing nftables rules',
             'next': 'fw-stateful',
             'concept': (
-                'An nftables ruleset is built from three things, and you create '
-                'all of them yourself rather than filling in fixed ones. A '
-                '**table** is a container, named and given a family: `inet` for '
-                'IPv4 and IPv6 together is the usual choice. A **chain** holds '
-                'rules; a base chain also declares a hook, a priority, and a '
-                'policy, which is what connects it to the packet path. A '
-                '**rule** is a set of matches followed by a verdict.\n\n'
+                'nftables is how you name what this host will accept. That is '
+                'why you create a table, a chain and the rules yourself. A '
+                '**table** is a container, '
+                'usually family `inet` so IPv4 and IPv6 share it; a **chain** '
+                'holds rules, and a base chain also declares a hook, a '
+                'priority and a policy. A **rule** is a set of matches '
+                'followed by a verdict.\n\n'
                 'So a minimal firewall is: create an inet table, add a chain to '
                 'it that hooks `input` with `policy drop`, and add rules that '
                 '`accept` the specific traffic you want. Everything not '
-                'accepted falls through to the drop policy. The chain '
-                'declaration reads `type filter hook input priority 0; policy '
-                'drop;`, and while that line looks dense, it is just saying '
-                '"this chain filters packets arriving for this host, and blocks '
-                'by default".\n\n'
+                'accepted falls through to the drop policy.\n\n'
                 'Matches are how a rule selects packets. The common ones are '
                 '`ip saddr` and `ip daddr` for source and destination address, '
                 '`tcp dport` and `udp dport` for ports, `iifname` and `oifname` '
@@ -213,7 +251,17 @@ MODULE = {
                 'chainname` to hand off to a chain of your own for '
                 'organisation. `counter` before a verdict tallies how many '
                 'packets hit the rule, which is invaluable when you are working '
-                'out whether a rule is doing anything.'
+                'out whether a rule is doing anything.\n\n'
+                'While a ruleset is new, log the drops. `log prefix '
+                '"nft-input: "` writes a tagged line to the kernel log, so a '
+                'silent failure has a cause. A silent drop is undebuggable: '
+                'the packet vanished and `nft list ruleset` cannot tell you '
+                'whether the rule missed or hit. Once the ruleset is trusted, '
+                'remove the log, because a production firewall that logs every '
+                'drop fills the disk and hides the line you actually wanted.\n\n'
+                'Matches and verdicts still leave return traffic unexplained: '
+                'a request this host sends out has a reply that arrives '
+                'inbound.'
             ),
             'examples': [
                 {
@@ -241,6 +289,17 @@ MODULE = {
                     'note': 'Matches on one rule combine with AND. counter '
                             'tallies hits, which is how you see if a rule '
                             'fires.',
+                },
+                {
+                    'label': 'Log while it is new, then take the log off',
+                    'code': ('tcp dport 22 log prefix "nft-ssh: " accept\n'
+                             'ip saddr != 10.0.0.0/8 log prefix "nft-drop: " '
+                             'drop\n'
+                             '\n'
+                             'dmesg | grep nft-     what actually hit'),
+                    'note': 'The prefix is how you find your lines in a noisy '
+                            'kernel log. Remove the log once the ruleset is '
+                            'trusted.',
                 },
             ],
             'misconceptions': [
@@ -306,6 +365,17 @@ MODULE = {
                              '}'),
                     'note': 'Established first because most packets match it. '
                             'After that you only allow NEW inbound connections.',
+                },
+                {
+                    'label': 'The same idea in iptables',
+                    'code': ('iptables -A INPUT -m conntrack \\\n'
+                             '  --ctstate ESTABLISHED,RELATED -j ACCEPT\n'
+                             '\n'
+                             'nft:  ct state established,related accept'),
+                    'note': 'One line in either dialect, and it is the single '
+                            'most important line in any firewall. The -m '
+                            'conntrack part loads the extension that makes '
+                            '--ctstate mean anything.',
                 },
             ],
             'misconceptions': [
@@ -374,6 +444,18 @@ MODULE = {
                             'on the way in forwards a port to an internal host.',
                 },
                 {
+                    'label': 'The kernel switch none of this works without',
+                    'code': ('sysctl -w net.ipv4.ip_forward=1\n'
+                             '\n'
+                             'and to survive a reboot:\n'
+                             'echo net.ipv4.ip_forward=1 \\\n'
+                             '  > /etc/sysctl.d/99-forward.conf'),
+                    'note': 'The firewall can be perfect and the box will '
+                            'still not route. sysctl -w sets it now; the file '
+                            'sets it next time. Do both, in that order, or '
+                            'find out at the next reboot.',
+                },
+                {
                     'label': 'A blocklist as a set',
                     'code': ('set blocklist {\n'
                              '  type ipv4_addr\n'
@@ -436,7 +518,9 @@ MODULE = {
                 'machine reverts on its own and you reconnect. `at now + 2 '
                 'minutes` running an `nft flush ruleset`, cancelled once you '
                 'confirm the new rules work, is the classic form. Never edit a '
-                'remote firewall without an escape hatch already armed.'
+                'remote firewall without an escape hatch already armed.\n\n'
+                'A ruleset written and reloaded is one skill. The next lesson '
+                'is reading a firewall someone else left.'
             ),
             'examples': [
                 {
@@ -528,6 +612,18 @@ MODULE = {
                     'note': 'A rule with a zero packet counter has never '
                             'matched: either dead, or shadowed by a rule above '
                             'it.',
+                },
+                {
+                    'label': 'The inbound list, read off the chain',
+                    'code': ('policy drop\n'
+                             'ct state established,related accept   replies\n'
+                             'iif lo accept                         local\n'
+                             'tcp dport 22 accept                   SSH\n'
+                             'tcp dport { 80, 443 } accept          web\n'
+                             '\n'
+                             'new inbound: 22, 80, 443. that is the surface.'),
+                    'note': 'Skip established, loopback and the default. What '
+                            'remains is what the host offers the network.',
                 },
             ],
             'misconceptions': [

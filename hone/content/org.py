@@ -25,10 +25,83 @@ MODULE = {
     'prereqs': ['doom'],
     'adapter': 'emacs',
     'estimate': '4-6 hours',
-    'order': 12,
+    'order': 43,
 
     # ------------------------------------------------------------------
     'lessons': [
+        {
+            'id': 'org-open',
+            'title': 'Getting into an org file at all',
+            'next': 'org-what',
+            'concept': (
+                'Every lesson here starts with the cursor already in an org '
+                'file, which is a comfortable assumption and not a true one '
+                'on a fresh install. Two things have to happen first, and '
+                'neither is difficult once someone says them out loud.\n\n'
+                '**A file is an org file because it ends in `.org`.** That is '
+                'the entire rule. Open `notes.org` and Emacs turns on '
+                'org-mode: headings fold, TAB does something useful, and the '
+                'keys below start working. Open `notes.txt` and none of it '
+                'happens, which is the usual reason org "does not work".\n\n'
+                '**Org files live wherever you point `org-directory`.** Doom '
+                'defaults it to `~/org/`, and on a new install that directory '
+                'does not exist yet, so capture and the agenda fail with '
+                'errors that sound worse than they are. Make it once, with '
+                '`mkdir ~/org`, and the rest of this module has somewhere to '
+                'put things.\n\n'
+                '**Org\'s own keys are C-c chords, and they are not Doom\'s.** '
+                '`C-c C-t` cycles a TODO state, `C-c C-s` schedules, `C-c '
+                'C-c` means roughly "act on the thing under the cursor". Hold '
+                'Control and press c, then hold Control and press the second '
+                'key. Doom adds `SPC m` as a menu over the same commands, but '
+                'every piece of org documentation you will ever read is '
+                'written in the C-c form, so that is what this module drills. '
+                'If you are ever lost mid-sequence, C-g cancels, and C-x C-c '
+                'quits Emacs.'
+            ),
+            'examples': [
+                {
+                    'label': 'From nothing to an org file',
+                    'code': ('mkdir ~/org                 once, if it is '
+                             'missing\n'
+                             'emacs ~/org/notes.org       or SPC f f in '
+                             'Doom\n'
+                             '\n'
+                             'the .org ending is what turns org-mode on'),
+                    'note': 'Doom sets org-directory to ~/org by default. '
+                            'Nothing creates it for you, and capture is the '
+                            'first thing that notices.',
+                },
+                {
+                    'label': 'The shape of an org key',
+                    'code': ('C-c C-t     two chords: Ctrl-c, then Ctrl-t\n'
+                             'C-c C-c     the general "do it" key\n'
+                             'TAB         fold or unfold this heading\n'
+                             '\n'
+                             'C-g         cancel, if a sequence goes wrong'),
+                    'note': 'These work in any Emacs with org, Doom or not, '
+                            'which is why they are worth the fingers over the '
+                            'SPC m menu.',
+                },
+            ],
+            'misconceptions': [
+                'org-mode is not a Doom feature. It ships with Emacs itself, '
+                'and every key in this module works in a plain Emacs.',
+                'A file does not become an org file by containing headings. '
+                'It becomes one by being named `.org`.',
+                'C-c C-c does not mean one thing. It means "do the obvious '
+                'thing here", and what that is depends on what the cursor is '
+                'sitting on.',
+            ],
+            'try_it': [
+                'Run `mkdir -p ~/org` now if you have not already, then open '
+                '`~/org/notes.org` and check the mode line says Org.',
+                'Type a line starting with a single asterisk and a space, '
+                'then press TAB on it. That is a heading, and folding it is '
+                'the next lesson after the one that says what this file '
+                'format actually is.',
+            ],
+        },
         {
             'id': 'org-what',
             'title': 'What org actually is',
@@ -46,7 +119,16 @@ MODULE = {
                 'programming system attached.\n\n'
                 'That is why org can feel overwhelming. You are not looking at '
                 'a note format, you are looking at about six tools that happen '
-                'to share one file format.'
+                'to share one file format.\n\n'
+                'The file on disk is just text. Emacs is what makes a line '
+                'starting with `* TODO` into a task that can be scheduled, '
+                'refiled and pulled into an agenda. Open the same file in '
+                '`less` and you see stars and colons, which is the point: the '
+                'format is portable and the engine is not. That is why people '
+                'lose the magic when they copy an org file into a markdown '
+                'vault and wonder where the agenda went.\n\n'
+                'The next lesson is the outline itself: stars, folding, and '
+                'the keys that rearrange a tree rather than edit a paragraph.'
             ),
             'examples': [
                 {
@@ -92,10 +174,12 @@ MODULE = {
             'title': 'Headings, folding and the outline',
             'next': 'org-todo',
             'concept': (
-                'A heading is a line starting with one or more stars. The '
-                'number of stars is the depth, and everything under a heading '
-                'until the next heading of the same or lower depth belongs to '
-                'it. That subtree is the unit org operates on.\n\n'
+                'The outline is how org treats a heading and everything under '
+                'it as one object. That is why you rearrange a tree rather '
+                'than cut and paste paragraphs. A heading is a line starting '
+                'with one or more stars, and the number of stars is the depth; '
+                'everything under it until the next heading of the same or '
+                'lower depth belongs to it.\n\n'
                 'TAB on a heading cycles its folding: collapsed, children, '
                 'everything. `S-TAB` does the same for the whole file, which is '
                 'how you get a bird\'s-eye view of a long document instantly.\n\n'
@@ -106,9 +190,33 @@ MODULE = {
                 'subtree along. `M-Up` and `M-Down` always move the whole '
                 'subtree past its siblings. '
                 'Once these are in your fingers you stop editing text and start '
-                'rearranging an outline.'
+                'rearranging an outline.\n\n'
+                'The failure that looks like a broken file is `M-Right` on a '
+                'parent: the heading sinks one level and its children stay put, '
+                'so you now have a child sitting next to its former parent. '
+                'That is not a bug. `M-Right` moves one heading; `M-S-Right` '
+                'moves the subtree. The review that re-keyed this quiz was '
+                'right, and the keys are easy to swap because they differ by '
+                'one Shift.\n\n'
+                'The next lesson hangs a task state on those headings, which '
+                'is what turns an outline into something the agenda can see.'
             ),
             'examples': [
+                {
+                    'label': 'Promote versus demote the tree',
+                    'code': ('* Parent\n'
+                             '** Child\n'
+                             '\n'
+                             'M-Right on Parent:\n'
+                             '** Parent          Child is now a sibling\n'
+                             '** Child\n'
+                             '\n'
+                             'M-S-Right on Parent:\n'
+                             '** Parent          Child came along\n'
+                             '*** Child'),
+                    'note': 'Shift carries the subtree. Without it you orphan '
+                            'the children, which is the usual surprise.',
+                },
                 {
                     'label': 'Structure editing',
                     'code': ('TAB       fold this heading, cycling\n'
@@ -143,10 +251,11 @@ MODULE = {
             'title': 'TODO states, tags and priorities',
             'next': 'org-lists',
             'concept': (
-                'Any heading becomes a task by putting a state keyword straight '
-                'after the stars. `C-c C-t` cycles it: nothing, TODO, DONE, and '
-                'back. Doom adds more states than stock org, so read what your '
-                'own cycle offers.\n\n'
+                'A TODO keyword is how a heading becomes a task the agenda '
+                'can see. That is why a checkbox is a list item and a TODO '
+                'is a first-class object. `C-c C-t` cycles it: nothing, TODO, '
+                'DONE, and back. Doom adds more states than stock org, so '
+                'read what your own cycle offers.\n\n'
                 'This is the first real departure from Obsidian. A checkbox in '
                 'Obsidian is a list item; a TODO in org is a heading, which '
                 'means it has a subtree, can hold notes and sub-tasks, can be '
@@ -154,9 +263,24 @@ MODULE = {
                 'agenda. It is a first-class object rather than a line of text.\n\n'
                 'Tags go at the end of the heading line between colons, and '
                 'they inherit down the tree, so tagging a project tags '
-                'everything in it.'
+                'everything in it.\n\n'
+                '`C-c C-s` writes a `SCHEDULED:` line under the heading. That '
+                'is not a due date. It is when the task should start showing '
+                'up. `C-c C-d` writes `DEADLINE:`, which is when it is late. '
+                'The agenda treats them differently, and putting a due date on '
+                'SCHEDULED is why a weekly view fills with things that are '
+                'not actually due. The state keyword is what `C-c C-t` '
+                'cycles; a heading with no keyword is not a task, it is just '
+                'a heading, and the agenda will not list it.\n\n'
+                'The next lesson is the small stuff that does not deserve a '
+                'heading: lists, checkboxes, and the table that aligns itself.'
             ),
             'examples': [
+                {
+                    'label': 'Getting a finished thing out of the way',
+                    'code': 'C-c C-x C-a     archive this subtree\nC-c C-x C-s     archive it to the sibling archive file\n\narchived items leave the file and the agenda',
+                    'note': 'Archiving is not deleting. The subtree moves to an archive file with a note about where it came from, so the outline stays readable.',
+                },
                 {
                     'label': 'A task with everything on it',
                     'code': ('** TODO [#A] Write the incident report  :work:ir:\n'
@@ -197,9 +321,10 @@ MODULE = {
             'title': 'Lists, checkboxes, blocks and tables',
             'next': 'org-links',
             'concept': (
-                'Inside a heading you get the things you would expect: lists, '
-                'checkboxes, code blocks. Two of them are worth calling out '
-                'because they are better than they look.\n\n'
+                'Lists and checkboxes are how you keep small steps that do '
+                'not deserve a heading. Tables are how you keep a grid inside '
+                'the same file. That is why a release is a TODO and "tag the '
+                'commit" is a box under it.\n\n'
                 'CHECKBOXES are for the small stuff that does not deserve a '
                 'heading. `C-c C-c` toggles one. A parent list item can show a '
                 'progress cookie like `[2/5]` that org updates for you, which '
@@ -207,7 +332,17 @@ MODULE = {
                 'TABLES are the surprise. Type a row with pipes, press TAB, and '
                 'org aligns the whole table as you type. It also does '
                 'arithmetic, sorting and export. Nobody expects a spreadsheet '
-                'inside a text file, and it is genuinely useful.'
+                'inside a text file, and it is genuinely useful.\n\n'
+                '`C-c C-c` is "do the obvious thing here". On a checkbox it '
+                'toggles. On a table formula it recalculates. On a tag it '
+                'confirms. On a capture buffer it files. The same chord, '
+                'different object, which is why pressing it in the wrong '
+                'place looks like it did nothing. A checkbox never reaches '
+                'the agenda: that is why it is right for "tag the commit" '
+                'and wrong for "ship the release". The release is a heading '
+                'with a TODO; the commit is a box under it.\n\n'
+                'The next lesson is links, and the one way they are worse '
+                'than Obsidian wikilinks.'
             ),
             'examples': [
                 {
@@ -258,9 +393,28 @@ MODULE = {
                 'The practical consequence is that org will not silently find a '
                 'note you renamed the way Obsidian does. In exchange, a link '
                 'can point at things Obsidian has no concept of, like a '
-                'specific heading in a specific file or a line of code.'
+                'specific heading in a specific file or a line of code.\n\n'
+                'Rename `notes.org` to `log.org` and every '
+                '`[[file:~/org/notes.org::*Heading]]` goes dead. Org does '
+                'not search the directory for a new name. That is the cost of '
+                'an explicit path, and it is the usual reason a link you '
+                'followed last week now opens nothing. `C-c C-o` on a dead '
+                'link tells you the file is missing; clicking may do nothing '
+                'at all, depending on the config.\n\n'
+                'The next lesson is capture: the binding that lets you write '
+                'a thought down without navigating to the file it belongs in.'
             ),
             'examples': [
+                {
+                    'label': 'What a rename breaks',
+                    'code': ('[[file:~/org/notes.org::*Alpha]]\n'
+                             '\n'
+                             'rename notes.org -> log.org\n'
+                             'the link still says notes.org\n'
+                             'C-c C-o: no such file'),
+                    'note': 'Obsidian would usually retarget. org will not. '
+                            'That is the trade for targets that are not notes.',
+                },
                 {
                     'label': 'Link targets',
                     'code': ('[[https://example.com][a web page]]\n'
@@ -299,7 +453,18 @@ MODULE = {
                 'you stop doing it, and a notes system you stop feeding is '
                 'worse than none. Obsidian has quick-capture plugins for '
                 'exactly this reason; org has had it built in for twenty '
-                'years.'
+                'years.\n\n'
+                'What happens on `C-c C-c` is decided by the template, not '
+                'by where you were standing. The default inbox is whatever '
+                '`org-default-notes-file` or the template\'s `file+headline` '
+                'says. If you cannot find what you just captured, you did '
+                'not lose it: you have not looked in the file the template '
+                'names. Escape does not close the capture buffer; `C-c C-k` '
+                'does. Escape returns to normal mode inside the capture, '
+                'which is why a cancelled capture that "will not go away" is '
+                'still sitting there waiting for `C-c C-k`.\n\n'
+                'Capture is deliberately careless. The next lesson is refile, '
+                'which is the careful half of the same loop.'
             ),
             'examples': [
                 {
@@ -349,9 +514,30 @@ MODULE = {
                 'empty the inbox by refiling.\n\n'
                 'This pairing is the actual workflow, and it is worth more than '
                 'any amount of folder structure. An inbox that gets emptied '
-                'beats a perfect hierarchy that nothing ever reaches.'
+                'beats a perfect hierarchy that nothing ever reaches.\n\n'
+                'If `C-c C-w` offers nothing useful, `org-refile-targets` has '
+                'not been told which files and heading depths are legal '
+                'destinations. That is configuration, not a broken binding. '
+                'Doom sets a reasonable default over `org-directory`; a file '
+                'outside that directory will not appear. Refile moves the '
+                'whole subtree, notes and children included, which is why '
+                'refiling a project heading takes its tasks with it and why '
+                'that is usually what you wanted.\n\n'
+                'The dates you have been typing were for the agenda. That is '
+                'the next lesson, and the reason SCHEDULED and DEADLINE are '
+                'not synonyms.'
             ),
             'examples': [
+                {
+                    'label': 'When the target list is empty',
+                    'code': ('C-c C-w     offers headings org has been told about\n'
+                             '\n'
+                             'nothing listed?\n'
+                             '  org-refile-targets is empty or too narrow\n'
+                             '  the file is outside org-directory'),
+                    'note': 'The binding works. The list is a setting. That '
+                            'is the usual empty-minibuffer report.',
+                },
                 {
                     'label': 'The other half of the loop',
                     'code': ('C-c C-w    refile this subtree\n'
@@ -379,9 +565,9 @@ MODULE = {
             'id': 'org-agenda',
             'title': 'The agenda: why the dates were worth typing',
             'concept': (
-                'The agenda is a generated view across every file org knows '
-                'about, showing what is scheduled, what is due, and what is '
-                'still open. In Doom it is `SPC o A`.\n\n'
+                'The agenda is how you see every dated task across files '
+                'without opening those files. That is why SCHEDULED and '
+                'DEADLINE were worth typing. In Doom it is `SPC o A`.\n\n'
                 'Nothing about it is stored. It is computed from the SCHEDULED '
                 'and DEADLINE lines in your files every time you open it, which '
                 'is why those lines are worth typing and why the distinction '
@@ -392,9 +578,28 @@ MODULE = {
                 'minutes rather than twenty.\n\n'
                 'This is the piece Obsidian genuinely does not have without '
                 'plugins, and it is the strongest argument for keeping org '
-                'around even if your notes live elsewhere.'
+                'around even if your notes live elsewhere.\n\n'
+                'An empty agenda is almost never "you have no tasks". It is '
+                'usually a file that is not in `org-agenda-files`, or a TODO '
+                'with no date opened in the weekly view. The weekly view '
+                'shows SCHEDULED and DEADLINE lines that fall in the window. '
+                'An undated TODO lives in the `t` view instead. `C-c [` adds '
+                'the current file to `org-agenda-files`. Forgetting that is '
+                'how a carefully planned week disappears on Monday morning.\n\n'
+                'The next lesson is how the same outline becomes a document '
+                'someone else can open without Emacs.'
             ),
             'examples': [
+                {
+                    'label': 'Why the agenda looks empty',
+                    'code': ('weekly view (a)    dated tasks in range\n'
+                             'TODO view (t)      every TODO, dated or not\n'
+                             '\n'
+                             'missing file?      not in org-agenda-files\n'
+                             'missing date?      you are on view a, not t'),
+                    'note': 'Check the file list before you check the tasks. '
+                            'org cannot see a file it was not told about.',
+                },
                 {
                     'label': 'Opening and driving it',
                     'code': ('SPC o A    open the agenda\n'
@@ -648,6 +853,10 @@ MODULE = {
          'prompt': 'Open the agenda.',
          'teach': 'Nothing about it is stored. It is computed from your '
                   'SCHEDULED and DEADLINE lines every time.'},
+        {'id': 'org-agenda-add', 'type': 'keys', 'keys': ['C-c', '['],
+         'prompt': 'Add this file to org-agenda-files.',
+         'teach': 'An empty weekly view is usually a file org was not told '
+                  'about, not a missing task.'},
         {'id': 'org-archive', 'type': 'keys', 'keys': ['C-c', 'C-x', 'C-a'],
          'prompt': 'Archive the subtree under the cursor.',
          'teach': 'Archiving retires a DONE tree to a separate file so your '
@@ -798,6 +1007,42 @@ MODULE = {
             'verify': {'kind': 'emacs',
                        'expect': {'contains': ['SCHEDULED:', 'orgmode.org'],
                                   'not_contains': 'delete this line'}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'org-loop',
+            'title': 'Empty the inbox onto a project, then date it',
+            'goal': 'The loop is capture (already in the inbox), refile onto '
+                    'a project, schedule so the agenda can see it. This is '
+                    'the file after that loop, graded as text so it does not '
+                    'depend on your capture templates.',
+            'setup': {'kind': 'emacs', 'scratch_name': 'scratch.org',
+                      'start': ['* Inbox',
+                                '** TODO captured thought',
+                                '* Website']},
+            'solution': {'elisp': '(progn (erase-buffer) (insert '
+                                  '"* Inbox\\n* Website\\n'
+                                  '** TODO captured thought\\n'
+                                  '   SCHEDULED: <2026-08-20 Thu>\\n"))'},
+            'steps': [
+                {'instruction': 'Move "captured thought" under Website. '
+                                'Refile (C-c C-w) if the target list offers '
+                                'Website; otherwise promote/demote and move '
+                                'the subtree.',
+                 'hint': 'C-c C-w, or dd/p and M-Right so it sits under Website'},
+                {'instruction': 'Schedule that task for any date.',
+                 'hint': 'C-c C-s'},
+                {'instruction': 'Leave Inbox as an empty top-level heading '
+                                'and save.',
+                 'hint': 'SPC f s'},
+            ],
+            'free': 'Inbox empty of children. Website has TODO captured '
+                    'thought with a SCHEDULED line. Save.',
+            'verify': {'kind': 'emacs',
+                       'expect': {'contains': ['* Inbox', '* Website',
+                                               '** TODO captured thought',
+                                               'SCHEDULED:'],
+                                  'not_contains': '* Inbox\n** TODO'}},
             'fallback': 'self',
         },
         {'id': 'org-tags',

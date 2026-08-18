@@ -940,6 +940,35 @@ def test_quiz(t: Runner) -> None:
     t.eq('a miss is recorded', miss.get('seen'), 1)
     t.eq('and not counted right', miss.get('correct', 0), 0)
 
+    t.head('quiz / enter advances, and finish pops rather than quitting')
+    # Two items so the first Enter is "next" and the second is "finish".
+    # This is the key the footer advertises; it used to AttributeError and
+    # take the whole process with it.
+    mod2 = loader.build_module({
+        'id': 'q', 'title': 'Q',
+        'quiz': [
+            {'id': 'q1', 'prompt': 'p1?', 'answer': 'right',
+             'distractors': ['wrong a', 'wrong b'], 'teach': 't1'},
+            {'id': 'q2', 'prompt': 'p2?', 'answer': 'right',
+             'distractors': ['wrong a', 'wrong b'], 'teach': 't2'},
+        ],
+    }, 'fixture')
+    state = st.State.blank(T0)
+    scr = QuizScreen(mod2, list(mod2.quiz), 0, state, T0)
+    scr.handle(K.parse(str(scr.correct_index() + 1)))
+    t.eq('after an answer we are on feedback', scr.phase, 'feedback')
+    action = scr.handle(K.parse('RET'))
+    t.eq('enter stays in the quiz', action.kind, 'stay')
+    t.eq('and moves to the next item', scr.index, 1)
+    t.eq('ready for the next prompt', scr.phase, 'prompt')
+    t.eq('the previous pick is cleared', scr.picked, None)
+    scr.handle(K.parse(str(scr.correct_index() + 1)))
+    action = scr.handle(K.parse('RET'))
+    t.eq('last enter finishes by popping', action.kind, 'pop')
+    t.ok('and does not quit the process', action.kind != 'quit')
+    action = QuizScreen(mod2, list(mod2.quiz), 0, state, T0).handle(K.parse('RET'))
+    t.eq('enter before an answer is ignored', action.kind, 'stay')
+
 
 def test_solvable(t: Runner) -> None:
     """Play every adapter-verified challenge through the real tool.
@@ -1135,6 +1164,28 @@ def test_help_and_tour(t: Runner) -> None:
          not any(k == '?' for k, _ in scr.hints(caps)))
     scr.handle(K.parse('?'))
     t.eq('and is taken as an answer', K.unparse_seq(scr.collected), ['?'])
+
+    t.head('help / every command the CLI takes is documented in the app')
+    # --reset is the one that destroys something, and it was absent from the
+    # README entirely while sitting in the middle of a card of display flags.
+    # A flag nobody can find is a flag that gets rediscovered by accident.
+    from pathlib import Path as _P
+    flat = ' '.join(f'{k} {v}' for card in HELP for k, v in card['rows'])
+    t.ok('reset is in the in-app help', 'hone --reset' in flat, flat[:120])
+    t.ok('per-tool reset is shown too', 'hone --reset dig' in flat, flat[:120])
+    t.ok('so is the way to undo it', 'hone --import' in flat, flat[:120])
+    t.ok('the backup is promised where reset is offered',
+         'back' in flat.lower() and 'import' in flat, flat[:120])
+
+    readme = _P(__file__).with_name('README.md')
+    if readme.exists():
+        text = readme.read_text()
+        for flag in ('--reset', '--import', '--export', '--doctor', '--list'):
+            t.ok(f'README documents {flag}', flag in text)
+        t.ok('README says a backup is written',
+             'backup' in text.lower())
+        t.ok('README says settings survive a reset',
+             'settings' in text.lower() and 'survive' in text.lower())
 
     t.head('help / paging')
     h = HelpScreen(HELP)
@@ -1583,6 +1634,96 @@ def test_handover_and_reset(t: Runner) -> None:
     t.ok('bounded', len(line) < 140, len(line))
     t.ok('carries the way out', ':wq' in line, line)
 
+    t.head('handover / the way out survives an 80-column terminal')
+    # It did not. The goal alone was budgeted and the way out appended after
+    # it, so every adapter produced 104-118 characters and every tool cut the
+    # tail: the student could read the task and could not find how to quit.
+    # Reported from a real session with the Doom module.
+    from hone import adapters as _A
+    _A.load_builtin()
+    long_goal = {'free': 'Change the second word on every line to EARTH and '
+                         'then save the file before you leave the editor.'}
+    for name in _A.registered():
+        ad = _A.get(name)
+        hint = getattr(ad, 'return_hint', '')
+        if not hint:
+            continue
+        line = handover.inline(long_goal, hint)
+        t.ok(f'{name}: fits 80 columns', len(line) <= 80, f'{len(line)}: {line}')
+        t.ok(f'{name}: the way out is intact', hint in line, line)
+
+    t.head('handover / the steps travel into the editor, at the chosen rigor')
+    # One line was never enough for guided mode: the steps were on the screen
+    # the editor replaced. Reported from a real session with the Doom module.
+    ch = {'free': 'Do the thing.', 'goal': 'Do the thing, at length.',
+          'steps': [{'instruction': 'First step', 'hint': 'first hint'},
+                    {'instruction': 'Second step'}]}
+    guided = handover.briefing(ch, 'guided', False, 'C-x C-c quits')
+    t.ok('guided carries the steps', any('First step' in l for l in guided))
+    t.ok('guided carries the hints', any('first hint' in l for l in guided))
+    t.ok('and the way out', any('C-x C-c' in l for l in guided))
+    coached = handover.briefing(ch, 'coached', False, '')
+    t.ok('coached carries the steps', any('Second step' in l for l in coached))
+    t.ok('coached withholds the hints',
+         not any('first hint' in l for l in coached), coached)
+    free = handover.briefing(ch, 'free', False, '')
+    t.eq('free is the goal and nothing else', free, ['Do the thing.'])
+
+    t.head('handover / nvim stays under its ten -c limit')
+    # nvim rejects the whole invocation at eleven. The reminder spends four
+    # and the leave hook one, so the steps window has to fit in what is left.
+    from hone.adapters import nvim as _NV
+    long_steps = [f'  {i}. step number {i}' for i in range(1, 13)]
+    argv = _NV.NvimAdapter().launch(Path('/tmp/s.txt'), Path('/tmp/b'),
+                                    Path('/tmp/c'), brief='task [Esc :wqa]',
+                                    steps=long_steps)
+    t.ok('within the limit', argv.count('-c') <= 10, argv.count('-c'))
+    t.ok('leave hook still at -2', argv[-2].startswith('autocmd'), argv[-2])
+    t.eq('file still at -1', argv[-1], '/tmp/s.txt')
+    t.ok('the steps are in there', any('step number 1' in a for a in argv))
+    t.ok('and the cursor goes back to the file',
+         any('wincmd p' in a for a in argv))
+    t.ok('the way out closes every window, not just one',
+         'wqa' in _NV.NvimAdapter.return_hint, _NV.NvimAdapter.return_hint)
+
+    t.head('handover / emacs opens the steps in a dedicated second window')
+    from hone.adapters import emacs as _EM
+    el = _EM.steps_window(['line one', 'line two'])
+    t.ok('runs after startup, not during', 'emacs-startup-hook' in el, el[:60])
+    t.ok('window is dedicated', 'set-window-dedicated-p' in el)
+    t.ok('buffer is read only', 'buffer-read-only' in el)
+    t.ok('point returns to the file', 'select-window' in el)
+    t.ok('a failure cannot stop the editor', 'condition-case' in el)
+    t.eq('nothing to say opens no window', _EM.steps_window([]), '')
+
+    t.head('handover / a shell gets a task command instead of a window')
+    # A shell cannot split, and the printed briefing scrolls away the moment
+    # the student runs anything. The command is how they get it back.
+    d = handover.task_helper(['Goal here', '  1. do this'])
+    t.ok('a helper directory exists', d is not None and d.is_dir())
+    script = d / handover.TASK_CMD
+    t.ok('holds exactly the command', [p.name for p in d.iterdir()] ==
+         [handover.TASK_CMD], sorted(p.name for p in d.iterdir()))
+    t.ok('and it is executable', os.access(script, os.X_OK))
+    import subprocess as _subp
+    out = _subp.run([str(script)], capture_output=True, text=True, timeout=10)
+    t.eq('it prints the briefing back', out.stdout, 'Goal here\n  1. do this\n')
+    env = handover.task_env(d, {'PATH': '/usr/bin'})
+    t.eq('and it is first on PATH', env['PATH'], f'{d}:/usr/bin')
+    handover.discard(d)
+    t.ok('discard removes it', not d.exists())
+    t.eq('nothing to say builds no helper', handover.task_helper([]), None)
+    t.eq('and no PATH override', handover.task_env(None), {})
+
+    t.head('handover / a long way out is never itself truncated')
+    # A hint is a key sequence. Half of one is confidently wrong, which is
+    # worse than a line that runs over, so the goal yields and the line does.
+    verbose = 'press the prefix key, then d, then confirm with y at the prompt'
+    line = handover.inline(long_goal, verbose)
+    t.ok('hint intact even when it does not fit', verbose in line, line)
+    t.ok('goal was the thing that yielded',
+         len(line) - len(verbose) < 40, line)
+
     t.head('handover / nvim keeps the leave hook and file where they belong')
     from hone.adapters import nvim as NV
     argv = NV.NvimAdapter().launch(Path('/tmp/s.txt'), Path('/tmp/b'),
@@ -1621,6 +1762,10 @@ def test_handover_and_reset(t: Runner) -> None:
     t.eq('and it is home', type(app.stack[0]).__name__, 'HomeScreen')
 
     t.head('home key / H is an answer inside a capture drill, never an exit')
+    # vim is the first capture-mode module; the roster's first row is Linux
+    # Basics, whose drills are typed commands, so H would not be captured.
+    home = app.screen
+    home.cursor = [m.id for m in home.ordered()].index('vim')
     app.dispatch(K.parse('RET'))
     app.screen.set_view(2)
     app.dispatch(K.parse('RET'))
@@ -2569,6 +2714,44 @@ def test_free_pace(t: Runner) -> None:
     ok, label = home.checkable(sandboxed)
     t.ok('sandbox does not hide it', not ok, label)
     t.ok('names the binary', 'definitely-not-a-real-binary' in label, label)
+
+    t.head('home / an authored-self-marked module is not marked as a fault')
+    # dig needs a resolver and xfreerdp needs a Windows host, and D1 forbids
+    # the trainer from reaching either, so both are authored with no adapter.
+    # They wore the same warn-coloured cross as a genuinely absent binary,
+    # which read as "hone cannot find your tools" and sent someone off to
+    # install dig and FreeRDP on a machine that already had both.
+    from hone.screens.home import SELF_MARKED
+    authored = loader.build_module(
+        {'id': 'ghostly', 'title': 'Ghostly', 'adapter': None, 'needs': [],
+         'estimate': '1 hour',
+         'lessons': [{'id': 'a', 'title': 'A', 'concept': 'x' * 220,
+                      'misconceptions': ['m'], 'try_it': ['t']}]}, 'fixture')
+    ok, label = home.checkable(authored)
+    t.ok('not offered as checked', not ok, label)
+    t.eq('and says so plainly', label, SELF_MARKED)
+    row = home.module_row(caps, authored, False).plain()
+    t.ok('no cross', caps.g('cross') not in row, row)
+    t.ok('a dim bullet instead', caps.g('bullet') in row, row)
+
+    t.head('home / a genuinely missing binary keeps the cross')
+    row = home.module_row(caps, sandboxed, False).plain()
+    t.ok('cross kept', caps.g('cross') in row, row)
+    t.ok('bullet not borrowed', caps.g('bullet') not in row, row)
+
+    t.head('home / the real dig and xfreerdp rows say nothing is wrong')
+    # Machine-dependent by nature, so it asserts the implication rather than
+    # the machine: a build without dig installed should still say "needs dig"
+    # in warning colour, because that one you can act on.
+    for mid in ('dig', 'xfreerdp'):
+        mod = reg.get(mid)
+        if mod is None or install.missing(mod.needs):
+            continue
+        row = home.module_row(caps, mod, False).plain()
+        t.ok(f'{mid} wears no cross once installed',
+             caps.g('cross') not in row, row)
+        t.ok(f'{mid} is not told to install anything',
+             'needs' not in row, row)
 
     t.head('home / two missing tools are both named, three are counted')
     from hone.screens.home import _and_list

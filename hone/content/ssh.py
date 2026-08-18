@@ -24,12 +24,53 @@ MODULE = {
         {
             'id': 'ssh-basics',
             'title': 'Connecting, and the four files ssh reads',
-            'concept': 'ssh gives you a shell on another machine over an encrypted connection, and it is the tool the rest of this group leans on. The command is `ssh user@host`; add `-p PORT` when the server does not listen on 22, and put a command on the end to run only that and come straight back instead of opening a shell.\n\nThe first connection asks you to confirm the host key fingerprint, and after that ssh records it in `~/.ssh/known_hosts` and warns loudly if it ever changes. `-v` prints what ssh is actually doing when a connection misbehaves, and a second or third `-v` prints more: it is the first thing to reach for when a login "just hangs".\n\nEverything else in this module fills in the four files under `~/.ssh`: a key so you stop typing passwords, a config so you stop typing long commands, the agent so you type a passphrase once, and forwarding so a port on one machine appears on another.',
+            'concept': (
+                'ssh gives you a shell on another machine over an encrypted '
+                'connection, and it is the tool the rest of this group leans '
+                'on. The command is `ssh user@host`; add `-p PORT` when the '
+                'server does not listen on 22, and put a command on the end '
+                'to run only that and come straight back instead of opening '
+                'a shell.\n\n'
+                '**What ssh actually gives you is an encrypted channel**, and '
+                'a shell is only the most common thing sent down it. That is '
+                'worth knowing on day one, because it explains why one tool '
+                'also copies files, forwards ports, mounts filesystems and '
+                'runs graphical programs: those are the same connection '
+                'carrying a different passenger. scp and rsync are not '
+                'separate protocols, they are ssh with something else on '
+                'board.\n\n'
+                '**Two identities are checked, in opposite directions, and '
+                'confusing them causes most ssh bewilderment.** The *server* '
+                'proves who it is with its host key, which is what the '
+                'fingerprint prompt on a first connection is about. *You* '
+                'prove who you are with a password or a key. Separate '
+                'mechanisms, separate files, and an error about one reads '
+                'very much like an error about the other.\n\n'
+                'The first connection asks you to confirm the host key '
+                'fingerprint, and after that ssh records it in '
+                '`~/.ssh/known_hosts` and warns very loudly indeed if it ever '
+                'changes. That warning is doing its job: a changed host key '
+                'means the server was rebuilt, or something is sitting in the '
+                'middle. The fix is finding out which. `ssh-keygen -R '
+                'hostname` is the sanctioned repair: it removes that one '
+                'host from `known_hosts` and leaves the rest.\n\n'
+                '**`-v` is the first thing to reach for when a login '
+                'misbehaves.** It prints what ssh is actually attempting, and '
+                'a second or third `-v` prints more. A login that "just '
+                'hangs" is nearly always visible in the first twenty lines, '
+                'usually as a DNS lookup timing out or an authentication '
+                'method being offered and refused.\n\n'
+                'Everything else in this module fills in the four files under '
+                '`~/.ssh`: a key so you stop typing passwords, a config so '
+                'you stop typing long commands, the agent so you type a '
+                'passphrase once, and forwarding so a port on one machine '
+                'appears on another.'
+            ),
             'examples': [
                 {
                     'label': 'Connecting',
-                    'code': 'ssh user@host\nssh -p 2222 user@host      non-standard port\nssh user@host uptime       run one command and exit\nssh -v user@host           show what it is doing',
-                    'note': 'A command on the end runs without an interactive shell, which is what scripts and cron jobs want.',
+                    'code': 'ssh user@host\nssh -p 2222 user@host      non-standard port\nssh user@host uptime       run one command and exit\nssh -v user@host           show what it is doing\nssh-keygen -R oldhost      drop one stale host key',
+                    'note': 'A command on the end runs without an interactive shell, which is what scripts and cron jobs want. ssh-keygen -R is the sanctioned known_hosts repair after a rebuilt host.',
                 },
                 {
                     'label': 'The four files that are the whole client',
@@ -50,12 +91,51 @@ MODULE = {
             'id': 'rm-keys',
             'title': 'SSH keys, and why permissions matter',
             'next': 'rm-config',
-            'concept': 'A key pair is two files: a private key you never move, and a `.pub` you copy anywhere. Authentication happens by proving you hold the private one without sending it.\n\nGenerate with `ssh-keygen -t ed25519`. Use ed25519 rather than RSA unless something old refuses it: the keys are shorter, faster and at least as strong. Give it a passphrase; the agent in the next lesson is what stops that being annoying.\n\nssh refuses to use a private key that others can read, and the error is blunt about it. `chmod 600` on the key and `700` on `~/.ssh` is the fix, and the reason the check exists is that a world-readable private key is not a secret.',
+            'concept': (
+                'An SSH key pair is how you prove who you are without sending '
+                'a password. That is why the secret never crosses the wire.\n\n'
+                'The server sends a challenge. Your client signs '
+                'it with the private key. The server checks the signature '
+                'against the public key it already has on file. The private '
+                'key never crosses the network, which is why this is safe on '
+                'a hostile one and why a password is not.\n\n'
+                '**The public key lives in `~/.ssh/authorized_keys` on the '
+                'server**, one key per line. That file is the whole of "who '
+                'may log in as this user": adding a line grants access, '
+                'removing it revokes access, and nothing else is consulted. '
+                '`ssh-copy-id user@host` appends yours correctly, which is '
+                'worth using over a manual copy that mangles the line '
+                'endings or loses the trailing newline.\n\n'
+                'Generate with `ssh-keygen -t ed25519`. Use ed25519 rather '
+                'than RSA unless something old refuses it: the keys are '
+                'shorter, faster and at least as strong. Give it a '
+                'passphrase; the agent in the next lesson is what stops that '
+                'being annoying.\n\n'
+                '**A passphrase protects the file, not the connection.** It '
+                'encrypts the private key on disk, so someone who steals the '
+                'file still cannot use it. It does nothing about a machine '
+                'you are already logged into, which is what the agent '
+                'discussion in two lessons is really about.\n\n'
+                '**ssh refuses to use a private key that others can read**, '
+                'and the error is blunt about it: UNPROTECTED PRIVATE KEY '
+                'FILE, in capitals, followed by a refusal. `chmod 600` on '
+                'the key and `700` on `~/.ssh` is the fix. The check exists '
+                'because a world-readable private key is not a secret, and '
+                'the same rule applies on the server: a group-writable home '
+                'directory there will cause sshd to ignore '
+                '`authorized_keys` entirely, silently, and log the reason '
+                'somewhere you are not looking.'
+            ),
             'examples': [
                 {
                     'label': 'Making and installing one',
                     'code': 'ssh-keygen -t ed25519 -C "you@machine"\nssh-copy-id user@host        install the public key\nssh -i key.pem user@host     use one key file, by path\n\nchmod 700 ~/.ssh\nchmod 600 ~/.ssh/id_ed25519\nchmod 644 ~/.ssh/id_ed25519.pub',
                     'note': '`ssh-copy-id` appends to the remote `~/.ssh/authorized_keys` and fixes its permissions for you, which is why it beats doing it by hand.',
+                },
+                {
+                    'label': 'What the server actually checks',
+                    'code': 'client signs a challenge with the private key\nserver checks the signature against authorized_keys\n\nthe private key never leaves the client\na stolen .pub file grants nothing',
+                    'note': 'That is why permissions on the private file matter and permissions on the .pub file barely do.',
                 },
             ],
             'misconceptions': [
@@ -72,12 +152,58 @@ MODULE = {
             'id': 'rm-config',
             'title': 'The config file that makes everything short',
             'next': 'rm-agent',
-            'concept': '`~/.ssh/config` is the highest-value file in this module. It turns a command nobody can remember into a word.\n\nEach `Host` block names an alias and the settings that apply to it: the real hostname, the user, the port, which key. After that, `ssh web` is the whole command, and so is `scp file web:`, and so is `rsync -a dir web:`, because everything that speaks ssh reads this file.\n\n`ProxyJump` is the one that earns its place fastest. A host reachable only through a bastion becomes one word too, and ssh sets up the hop itself.',
+            'concept': (
+                '`~/.ssh/config` is the highest-value file in this module. It '
+                'turns a command nobody can remember into a word. The previous '
+                'lesson left you typing `-i` and a user and a host every time. '
+                'This file is where those stop being flags.\n\n'
+                'Each `Host` block names an alias and the settings that apply '
+                'to it: the real hostname, the user, the port, which key. After '
+                'that, `ssh web` is the whole command, and so is `scp file '
+                'web:`, and so is `rsync -a dir web:`, because everything that '
+                'speaks ssh reads this file. One alias fixes git-over-ssh at '
+                'the same time, which is why a working `ssh web` and a failing '
+                '`git pull` is almost always a URL that is not using the '
+                'alias.\n\n'
+                '`Host` is the name you type. `HostName` is where the packet '
+                'goes. Mixing them up is the usual typo, and it looks like the '
+                'server is down, because ssh is connecting to a name that is '
+                'not on the network. The first matching `Host` wins, not the '
+                'last, so put specific names above `Host *`. People who expect '
+                'later values to override lose an hour to a catch-all they put '
+                'at the top.\n\n'
+                '`ProxyJump` is the one that earns its place fastest. A host '
+                'reachable only through a bastion becomes one word too, and '
+                'ssh sets up the hop itself, rather than you nesting two '
+                'commands.\n\n'
+                '`ControlMaster auto` reuses one TCP connection for later '
+                '`ssh`, `scp` and `rsync` to the same host. `ControlPath` is '
+                'the socket those sessions share; include `%r`, `%h` and `%p` '
+                'so two users or two ports cannot collide. `ControlPersist '
+                '10m` keeps the master up after the first session ends, so '
+                'the next command skips the handshake. A leftover socket '
+                'from a crash or a changed IP makes the next `ssh` hang on a '
+                'dead file. `ssh -O exit alias` closes a healthy master; if '
+                'it still hangs, remove the socket under `ControlPath` and '
+                'try once more.\n\n'
+                'The next lesson is the agent: how keys stay '
+                'unlocked, and why `-A` is a trust decision.'
+            ),
             'examples': [
                 {
                     'label': 'A config worth having',
                     'code': 'Host web\n    HostName 203.0.113.10\n    User deploy\n    IdentityFile ~/.ssh/id_ed25519\n\nHost db\n    HostName 10.0.0.5\n    User admin\n    ProxyJump web\n\nHost *\n    ServerAliveInterval 60',
                     'note': '`ssh db` now hops through web automatically. The `Host *` block sets defaults for everything.',
+                },
+                {
+                    'label': 'Same alias, three tools',
+                    'code': 'ssh web\nscp file.txt web:/tmp/\nrsync -a ./site/ web:/var/www/\ngit remote set-url origin git@web:repo.git\n\none Host block, four commands shorter',
+                    'note': 'If scp works and git does not, the remote URL is not using the alias. The config is not the bug.',
+                },
+                {
+                    'label': 'One connection, many commands',
+                    'code': 'Host *\n    ControlMaster auto\n    ControlPath ~/.ssh/cm-%r@%h:%p\n    ControlPersist 10m\n\nssh -O check web     is the master up\nssh -O exit web      close it cleanly\n# a later ssh that hangs: remove the socket',
+                    'note': 'A stale socket from a crash or a changed address is why the next ssh sits there doing nothing. -O exit first; delete the file if that does not clear it.',
                 },
             ],
             'misconceptions': [
@@ -93,22 +219,57 @@ MODULE = {
             'id': 'rm-agent',
             'title': 'The agent, and why forwarding is dangerous',
             'next': 'rm-forwarding',
-            'concept': 'The agent holds your decrypted private key in memory so you type the passphrase once per session rather than once per connection. `ssh-add` puts a key in; `ssh-add -l` lists what is loaded.\n\nAgent **forwarding**, `ssh -A`, makes your local agent reachable from the machine you connect to, so you can hop onward without copying keys. It is convenient and it is a real risk: anyone with root on that intermediate machine can use your agent, for as long as you are connected, to authenticate as you anywhere your key works.\n\nThe safer answer is almost always `ProxyJump`, which builds the hop locally and never exposes the agent to the middle machine at all. Reach for `-A` only on machines you already trust completely, and prefer to set it per-host rather than globally.',
+            'concept': (
+                'The agent holds your decrypted private key in memory so you '
+                'type the passphrase once per session rather than once per '
+                'connection. `ssh-add` puts a key in; `ssh-add -l` lists '
+                'what is loaded.\n\n'
+                'A desktop session often already has an agent. `ssh-add -l` '
+                'talks to it through `SSH_AUTH_SOCK`, which is a path to a '
+                'socket. If that variable is unset, this shell has no '
+                'agent. `eval "$(ssh-agent -s)"` starts one and prints the '
+                'export lines the shell needs. Starting a second agent by '
+                'habit hides the desktop one and loses every key already '
+                'loaded.\n\n'
+                '`IdentitiesOnly yes` in the config stops the agent from '
+                'offering every loaded key to every host. Without it, ssh '
+                'walks the agent list first, and a host that allows three '
+                'failures will reject a valid key because two other keys '
+                'were tried first. `-i` names a file. IdentitiesOnly makes '
+                'that file the only offer.\n\n'
+                'Agent **forwarding**, `ssh -A`, makes your local agent '
+                'reachable from the machine you connect to, so you can hop '
+                'onward without copying keys. It is convenient and it is a '
+                'real risk: anyone with root on that intermediate machine '
+                'can use your agent, for as long as you are connected, to '
+                'authenticate as you anywhere your key works.\n\n'
+                'The safer answer is almost always `ProxyJump`, which '
+                'builds the hop locally and never exposes the agent to the '
+                'middle machine at all. Reach for `-A` only on machines you '
+                'already trust completely, and prefer to set it per-host '
+                'rather than globally.\n\n'
+                '`ssh-add -l` saying it cannot connect means `SSH_AUTH_SOCK` '
+                'is empty or dead, not that the key files are missing. The '
+                'next lesson is forwarding: which end listens, and why '
+                '`localhost` in `-L` is the remote.'
+            ),
             'examples': [
                 {
                     'label': 'Using the agent',
-                    'code': 'eval "$(ssh-agent -s)"        start one, if none is running\nssh-add ~/.ssh/id_ed25519    load a key\nssh-add -l                    what is loaded\nssh-add -D                    forget everything\nssh-add -t 1h key             expire it after an hour',
-                    'note': '`-t` is a good habit on a laptop: the key stops being usable after an hour rather than until reboot.',
+                    'code': 'echo "$SSH_AUTH_SOCK"         path to the agent socket\n                             empty means this shell has no agent\neval "$(ssh-agent -s)"        start one, if none is running\nssh-add ~/.ssh/id_ed25519    load a key\nssh-add -l                    what is loaded\nssh-add -D                    forget everything\nssh-add -t 1h key             expire it after an hour',
+                    'note': 'A desktop login often already exported SSH_AUTH_SOCK. Starting a second agent hides that one. `-t` is a good habit on a laptop: the key stops being usable after an hour rather than until reboot.',
                 },
                 {
                     'label': 'Forwarding, and the better answer',
-                    'code': 'ssh -A bastion       forwards your agent (risky)\nssh -J bastion db    ProxyJump instead (safe)\n\nin config:\n  Host db\n      ProxyJump bastion',
-                    'note': 'ProxyJump does the hop from your machine, so the bastion never sees your agent.',
+                    'code': 'ssh -A bastion       forwards your agent (risky)\nssh -J bastion db    ProxyJump instead (safe)\n\nin config:\n  Host db\n      ProxyJump bastion\n      IdentityFile ~/.ssh/id_ed25519\n      IdentitiesOnly yes',
+                    'note': 'ProxyJump does the hop from your machine, so the bastion never sees your agent. IdentitiesOnly stops the agent offering every other loaded key first.',
                 },
             ],
             'misconceptions': [
                 'Agent forwarding does not copy your key. It exposes the ability to use it, which is nearly as bad and lasts as long as the connection.',
                 '`ForwardAgent yes` inside `Host *` is a common and bad idea. Scope it to the one host that needs it, or use ProxyJump.',
+                'An empty `SSH_AUTH_SOCK` means this shell has no agent, not that the key files are gone. A desktop session often already started one.',
+                '`IdentitiesOnly` is not optional once the agent holds several keys. Without it, ssh offers them in order and a server with a low MaxAuthTries rejects the right key after the wrong ones.',
             ],
             'try_it': [
                 'Run `ssh-add -l`. If it says the agent has no identities, that is why you are being asked for a passphrase. If it says it cannot connect to your authentication agent, there is no agent running at all: `eval "$(ssh-agent -s)"` starts one.',
@@ -117,7 +278,7 @@ MODULE = {
         {
             'id': 'rm-forwarding',
             'title': 'Port forwarding: the climax',
-            'concept': 'This is the hardest material in the module. Three flags, and the trick is to read them as "which end does the listening".\n\n**`-L` is local**: ssh listens on YOUR machine and forwards to somewhere reachable from the remote. `ssh -L 8080:localhost:80 host` means your `localhost:8080` becomes the remote\'s port 80. Use it to reach something you cannot reach directly.\n\n**`-R` is remote**: ssh listens on the REMOTE machine and forwards back to you. Use it to expose something of yours to the far side.\n\n**`-D` is dynamic**: ssh opens a SOCKS proxy on your machine and sends anything through it out of the remote. That is not one port, it is a general route. Driving an arbitrary program through that proxy is `proxychains`, which the netcat and socat module covers.\n\nThe mnemonic that sticks: Local listens locally, Remote listens remotely, Dynamic listens locally and goes anywhere.',
+            'concept': 'Port forwarding is how you make a port on one machine appear on another. That is why `-L`, `-R` and `-D` are the way to reach a database you cannot hit directly, or to expose a local service to the far side. Three flags, and the trick is to read them as "which end does the listening".\n\n**`-L` is local**: ssh listens on YOUR machine and forwards to somewhere reachable from the remote. `ssh -L 8080:localhost:80 host` means your `localhost:8080` becomes the remote\'s port 80. Use it to reach something you cannot reach directly.\n\n**`-R` is remote**: ssh listens on the REMOTE machine and forwards back to you. Use it to expose something of yours to the far side.\n\n**`-D` is dynamic**: ssh opens a SOCKS proxy on your machine and sends anything through it out of the remote. That is not one port, it is a general route. Driving an arbitrary program through that proxy is `proxychains`, which the netcat and socat module covers.\n\nThe mnemonic that sticks: Local listens locally, Remote listens remotely, Dynamic listens locally and goes anywhere.\n\n`localhost` in the middle of `-L` is resolved on the remote. That is why `-L 8080:localhost:5432 bastion` reaches the database on the bastion, not on your laptop. Mix that up and you tunnel to yourself and wonder why the app is empty.',
             'examples': [
                 {
                     'label': 'The three',
@@ -143,6 +304,20 @@ MODULE = {
     ],
     'drills': [
         {
+            'id': 'rm-cmd-ssh',
+            'type': 'command',
+            'answer': 'ssh user@host',
+            'prompt': 'Open a shell on host as user.',
+            'teach': 'Add -p PORT when it is not 22. Add a command on the end to run only that.',
+        },
+        {
+            'id': 'rm-cmd-sshv',
+            'type': 'command',
+            'answer': 'ssh -v user@host',
+            'prompt': 'Connect with debug output, to see where a hang is.',
+            'teach': '-v is the first thing when a login sits there. -vvv if that is not enough.',
+        },
+        {
             'id': 'rm-cmd-keygen',
             'type': 'command',
             'answer': 'ssh-keygen -t ed25519',
@@ -151,6 +326,27 @@ MODULE = {
             ],
             'prompt': 'Generate a modern SSH key pair.',
             'teach': 'ed25519 rather than RSA: shorter, faster, at least as strong, unless something old refuses it.',
+        },
+        {
+            'id': 'rm-cmd-sshi',
+            'type': 'command',
+            'answer': 'ssh -i key.pem user@host',
+            'prompt': 'Log in as user@host using the private key in key.pem.',
+            'teach': 'Cloud VMs hand you a .pem. chmod 600 it first or ssh refuses.',
+        },
+        {
+            'id': 'rm-cmd-cm-check',
+            'type': 'command',
+            'answer': 'ssh -O check web',
+            'prompt': 'Ask whether the ControlMaster socket for alias web is up.',
+            'teach': '-O check talks to the master, it does not open a shell.',
+        },
+        {
+            'id': 'rm-cmd-cm-exit',
+            'type': 'command',
+            'answer': 'ssh -O exit web',
+            'prompt': 'Close the ControlMaster for alias web cleanly.',
+            'teach': 'If the next ssh still hangs, the socket file is stale: remove it.',
         },
         {
             'id': 'rm-cmd-copyid',
@@ -186,6 +382,20 @@ MODULE = {
             'answer': 'ssh-add -l',
             'prompt': 'List which keys the agent currently holds.',
             'teach': 'If this comes back empty, every key-based login will fail and the reason is the agent, not the server.',
+        },
+        {
+            'id': 'rm-cmd-agent-sock',
+            'type': 'command',
+            'answer': 'echo "$SSH_AUTH_SOCK"',
+            'prompt': 'Print the path to this shell\'s ssh-agent socket.',
+            'teach': 'Empty means this shell has no agent, not that the key files are gone.',
+        },
+        {
+            'id': 'rm-cmd-agent-start',
+            'type': 'command',
+            'answer': 'eval "$(ssh-agent -s)"',
+            'prompt': 'Start an agent and export its socket into this shell.',
+            'teach': 'Without eval the printed variables never land in this shell. A desktop session often already has one.',
         },
         {
             'id': 'rm-cmd-jump',
@@ -255,6 +465,41 @@ MODULE = {
                             'Host db',
                             'ProxyJump web',
                         ],
+                    },
+                },
+            },
+            'fallback': 'self',
+        },
+        {
+            'id': 'rm-ssh-cm',
+            'title': 'Reuse one connection',
+            'goal': 'ControlMaster is how later ssh, scp and rsync skip the '
+                    'handshake. Write the block, including the socket path.',
+            'setup': {'kind': 'sandbox', 'tree': {}},
+            'solution': {
+                'shell': (
+                    "printf '%s\\n' "
+                    "'Host *' "
+                    "'    ControlMaster auto' "
+                    "'    ControlPath ~/.ssh/cm-%r@%h:%p' "
+                    "'    ControlPersist 10m' "
+                    '> config'
+                ),
+            },
+            'steps': [
+                {'instruction': 'Write config with Host * turning on '
+                                'ControlMaster, a ControlPath that includes '
+                                '%r %h %p, and ControlPersist.',
+                 'hint': 'ControlMaster auto, ControlPath ~/.ssh/cm-%r@%h:%p'},
+            ],
+            'free': 'config: Host * with ControlMaster auto and a per-user '
+                    'per-host ControlPath.',
+            'verify': {
+                'kind': 'sandbox',
+                'expect': {
+                    'file_contains': {
+                        'config': ['ControlMaster auto', 'ControlPath',
+                                   '%r', '%h', '%p', 'ControlPersist'],
                     },
                 },
             },
@@ -575,6 +820,18 @@ MODULE = {
                 '-A, to forward the connection through the agent.',
             ],
             'teach': 'Local listens locally. -R is for exposing something of yours to the far side; -D is a general SOCKS route.',
+        },
+        {
+            'id': 'sshq-agent-eval',
+            'type': 'mcq',
+            'prompt': 'Why is it `eval "$(ssh-agent -s)"` and not just `ssh-agent -s`?',
+            'answer': 'ssh-agent prints export lines. eval runs them in this shell so SSH_AUTH_SOCK is set here.',
+            'distractors': [
+                'eval makes the agent start as root.',
+                'ssh-agent -s is fish syntax; eval translates it to bash.',
+                'Without eval the agent refuses to hold any keys.',
+            ],
+            'teach': 'The agent is a separate process. This shell only talks to it if SSH_AUTH_SOCK is in its own environment. A desktop login often already exported one.',
         },
     ],
 }

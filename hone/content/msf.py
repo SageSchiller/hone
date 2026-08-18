@@ -42,6 +42,104 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'ms-what',
+            'title': 'What Metasploit is, and what it is not',
+            'next': 'ms-model',
+            'concept': (
+                'Metasploit is how you drive thousands of attack modules '
+                'through one interface. That is why `search`, `use`, `set`, '
+                'and `run` is the skill, not a catalogue of exploits.\n\n'
+                'The library part is easy to describe: several thousand '
+                'modules, each one a piece of code that does something '
+                'specific, contributed and maintained over twenty years. '
+                'Exploits, scanners, credential dumpers, payload generators, '
+                'post-exploitation tools.\n\n'
+                'The interface part is what made it matter. Before it, every '
+                'exploit was a standalone script by a different author with '
+                'different arguments, different output and different bugs. '
+                'Metasploit\'s contribution was to say: **every module is '
+                'selected the same way, configured the same way, and run the '
+                'same way.** Learn the workflow once and you can drive '
+                'anything in the framework, including modules written after '
+                'you learned it.\n\n'
+                'So the thing to take from this module is not a list of '
+                'exploits. It is the workflow, which is four commands, and '
+                'the vocabulary that makes the four commands make sense: '
+                'module, option, payload, session.\n\n'
+                '**Scope, and this one is not decoration.** This module '
+                'teaches how the tool is built and driven, on targets you own '
+                'or are explicitly permitted to test. It does not teach '
+                'target selection or when to reach for something during an '
+                'engagement, which is a different subject. The test applied '
+                'throughout this group is "would this still be worth knowing '
+                'with no engagement in progress", and the framework\'s design '
+                'passes it comfortably.\n\n'
+                'One practical note: **it is large and it wants a database.** '
+                'Everything in these lessons is readable without installing '
+                'it, and the module says so wherever verification is not '
+                'possible.'
+            ),
+            'examples': [
+                {
+                    'label': 'Getting in and out of the console',
+                    'code': 'msfconsole -q      start, without the banner\n\nback               leave the current module\nexit               leave msfconsole\nCtrl-C             interrupt a running module\n\nexit -y            leave without being asked',
+                    'note': 'back and exit are different and both are needed: back drops the module you selected and keeps the console, exit ends the session and any sessions it is holding.',
+                },
+                {
+                    'label': 'The whole workflow, and it never changes',
+                    'code': ('search  something\n'
+                             'use     the/module/path\n'
+                             'show options\n'
+                             'set     RHOSTS 10.0.0.5\n'
+                             'run\n'
+                             '\n'
+                             'identical for every module type'),
+                    'note': 'This is the payoff of the framework. Five '
+                            'commands drive a port scanner and a kernel '
+                            'exploit equally.',
+                },
+                {
+                    'label': 'What the module tree is telling you',
+                    'code': ('auxiliary/scanner/...   look, do not exploit\n'
+                             'exploit/windows/...     gain execution\n'
+                             'payload/...             what runs afterwards\n'
+                             'post/...                once you have a session\n'
+                             'encoder/, nop/          shape the payload'),
+                    'note': 'The first path component is the type, and it '
+                            'tells you what a module is for before you read '
+                            'anything else about it.',
+                },
+                {
+                    'label': 'Why the payload is separate',
+                    'code': ('exploit   how to get code running\n'
+                             'payload   what that code should be\n'
+                             '\n'
+                             'one exploit x many payloads,\n'
+                             'chosen independently'),
+                    'note': 'Separating these is the framework\'s other big '
+                            'idea. Every exploit gets every payload for free, '
+                            'which is why the library multiplies out.',
+                },
+            ],
+            'misconceptions': [
+                'Metasploit is not a scanner or a vulnerability finder. It '
+                'runs modules you select, and choosing what to point it at is '
+                'not something the tool does for you.',
+                'The framework is not the exploits. The lasting value is the '
+                'common interface, which is why the workflow transfers to '
+                'modules that did not exist when you learned it.',
+                'msfconsole is not the only interface. msfvenom generates '
+                'payloads standalone, and the same library is scriptable, '
+                'which is how it ends up inside other tools.',
+            ],
+            'try_it': [
+                'Read the four workflow commands above and say what each one '
+                'does out loud. That is most of the module.',
+                'If you have it installed, run `msfconsole -q` and then '
+                '`show -h`. If you do not, nothing later depends on it.',
+            ],
+        },
+        {
             'id': 'ms-model',
             'title': 'Everything is a module with options',
             'concept':
@@ -68,7 +166,16 @@ MODULE = {
                 'target, LHOST is you, RPORT and LPORT are the ports, and '
                 'the mistake everyone makes at least once is setting RHOST '
                 'when the module wants RHOSTS or leaving LHOST pointing at '
-                'the wrong interface.',
+                'the wrong interface.\n\n'
+                'A resource script is a file of the same `use` / `set` / '
+                '`run` lines you type, with a `.rc` suffix. `msfconsole -r '
+                'lab.rc` replays them so a session is repeatable instead of '
+                'a transcript you cannot quite reconstruct. Inside the '
+                'console, `resource lab.rc` does the same. The file is not '
+                'a different language: it is the console, saved.\n\n'
+                'You set options and run. The next lesson is finding '
+                'the module in the first place, which is the search '
+                'that pays off on a corpus this size.',
             'examples': [
                 {'label': 'The whole workflow, four lines',
                  'code': 'search type:auxiliary smb_version\n'
@@ -89,6 +196,16 @@ MODULE = {
                  'code': 'setg RHOSTS 10.0.0.5',
                  'note': 'Global. Convenient, and the cause of a great deal '
                          'of confusion later. unsetg clears it.'},
+                {'label': 'Replay the session from a file',
+                 'code': '# lab.rc\n'
+                         'use auxiliary/scanner/smb/smb_version\n'
+                         'set RHOSTS 10.0.0.0/24\n'
+                         'run\n'
+                         '\n'
+                         'msfconsole -r lab.rc\n'
+                         'resource lab.rc          from inside the console',
+                 'note': 'Same commands you would type. The file is how a '
+                         'lab session becomes repeatable.'},
             ],
             'misconceptions': [
                 'Metasploit is not only exploits. Auxiliary is larger and is '
@@ -110,10 +227,10 @@ MODULE = {
             'id': 'ms-search',
             'title': 'Finding the module you want',
             'concept':
-                'There are thousands of modules and the search syntax is the '
-                'thing that makes them findable. Bare keyword search is '
-                'nearly useless on its own because the corpus is so large; '
-                'the keyed form is what works.\n\n'
+                'Keyed search is how you find one module in a corpus of '
+                'thousands. That is why type, platform, cve and rank shrink '
+                'the result, and why `info` before `run` is the habit that '
+                'saves an hour.\n\n'
                 '`search type:exploit platform:windows smb` narrows by three '
                 'axes at once. The useful keys are type, platform, name, '
                 'path, author, cve, rank and disclosure_date. `search '
@@ -170,8 +287,10 @@ MODULE = {
             'id': 'ms-payloads',
             'title': 'Payloads: staged, stageless, bind and reverse',
             'concept':
-                'This is the conceptual core of the module and the source of '
-                'nearly every "it said it worked but I got no session".\n\n'
+                'Reverse versus bind, and staged versus stageless, is how a '
+                'payload gets code back to you. That is why an exploit that '
+                'reports success with no session is almost always a payload, '
+                'handler, or network miss rather than a failed exploit.\n\n'
                 '**Reverse versus bind** is a network direction question. A '
                 'reverse payload connects from the target back to you, which '
                 'works through most outbound-permitting firewalls and NAT. A '
@@ -197,7 +316,10 @@ MODULE = {
                 'payload you delivered another way, you have to start '
                 '`exploit/multi/handler` with exactly the same payload, LHOST '
                 'and LPORT, and a mismatch there produces a connection that '
-                'arrives and is dropped.',
+                'arrives and is dropped.\n\n'
+                'A matching handler is not a session yet. The next '
+                'lesson is sessions, jobs, and meterpreter, which is '
+                'what a successful payload actually leaves you.',
             'examples': [
                 {'label': 'Staged, note the slash',
                  'code': 'set PAYLOAD windows/x64/meterpreter/reverse_tcp',
@@ -243,8 +365,11 @@ MODULE = {
             'id': 'ms-sessions',
             'title': 'Sessions, jobs, and meterpreter',
             'concept':
-                'A successful payload gives you a session, and sessions are '
-                'managed separately from modules. `sessions -l` lists them, '
+                '`sessions -l` and Ctrl-Z are how you keep a payload '
+                'connection while you run another module. That is why a '
+                'session is managed separately from the module that created '
+                'it, and why meterpreter is an API rather than a shell.\n\n'
+                '`sessions -l` lists them, '
                 '`sessions -i 1` interacts with one, and Ctrl-Z backgrounds '
                 'the one you are in without killing it. That last one is the '
                 'single most useful key in the console, because it lets you '
@@ -335,7 +460,10 @@ MODULE = {
                 'signatured its decoder stub for years, and iterating it '
                 'twenty times mostly produces a larger file that is detected '
                 'just as fast.\n\n'
-                'Whatever you generate, the handler still has to match.',
+                'Whatever you generate, the handler still has to match.\n\n'
+                'A generated file still needs a matching handler. The '
+                'next lesson is the database, which is how the '
+                'framework remembers what that handler found.',
             'examples': [
                 {'label': 'A Windows executable',
                  'code': 'msfvenom -p windows/x64/meterpreter/reverse_tcp '
@@ -382,9 +510,10 @@ MODULE = {
             'id': 'ms-db',
             'title': 'The database, workspaces, and importing scans',
             'concept':
-                'Metasploit keeps a PostgreSQL database and most people never '
-                'set it up, which throws away one of the framework\'s better '
-                'features.\n\n'
+                'The PostgreSQL database is how Metasploit remembers hosts, '
+                'services, credentials and loot. That is why `db_nmap` and '
+                '`db_import` turn a scan into something you can query, and '
+                'why most installs silently throw that away.\n\n'
                 'With a database, every host, service, credential and loot '
                 'item you find is recorded and queryable. `hosts`, '
                 '`services`, `creds` and `loot` are console commands that '
@@ -507,11 +636,11 @@ MODULE = {
             'id': 'ms-lab',
             'title': 'Somewhere to practise, and the rules about it',
             'concept':
-                'Metasploit cannot be learned without a target, and the only '
-                'acceptable target is one you own or one explicitly provided '
-                'for the purpose. That is not a disclaimer, it is the '
-                'practical constraint that shapes how you set up to learn '
-                'this.\n\n'
+                'A lab target you own is how you practise the workflow '
+                'without pointing the framework at anything else. That is '
+                'why Metasploitable, an evaluation Windows VM, or a Vulhub '
+                'container belongs on a host-only network, and why LHOST '
+                'wrong is the usual reason nothing comes back.\n\n'
                 'The standard lab is **Metasploitable**, a deliberately '
                 'vulnerable Linux VM, or its version 3 which is a build '
                 'system for both a Linux and a Windows target. It exists '

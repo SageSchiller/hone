@@ -43,18 +43,48 @@ MODULE = {
             'next': 'rx-literals',
             'concept': (
                 'A regular expression is a tiny program that answers one '
-                'question: does this text contain something shaped like this? '
-                'The engine walks the text trying to make your pattern fit, and '
-                'reports where it succeeded.\n\n'
-                'Almost every mistake people make comes from forgetting two '
-                'things. First, by default a pattern SEARCHES rather than '
-                'matches the whole string: `cat` finds the cat in '
-                '`concatenate`. Second, quantifiers are GREEDY: they take as '
-                'much as they can and only give back when forced.\n\n'
-                'Learning regex is mostly learning to constrain. A pattern that '
-                'finds what you wanted is easy; a pattern that finds what you '
-                'wanted and nothing else is the actual skill, and it is why '
-                'every drill here also gives you strings that must not match.'
+                'question: does this text contain something shaped like '
+                'this? You describe a shape, the engine walks the text '
+                'trying to make the shape fit, and it reports where it '
+                'succeeded.\n\n'
+                '**The engine is simpler than it looks and that is the whole '
+                'model.** It starts at position zero and tries to match your '
+                'pattern there. If it fails, it moves to position one and '
+                'tries again. And again, to the end of the text. So a regex '
+                'is not searching cleverly, it is attempting the same fit at '
+                'every position until one works.\n\n'
+                '**Backtracking is the other half.** Within one attempt, when '
+                'a pattern has taken too much and the rest cannot fit, the '
+                'engine gives characters back one at a time and retries. That '
+                'is why a pattern can be correct and still be slow, and why '
+                'a badly shaped pattern on a long line can hang: the number '
+                'of things to try multiplies. If a regex ever appears to '
+                'freeze, it has not crashed, it is still trying.\n\n'
+                '**Almost every mistake people make comes from forgetting '
+                'two defaults.**\n\n'
+                'First, a pattern **searches** rather than matching the whole '
+                'string: `cat` finds the cat inside `concatenate`, and it is '
+                'supposed to. If you meant the whole thing, you have to say '
+                'so with anchors, which is the most common single fix a '
+                'pattern needs.\n\n'
+                'Second, quantifiers are **greedy**: they take as much as '
+                'they can and only give it back under protest. `<.*>` on '
+                '`<a> and <b>` matches the entire line rather than `<a>`, '
+                'because `.*` swallowed everything and then handed back just '
+                'enough for the final `>` to fit.\n\n'
+                '**Three different questions get confused constantly**, and '
+                'different tools default to different ones. *Does it appear '
+                'anywhere* is search, which is grep\'s default. *Does the '
+                'whole string look like this* is a full match, which is what '
+                'a validator wants. *What are the pieces* is extraction, '
+                'which needs capture groups. Being clear about which one you '
+                'are asking is more than half of writing a pattern that '
+                'works.\n\n'
+                'One last framing worth carrying: **a regex describes shape, '
+                'not meaning.** It can tell you something looks like an email '
+                'address. It cannot tell you whether anyone reads it.\n\n'
+                'The next lesson is the characters themselves: which ones '
+                'match as written, and which ones are special.'
             ),
             'examples': [
                 {
@@ -66,6 +96,17 @@ MODULE = {
                              'matches:  cat, and nothing else'),
                     'note': 'If you did not anchor it, you asked for "contains", '
                             'whatever you meant.',
+                },
+                {
+                    'label': 'Greedy by default',
+                    'code': ('text:     <a> and <b>\n'
+                             'pattern:  <.*>\n'
+                             'matches:  <a> and <b>\n'
+                             '\n'
+                             '.* took the whole line, then gave back\n'
+                             'just enough for the last > to fit'),
+                    'note': 'The engine did what it was told. Quantifiers take '
+                            'as much as they can and only give it back later.',
                 },
             ],
             'misconceptions': [
@@ -87,8 +128,9 @@ MODULE = {
             'title': 'Literals, classes and the dot',
             'next': 'rx-quantifiers',
             'concept': (
-                'Most characters match themselves. The interesting ones are the '
-                'metacharacters, and the first job is knowing which are which.\n\n'
+                'Literals, classes and the dot are how you name the characters '
+                'a pattern may eat. That is why a search for a digit, a vowel '
+                'or a file extension starts here rather than with a wildcard.\n\n'
                 '`.` matches any single character except a newline. Square '
                 'brackets make a CHARACTER CLASS: `[aeiou]` is any one vowel, '
                 '`[a-z]` any lowercase letter, `[^0-9]` anything that is not a '
@@ -96,7 +138,21 @@ MODULE = {
                 'which is why `[.]` is a literal dot.\n\n'
                 'The shorthands are worth memorising because they appear '
                 'everywhere: `\\d` digit, `\\w` word character, `\\s` '
-                'whitespace, and their capitals are the negations.'
+                'whitespace, and their capitals are the negations.\n\n'
+                '`.` does not match a newline, which is why `.*` across two '
+                'lines fails until you switch modes. Inside `[]` a hyphen '
+                'between two characters is a range, so `[a-z]` is twenty-six '
+                'letters and `[a-]` at the end is a hyphen. A class meant as '
+                'punctuation that puts `-` in the middle is the usual "why '
+                'did this match a digit" surprise.\n\n'
+                'What that looks like: `[A-Z.-_]` was meant as letters, a '
+                'dot, a hyphen and an underscore. The engine reads `.-_` as '
+                'a range from `.` (46) to `_` (95), which includes digits. '
+                'The class then matches `5` and people blame the rest of '
+                'the pattern. Put the hyphen last, `[A-Z._-]`, and the '
+                'range disappears.\n\n'
+                'The next lesson is how many times those pieces may repeat, '
+                'and why `.*` is greedy enough to hurt.'
             ),
             'examples': [
                 {
@@ -137,18 +193,45 @@ MODULE = {
             'title': 'Quantifiers, and why greedy hurts',
             'next': 'rx-anchors',
             'concept': (
-                'Quantifiers say how many. `*` is zero or more, `+` is one or '
-                'more, `?` is zero or one, and `{2,5}` is an explicit range. '
-                'They apply to whatever came immediately before.\n\n'
-                'All of them are GREEDY by default: they consume as much as '
-                'possible, then hand characters back one at a time only if the '
-                'rest of the pattern cannot otherwise fit. This is the single '
-                'biggest source of surprise in regex.\n\n'
-                'Adding `?` after a quantifier makes it LAZY: it takes as little '
-                'as possible instead. `<.*>` on `<a> and <b>` matches the whole '
-                'line; `<.*?>` matches just `<a>`. When a pattern grabs far more '
-                'than you meant, laziness is usually the fix, and a negated '
-                'character class is usually the better one.'
+                'Quantifiers are how you say how many times a piece may '
+                'repeat. That is why a line of unknown length still matches. '
+                '`*` is zero or more, `+` is one or more, `?` is zero or one, '
+                'and `{2,5}` is an explicit range. '
+                'They apply to **whatever came immediately before**, which is '
+                'one character unless you used a group, and forgetting that '
+                'is why `ab+` means one a and many b rather than many '
+                '"ab".\n\n'
+                '**All of them are greedy by default**: they consume as much '
+                'as possible, then hand characters back one at a time only if '
+                'the rest of the pattern cannot otherwise fit.\n\n'
+                'Take `<.*>` against `<a> and <b>`. The `.*` runs to the end '
+                'of the line immediately, because that is what greedy means. '
+                'Now the pattern still needs a `>`, and there is no text '
+                'left, so the engine backs up one character and tries again. '
+                'It keeps backing up until it finds a `>` it can use, which '
+                'is the **last** one on the line. Result: the whole string '
+                'matched, not the first tag. The engine did exactly what it '
+                'was told.\n\n'
+                '**Adding `?` after a quantifier makes it lazy**: it takes as '
+                'little as possible and grows only when forced. `<.*?>` on '
+                'the same text matches `<a>`, because `.*?` starts with '
+                'nothing, the `>` fails, it grudgingly accepts one character '
+                'at a time, and stops the moment the pattern fits.\n\n'
+                '**The better fix is usually neither.** `<[^>]*>` says what '
+                'you actually meant: a run of characters that are not a '
+                'closing bracket. It cannot overrun, it needs no '
+                'backtracking, and it is faster than both. Reaching for a '
+                'negated class instead of a lazy quantifier is the habit that '
+                'separates patterns that work from patterns that work on the '
+                'example.\n\n'
+                '**Where greed becomes a performance problem.** Nesting '
+                'quantifiers, as in `(a+)+b`, gives the engine an enormous '
+                'number of ways to divide the same text, and against a '
+                'non-matching string it may try nearly all of them. That is '
+                'catastrophic backtracking, it is a real denial-of-service '
+                'class in web software, and the fix is nearly always to '
+                'stop nesting and be specific about what you actually '
+                'allow.'
             ),
             'examples': [
                 {
@@ -192,7 +275,8 @@ MODULE = {
             'title': 'Anchors and boundaries',
             'next': 'rx-groups',
             'concept': (
-                'Anchors match a position rather than a character, which is why '
+                'Anchors are how you pin a match to a start, an end or a word '
+                'edge. That is why `ERROR` stops matching `PREERROR`, and why '
                 'they consume nothing.\n\n'
                 '`^` is the start of the string, or of a line in multiline mode. '
                 '`$` is the end. Together they turn "contains" into "is '
@@ -200,9 +284,35 @@ MODULE = {
                 '`\\b` is a word boundary: the seam between a word character and '
                 'a non-word character. `\\bcat\\b` finds the cat in "the cat '
                 'sat" but not in "concatenate", and it is the right answer far '
-                'more often than people reach for it.'
+                'more often than people reach for it.\n\n'
+                'Without `^` and `$`, `ERROR` matches any line that contains '
+                'those letters, including `PREERROR` and `ERRORS`. Adding both '
+                'anchors is the most common fix a first draft needs. `^` '
+                'inside `[]` is negation, not an anchor: `[^a]` and `^a` are '
+                'unrelated, and mixing them is a real bug. grep works line by '
+                'line, so `^` there is the start of each line; in Python '
+                'against a whole file it is the start of the string unless '
+                '`re.M` is on.\n\n'
+                'What `\\b` actually is: a change from `\\w` to `\\W` or the '
+                'reverse, including the edges of the string. It is not '
+                'whitespace. `\\bcat\\b` matches `cat.` and `(cat)` because '
+                '`.` and `)` are non-word characters. It also fires between '
+                '`4` and `.` in `1.2.3.4.5`, which is why a word-boundary '
+                'IP pattern still matches inside a longer dotted run.\n\n'
+                'The next lesson is parentheses: grouping so a quantifier '
+                'applies to more than one character, and capturing so a '
+                'replacement can rearrange.'
             ),
             'examples': [
+                {
+                    'label': 'Contains versus is exactly',
+                    'code': ('ERROR        any line that contains it\n'
+                             '^ERROR       starts with it\n'
+                             '^ERROR$      is exactly it\n'
+                             '\\bERROR\\b    the word, not PREERROR'),
+                    'note': 'The first draft is usually the top line. The '
+                            'fix is almost always an anchor.',
+                },
                 {
                     'label': 'Pinning things down',
                     'code': ('^ERROR       lines starting with ERROR\n'
@@ -244,7 +354,21 @@ MODULE = {
                 '`$1` or `\\g<1>` depending on the tool, which is how '
                 'search-and-replace rearranges text rather than only deleting '
                 'it. `(?:...)` groups without capturing, for when you only '
-                'wanted the first job.'
+                'wanted the first job.\n\n'
+                'Alternation binds looser than anything else. `^ERROR|WARN` '
+                'means "starts with ERROR, or contains WARN anywhere". The '
+                'anchor applies only to the left alternative. '
+                '`^(ERROR|WARN)` is the one that pins both. Forgetting the '
+                'group is the classic first-day bug, and the matches look '
+                'almost right, which is why it survives review.\n\n'
+                'What the loose-alternation bug looks like in a log: '
+                '`^ERROR|WARN` was meant to keep only those two severities. '
+                'It also keeps `INFO: WARN later`, because the right '
+                'alternative is unanchored and searches the whole line. '
+                'Adding the group, `^(ERROR|WARN)`, makes both alternatives '
+                'share the start.\n\n'
+                'The next lesson is why the same pattern works in `rg` and '
+                'fails in `grep`: there is more than one regex dialect.'
             ),
             'examples': [
                 {
@@ -283,8 +407,9 @@ MODULE = {
             'title': 'The dialects, and which tool speaks which',
             'next': 'rx-tools',
             'concept': (
-                'There is no single regex syntax, and pretending otherwise is '
-                'why patterns that work in one place fail in another.\n\n'
+                'Dialects are how you write the same intent in grep, sed, vim '
+                'and Python. That is why a pattern that works in `rg` can '
+                'print nothing in basic grep.\n\n'
                 'Three families matter. BASIC regex, which plain `grep` and '
                 '`sed` use, needs backslashes for `+`, `?`, `|`, `{}` and '
                 'grouping. EXTENDED regex, which `grep -E`, `sed -E` and `awk` '
@@ -294,7 +419,21 @@ MODULE = {
                 'The practical rule: reach for `-E` or `-P` and stop fighting '
                 'backslashes. Vim is its own dialect again, closest to basic, '
                 'and `\\v` at the start of a vim pattern switches it to '
-                'something much closer to extended.'
+                'something much closer to extended.\n\n'
+                '`\\d` in basic or extended grep is not a digit class. It is '
+                'often a literal d, or nothing useful, and the pattern fails '
+                'quietly. `[0-9]` is the portable spelling. macOS `sed` is '
+                'not GNU sed: `-E` works on both, `-i` does not take the '
+                'same argument, which is why a one-liner from a Linux blog '
+                'errors on a Mac.\n\n'
+                'What the quiet dialect miss looks like: `grep "\\d+"` on a '
+                'log full of numbers prints nothing. The pattern is not '
+                'wrong in Python. In basic grep, `\\d` is often a literal '
+                '`d`, and `+` is a literal plus, so the engine is looking '
+                'for the two characters `d+`. Switching to `grep -E '
+                '"[0-9]+"` or `grep -P "\\d+"` is the fix.\n\n'
+                'The next lesson is the tools that deliver the pattern: grep, '
+                'rg, sed, and vim substitute.'
             ),
             'examples': [
                 {
@@ -338,8 +477,9 @@ MODULE = {
             'title': 'Using it: grep, rg, sed and vim',
             'next': 'rx-lookaround',
             'concept': (
-                'The pattern language is the hard part. The tools are '
-                'delivery, and each has a small set of flags worth knowing.\n\n'
+                'grep, rg, sed and vim are how you search and change text with '
+                'a pattern. That is why the language only pays off once it is '
+                'typed at a tool.\n\n'
                 'For SEARCHING, `rg` is the default worth building: it is fast, '
                 'recursive by default, respects gitignore, and takes '
                 'perl-ish patterns with no flag. `grep` remains what exists on '
@@ -349,9 +489,29 @@ MODULE = {
                 'one-liner and vim\'s `:%s/pattern/replacement/g` is the '
                 'interactive version. Adding `c` to vim\'s flags makes it '
                 'confirm each one, which is the difference between a '
-                'substitution you can review and one you have to trust.'
+                'substitution you can review and one you have to trust.\n\n'
+                '`grep -o` prints only the match, not the line, which is how '
+                'you extract rather than find. `grep -v` inverts, and is the '
+                'right tool more often than a negative lookahead. `sed` '
+                'without `-E` is basic regex, so `+` needs a backslash; '
+                'forgetting `-E` is why a working `rg` pattern does nothing '
+                'in sed. vim `:%s` without `g` changes only the first match '
+                'on each line, which looks like a half-finished replace.\n\n'
+                'What those misses look like: `sed "s/foo/bar/"` prints '
+                'every line, changes the first `foo` only, and leaves the '
+                'second on the same line alone. It looks like a '
+                'half-applied replace. vim without `%` changes only the '
+                'line the cursor is on, so a file of two hundred matches '
+                'becomes a file of one change.\n\n'
+                'The last lesson is lookaround, and when a pattern has grown '
+                'past being a good idea.'
             ),
             'examples': [
+                {
+                    'label': 'Printing the match, not the line',
+                    'code': 'grep -E "[0-9]+" file.log      the whole matching line\ngrep -oE "[0-9]+" file.log     just the numbers\n\n-o is what turns grep into an extractor',
+                    'note': '-o prints one match per line, which is what makes grep pipe into sort and uniq usefully. -E turns on extended syntax so + means what you think.',
+                },
                 {
                     'label': 'Searching',
                     'code': ('rg "^ERROR"              recursive, fast\n'
@@ -392,8 +552,9 @@ MODULE = {
             'id': 'rx-lookaround',
             'title': 'Lookaround, and when to stop',
             'concept': (
-                'Lookaround matches a position based on what surrounds it, '
-                'without consuming anything. `(?=...)` is a positive lookahead, '
+                'Lookaround is how you require a neighbour without eating it. '
+                'That is why a search can skip recovered errors and still '
+                'match only the word ERROR. `(?=...)` is a positive lookahead, '
                 '`(?!...)` a negative one, and `(?<=...)` and `(?<!...)` are the '
                 'behind versions.\n\n'
                 'The genuinely useful case is "this, but not when followed by '
@@ -406,7 +567,20 @@ MODULE = {
                 'unreadable in a month and it is a sign the problem wants a '
                 'parser, a two-step pipeline, or a real programming language. '
                 'Regex is a tool with an edge, and finding it is part of using '
-                'it well.'
+                'it well.\n\n'
+                'Lookaround is PCRE only. `grep` without `-P` and `sed` will '
+                'not run it. A lookbehind that is not a fixed length is '
+                'rejected by many engines. If the pattern needs two '
+                'lookarounds and a comment to explain it, the next step is a '
+                'parser or a short Python loop, not a cleverer regex. That is '
+                'the same line the Python module opens on.\n\n'
+                'What that rejection looks like: `(?<=user=)\\w+` works; '
+                '`(?<=user=\\w+)\\w+` is a variable-length lookbehind and '
+                'Python raises `look-behind requires fixed-width pattern`. '
+                '`grep -P` says the same in fewer words and exits 2. The '
+                'engine is not being difficult: lookbehind has to know how '
+                'far to step back, and a `+` does not say. Capture the '
+                'label and the value, then keep group 2.'
             ),
             'examples': [
                 {

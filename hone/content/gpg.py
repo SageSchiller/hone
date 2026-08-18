@@ -39,9 +39,13 @@ MODULE = {
             'id': 'gp-model',
             'title': 'Two keys, four operations',
             'concept':
+                'gpg is how you sign, verify, encrypt, and decrypt with a '
+                'key pair instead of a shared password. That is why sending '
+                'a file only they can read, or proving a release came from '
+                'you, does not need a secret both of you already hold. '
                 'A key pair is two mathematically linked halves. The private '
                 'half you keep and never send anywhere. The public half you '
-                'give to everyone, including people you do not trust, because '
+                'give to everyone, including people you do not trust: '
                 'it is not a secret.\n\n'
                 'Four operations fall out of that, and they pair up in the '
                 'opposite directions to the way people first guess.\n\n'
@@ -62,7 +66,10 @@ MODULE = {
                 'key directly. It generates a random symmetric session key, '
                 'encrypts the data with that, and encrypts the session key '
                 'to each recipient. That is why encrypting to five people '
-                'costs almost nothing extra.',
+                'costs almost nothing extra.\n\n'
+                'Four operations, one pair. The next lesson is making '
+                'that pair and looking after it, because none of the '
+                'four works without a key you hold.',
             'examples': [
                 {'label': 'Prove it came from you',
                  'code': 'gpg --detach-sign --armor report.pdf',
@@ -77,6 +84,18 @@ MODULE = {
                          'report.pdf',
                  'note': 'Two operations in one command. Alice learns both '
                          'that it is private and that it is yours.'},
+                # gpg with no file reads standard input and waits, silently
+                # and forever. It looks exactly like a hang, it is the first
+                # thing a beginner hits, and this module never mentioned it.
+                {'label': 'When gpg appears to hang',
+                 'code': ('gpg --clearsign          no file named\n'
+                          '\n'
+                          'it is reading what you type. Not frozen.\n'
+                          'Ctrl-D    finish the input, run the command\n'
+                          'Ctrl-C    abandon it'),
+                 'note': 'Give gpg a filename and it never does this. The '
+                          'silence is the standard Unix "reading stdin", and '
+                          'gpg is quieter about it than most.'},
             ],
             'misconceptions': [
                 'Encrypting a file does not sign it. An encrypted file with '
@@ -98,6 +117,10 @@ MODULE = {
             'id': 'gp-keys',
             'title': 'Making and looking after a key',
             'concept':
+                '`gpg --quick-generate-key` is how you make the pair the four '
+                'operations need, and how you set an expiry so a lost key '
+                'stops being a liability. That is why the first real gpg '
+                'work is generating and backing up, not signing.\n\n'
                 'A modern gpg key is not one key. It is a primary key, which '
                 'certifies and is the identity, plus subkeys for the actual '
                 'work, usually one for signing and one for encryption. That '
@@ -167,9 +190,12 @@ MODULE = {
             'id': 'gp-sign',
             'title': 'Three kinds of signature',
             'concept':
-                'gpg can sign in three shapes, and choosing the wrong one is '
-                'the usual source of confusion about where the signature '
-                'went.\n\n'
+                '`gpg --detach-sign`, `--clear-sign`, and `--sign` are how '
+                'you prove a file came from the holder of a key, in three '
+                'shapes that put the signature in different places. That is '
+                'why a software release ships a small `.asc` next to an '
+                'untouched tarball, and an announcement keeps the text '
+                'readable.\n\n'
                 '**Detached**, with --detach-sign, writes a separate small '
                 'file. The original is untouched. This is what software '
                 'releases use, because the tarball has to stay byte for byte '
@@ -188,7 +214,14 @@ MODULE = {
                 'warning that follows, "This key is not certified with a '
                 'trusted signature", means nobody has vouched that the key '
                 'belongs to that person. Both can be true at once, and '
-                'usually are.',
+                'usually are.\n\n'
+                'A failed verify is louder than a trust warning, and it '
+                'looks different. Change one byte of the tarball and '
+                '`gpg --verify` prints `BAD signature`, not a warning. Swap '
+                'the two arguments and you get a parse error rather than a '
+                'clear no, because gpg tried to treat the tarball as the '
+                'signature. The two-argument form, signature first, is the '
+                'one that fails in a way you can read.',
             'examples': [
                 {'label': 'Detached, for a release artefact',
                  'code': 'gpg --armor --detach-sign app-1.2.tar.gz',
@@ -228,15 +261,24 @@ MODULE = {
             'id': 'gp-encrypt',
             'title': 'Encrypting, to others and to yourself',
             'concept':
-                'To encrypt to someone you need their public key in your '
-                'keyring, and you name them with --recipient. You can repeat '
-                'it: every recipient gets the session key encrypted to them, '
+                '`gpg --encrypt --recipient` is how you make a file only '
+                'named key holders can read. That is why a backup for '
+                'yourself, or a file for a colleague, does not need a '
+                'password you then have to deliver. You need their public '
+                'key in your keyring, and you can repeat `--recipient`: '
+                'every recipient gets the session key encrypted to them, '
                 'and any one of them can decrypt.\n\n'
                 'The trap is encrypting to someone and not to yourself. gpg '
                 'will happily produce a file you cannot read, and there is no '
                 'recovery. --encrypt-to in your config, or naming yourself as '
                 'a recipient, is the fix, and it is the setting worth '
-                'changing on day one.\n\n'
+                'changing on day one. The file you cannot read fails '
+                'immediately. Decrypt prints `decryption failed: No secret '
+                'key` and writes nothing useful. There is no later '
+                'recovery: the session key is inside the file, wrapped only '
+                'to the recipients you named. Re-encrypting from the '
+                'ciphertext is impossible; the plaintext has to still '
+                'exist.\n\n'
                 '--symmetric is the other mode: no keys at all, one '
                 'passphrase, anyone with the passphrase can decrypt. It is '
                 'the right tool for encrypting a backup for yourself and the '
@@ -311,8 +353,16 @@ MODULE = {
                 'Deleting is asymmetric on purpose. --delete-keys removes a '
                 'public key; --delete-secret-keys is a separate command and '
                 'must be run first if you hold both, which is a guard against '
-                'destroying a secret key by mistake.',
+                'destroying a secret key by mistake.\n\n'
+                'Importing a key does not mean you believe it. The next '
+                'lesson is trust, which is the decision the keyring '
+                'will not make for you.',
             'examples': [
+                {
+                    'label': 'Keeping a keyring somewhere other than your own',
+                    'code': 'gpg --homedir ./ring --list-keys\ngpg --homedir ./ring --import theirs.asc\n\ndefault is ~/.gnupg, and you rarely want\nan experiment landing in it',
+                    'note': '--homedir points every operation at a different directory. It is how you try something without your real keyring becoming a museum of it.',
+                },
                 {'label': 'Give someone your public key',
                  'code': 'gpg --armor --export ada@example.com > ada.asc',
                  'note': 'Safe to publish anywhere. It is not a secret.'},
@@ -354,9 +404,10 @@ MODULE = {
             'id': 'gp-trust',
             'title': 'Trust is a decision you record',
             'concept':
-                'This is the part that is genuinely different from most '
-                'security tooling, and the part most people never learn '
-                'properly.\n\n'
+                '`gpg --sign-key` and `--lsign-key` are how you record that '
+                'a key belongs to the person named on it. That is why a '
+                'Good signature with a trust warning is two statements: the '
+                'maths passed, and nobody has vouched for the name.\n\n'
                 'gpg separates two questions. Is this signature '
                 'mathematically valid, which the tool answers on its own. And '
                 'does this key really belong to the person named on it, which '
@@ -365,7 +416,12 @@ MODULE = {
                 'fingerprint through some channel that is not the same one '
                 'that delivered the key, then signing it with your own key. '
                 'That is what --sign-key does, and it is why fingerprints get '
-                'read out loud at conferences.\n\n'
+                'read out loud at conferences. The same-channel check is the '
+                'failure that looks like care. Someone emails you a key and, '
+                'in the same email, a fingerprint to compare. Matching them '
+                'proves the email is consistent, not that it came from them. '
+                'The check has to travel a different path: a voice call, a '
+                'site you already trust, a sticker on a laptop.\n\n'
                 'Owner trust is a third and separate thing: how much you '
                 'trust that person to certify keys for others. Setting it '
                 'with --edit-key trust is what makes the web of trust '
@@ -415,14 +471,21 @@ MODULE = {
             'id': 'gp-practice',
             'title': 'Where gpg actually shows up',
             'concept':
-                'Outside of email, which is where most people expect it and '
-                'where it has largely lost, gpg is load bearing in several '
-                'places you already touch.\n\n'
+                '`gpg --verify` is how a package manager, a release tarball, '
+                'and a signed git tag all prove who produced the bytes. That '
+                'is why an expired repository key, a `.asc` next to a '
+                'download, and `git tag -s` are the same operation in '
+                'different clothes.\n\n'
                 '**Package management.** Every apt, dnf, pacman and rpm '
                 'repository is signed, and the package manager verifies with '
                 'gpg before installing. The "key expired" errors people work '
                 'around with insecure flags are exactly this system doing its '
-                'job.\n\n'
+                'job. A package manager that refuses to install is usually '
+                'this check, not a broken mirror. The error names an expired '
+                'or unknown key. Forcing the install with an insecure flag '
+                'does not fix the key; it turns the verify off. Refreshing '
+                'the keyring, or installing the new key the project '
+                'published, is the actual repair.\n\n'
                 '**Release artefacts.** Tarballs and installers ship with '
                 'detached signatures, and checking one is two commands: fetch '
                 'the signing key by fingerprint from the project site, then '

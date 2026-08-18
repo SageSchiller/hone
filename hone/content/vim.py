@@ -28,25 +28,121 @@ MODULE = {
     'provides': ['modal-grammar'],
     'adapter': 'nvim',
     'estimate': '4-6 hours',
-    'order': 10,
+    'order': 41,
 
     # ------------------------------------------------------------------
     'lessons': [
+        {
+            'id': 'vim-inout',
+            'title': 'Opening a file, and leaving again',
+            'next': 'vim-why',
+            'concept': (
+                '`:help topic` is the manual, and `:h :w` is how you look up '
+                'a command you are about to type. `r` plus a character '
+                'replaces the one under the cursor, which is the smallest '
+                'edit and the one a first day actually needs.\n\n'
+                'The oldest joke about vim is that people cannot work out how '
+                'to quit it. It is a joke about a real design decision, and '
+                'the answer takes one line, so here it is before anything '
+                'else.\n\n'
+                '**Type `:wq` and press Enter.** The colon opens a command '
+                'line at the bottom of the screen, `w` writes the file, `q` '
+                'quits. If the colon does nothing, you are in insert mode: '
+                'press Esc first, and Esc is the answer to a great many '
+                'things in vim.\n\n'
+                'The other three worth knowing on day one. `:q` quits and '
+                'refuses if you have unsaved changes, which is a feature. '
+                '`:q!` quits and throws those changes away, which is what you '
+                'want after an experiment went wrong. `:w` saves without '
+                'leaving.\n\n'
+                'Opening is the ordinary half: `vim notes.txt` or `nvim '
+                'notes.txt` from a shell, and the file does not have to exist '
+                'yet. vim opens on an empty buffer and writes it when you '
+                'save.\n\n'
+                '**Why a command line at all.** Normal mode spends every key '
+                'on editing, so there is nothing left for "save this" or '
+                '"open that". The colon buys a whole line of typed commands '
+                'without spending a single normal-mode key on them. Everything '
+                'starting with a colon in this module is that same command '
+                'line.\n\n'
+                'The next lesson is why that command line has to exist at '
+                'all: why vim split typing and commanding onto two modes, '
+                'and what "composed" actually means on the keys.'
+            ),
+            'examples': [
+                {
+                    'label': 'In, and back out',
+                    'code': ('vim notes.txt      open it, from a shell\n'
+                             '\n'
+                             ':w                 save, stay here\n'
+                             ':wq                save and quit\n'
+                             ':q                 quit, if nothing is unsaved\n'
+                             ':q!                quit, discard my changes\n'
+                             'ZZ                 same as :wq, no colon'),
+                    'note': 'Every one of these is typed in normal mode. If '
+                            'they appear in your text instead, press Esc and '
+                            'try again.',
+                },
+                {
+                    'label': 'The one that catches people',
+                    'code': ('E37: No write since last change\n'
+                             '\n'
+                             'vim is refusing to quit, not failing.\n'
+                             ':wq  to keep the work\n'
+                             ':q!  to abandon it'),
+                    'note': 'vim never discards your work without being told '
+                            'twice, and the exclamation mark is the second '
+                            'telling.',
+                },
+            ],
+            'misconceptions': [
+                'Closing the terminal is not the way out. It leaves a swap '
+                'file behind, and vim will ask awkward questions about it the '
+                'next time you open that file.',
+                '`:q` refusing to quit is not an error. It is vim declining '
+                'to throw away work you never saved.',
+                'The colon is not part of the command. It is how you reach '
+                'the command line, and it only works from normal mode.',
+            ],
+            'try_it': [
+                'Open a throwaway file with `vim /tmp/scratch.txt`, type a '
+                'few characters, press Esc, and leave with `:wq`. Then open '
+                'it again and leave with `:q!`.',
+                'Press Esc twice before every colon for a while. It costs '
+                'nothing and it removes the entire class of "why is it typing '
+                'my command into the file".',
+            ],
+        },
         {
             'id': 'vim-why',
             'title': 'Why modal editing',
             'next': 'vim-modes',
             'concept': (
-                'In every other editor your keyboard types letters, so commands '
-                'have to live somewhere else: on modifier chords, in menus, '
-                'behind the mouse. That is why editor shortcuts are '
-                '`Ctrl-Shift-Alt-K` and why nobody remembers them.\n\n'
+                'Modal editing is how you spend every key on a command instead '
+                'of a letter. That is why vim shortcuts stay short enough to '
+                'compose, instead of living on modifier chords nobody '
+                'remembers.\n\n'
                 'vim splits the problem in two. In insert mode keys type '
                 'letters. In normal mode, where you spend most of your time, '
                 'every key is a command. Suddenly you have the entire alphabet '
                 'as single-keystroke verbs, your hands never leave the home '
                 'row, and commands can be composed.\n\n'
+                '**Composed** means a command is built from parts, not looked '
+                'up as a chord. `d` means delete and then waits for a motion. '
+                '`w` means a word. Together they are `dw`, delete a word. '
+                '`i(` is the text inside parentheses, so `d` plus `i(` is '
+                '`di(`, delete inside the parens, wherever the cursor is '
+                'standing inside them. You did not learn `di(` as a shortcut. '
+                'You assembled it, which is why the same `d` works on `$` and '
+                'on `i"` and on a search.\n\n'
                 'The cost is real: you must always know which mode you are in. '
+                'Being in the wrong one is the reason people give up. Type '
+                '`:wq` while still in insert and the letters `:wq` appear in '
+                'the file. Press `dd` in insert and you type two d\'s. The '
+                'screen does not shout. It just takes dictation. Escape twice '
+                'is the recovery, and the next lesson is the modes themselves, '
+                'because "composed" is useless until you can get back to the '
+                'mode that speaks it.\n\n'
                 'The payoff is that editing becomes a language you speak rather '
                 'than a set of shortcuts you memorise.'
             ),
@@ -61,6 +157,17 @@ MODULE = {
                     'note': 'Three keystrokes, no mouse, and the same three '
                             'keystrokes work inside quotes, parens or tags by '
                             'changing one character.',
+                },
+                {
+                    'label': 'Composition, written out',
+                    'code': ('d      delete, then wait\n'
+                             'w      a word          ->  dw\n'
+                             'i(     inside parens   ->  di(\n'
+                             '$      to end of line  ->  d$\n'
+                             '\n'
+                             'same d, three different objects'),
+                    'note': 'The verb does not change. The motion does. That '
+                            'is the whole language.',
                 },
             ],
             'misconceptions': [
@@ -81,17 +188,34 @@ MODULE = {
             'title': 'Modes, and how to get home',
             'next': 'vim-grammar',
             'concept': (
-                'Four modes matter. NORMAL is home, and it is where every '
+                'Modes are how vim splits typing from commanding. That is why '
+                'Escape is the first habit: it is how you get back to the '
+                'mode that speaks commands. Four modes '
+                'matter. NORMAL is home, and it is where every '
                 'command lives. INSERT is where keys type letters. VISUAL '
                 'selects text so you can act on the selection. COMMAND-LINE is '
                 'the `:` prompt for file and editor operations.\n\n'
                 'Escape returns to normal from anywhere. When you are confused, '
                 'press Escape twice and you are home. That is the single most '
-                'useful habit to build in your first week.\n\n'
+                'useful habit to build in your first week. Twice, because one '
+                'Escape from command-line or from a half-typed chord is '
+                'sometimes not enough, and a second Escape from normal mode '
+                'does nothing. The cost of the extra press is zero. The cost '
+                'of thinking you are in normal when you are in insert is the '
+                'file filling up with `dd` and `:wq`.\n\n'
+                'Insert mode is not a place to rest. If you are not actively '
+                'typing letters, you are in the wrong mode, because every '
+                'movement and every edit you make with arrows inside insert '
+                'is a command you did not learn. It works. It also trains the '
+                'habit that makes vim feel like Notepad with extra steps.\n\n'
                 'Notice that the ways into insert mode are already commands '
                 'with meaning: `i` inserts before the cursor, `a` appends after '
                 'it, `A` appends at end of line, `o` opens a line below. '
-                'Choosing the right one saves the movement afterwards.'
+                'Choosing the right one saves the movement afterwards. They '
+                'are doors, and they are also verbs: `o` is "open a line", '
+                'not "go to insert and then press Enter".\n\n'
+                'The next lesson is what those verbs do once you are home: '
+                'one verb, one motion, and why that pair is the whole editor.'
             ),
             'examples': [
                 {
@@ -134,19 +258,37 @@ MODULE = {
             'title': 'Verb plus motion: the whole idea',
             'next': 'vim-motions',
             'concept': (
-                'This is the lesson. Everything else is vocabulary.\n\n'
+                'Verb plus motion is how you name an edit without a separate '
+                'shortcut for each one. That is why `dw` and `d$` are the '
+                'same `d` finished two different ways.\n\n'
                 'A vim command is a VERB followed by a MOTION, and it applies '
                 'the verb to the text the motion covers. `d` is delete, `w` '
                 'moves a word forward, so `dw` deletes a word. `c` is change, '
                 '`$` goes to end of line, so `c$` changes to end of line.\n\n'
+                'Watch one built. Cursor on the `f` of `foo(bar)`. Press `d`. '
+                'Nothing happens yet: vim is waiting. Press `w`. The word is '
+                'gone. Press `u` if you want it back. Now the same `d`, then '
+                '`$`: everything from the cursor to the end of the line '
+                'is gone instead. You did not switch tools. You finished the '
+                'sentence differently.\n\n'
                 'The power is that verbs and motions are independent. Learn '
                 'four verbs and ten motions and you have forty commands, not '
-                'fourteen. You never learned `c$`; you derived it.\n\n'
+                'fourteen. You never learned `c$`; you derived it. A count '
+                'sits on the verb, or on the motion, and multiplies whichever '
+                'it sits on: `3dw` is three times "delete a word", which is '
+                'the next-but-one lesson.\n\n'
                 'A verb typed twice acts on the whole line: `dd` deletes a '
                 'line, `yy` yanks one, `cc` changes one. That is the only '
-                'irregular verb form in the language.'
+                'irregular verb form in the language.\n\n'
+                'The next lesson is the motion half of the pair, because a '
+                'verb without a good motion is just `x` with extra steps.'
             ),
             'examples': [
+                {
+                    'label': 'One-key commands that are not verb plus motion',
+                    'code': 'x    delete the character under the cursor\nJ    join this line and the next into one\n~    swap the case of this character\np    put what you last deleted, after the cursor',
+                    'note': 'A handful of commands are just verbs with the object built in. J is the one people miss for years and then use every day.',
+                },
                 {
                     'label': 'Four verbs',
                     'code': ('d   delete\n'
@@ -186,6 +328,7 @@ MODULE = {
             'title': 'The motion vocabulary',
             'next': 'vim-textobjects',
             'concept': (
+                'The last lesson gave you a verb waiting for a motion. '
                 'Motions are where the leverage is, because every motion you '
                 'learn multiplies against every verb you already have. They '
                 'also work on their own, as movement.\n\n'
@@ -194,10 +337,22 @@ MODULE = {
                 'character. Within a file: `gg` `G` for the ends, `{` `}` for '
                 'paragraphs, `/` to search. Structural: `%` jumps between '
                 'matching brackets.\n\n'
+                'Motions are inclusive or exclusive, and that is the only '
+                'subtlety worth having on day one. An exclusive motion stops '
+                'before the destination, so `dw` deletes up to the next word '
+                'and leaves that word\'s first character. An inclusive motion '
+                'takes the destination too, so `d$` deletes through the last '
+                'character of the line. That is why `dw` does not eat the next '
+                'word and `d$` does not leave the last character sitting there. '
+                'You do not need the full table. You need to expect `d$` and '
+                '`dw` to feel slightly different, because they are.\n\n'
                 '`f` deserves special attention. `fx` jumps to the next `x` on '
                 'this line, so `dfx` deletes up to and including it. `t` is the '
                 'same but stops just before, which is usually what you want '
-                'when deleting up to a comma or a bracket.'
+                'when deleting up to a comma or a bracket.\n\n'
+                'The next lesson is the thing that is better than a motion: '
+                'a text object, which names a region wherever you are standing '
+                'inside it.'
             ),
             'examples': [
                 {
@@ -240,8 +395,9 @@ MODULE = {
         {
             'id': 'vim-textobjects',
             'title': 'Text objects: the multiplier',
-            'next': 'vim-counts',
+            'next': 'vim-visual',
             'concept': (
+                'The last lesson ran from the cursor to a destination. '
                 'Motions run from the cursor to somewhere. Text objects are '
                 'different: they name a region regardless of where in it you '
                 'are standing. That difference is what makes them so much '
@@ -255,7 +411,18 @@ MODULE = {
                 'Anywhere inside the parens, `ci(` changes their contents. '
                 'Compare `cw`, which only changes from the cursor to the end of '
                 'the word and so gives a different result depending on where '
-                'you happened to be standing.'
+                'you happened to be standing.\n\n'
+                'On `foo(bar, baz)` with the cursor on `bar`, `di(` deletes '
+                '`bar, baz` and leaves `foo()`. `da(` deletes the parens too '
+                'and leaves `foo`. The same pair on quotes: `di"` inside '
+                '`"hello"` leaves the quotes, `da"` takes them. The failure '
+                'is `di"` when the cursor is not inside a pair: vim beeps, '
+                'or in nvim does nothing, because there is no object to '
+                'name. People then mash `di"` on the next set of quotes and '
+                'wonder why the first string is untouched.\n\n'
+                'The next lesson is the number that multiplies any of this: '
+                'where a count sits, and why `3dw` and `d3w` are the same '
+                'until they are not.'
             ),
             'examples': [
                 {
@@ -297,18 +464,90 @@ MODULE = {
             ],
         },
         {
+            'id': 'vim-visual',
+            'title': 'Visual mode is a motion you can see',
+            'next': 'vim-counts',
+            'concept': (
+                'Text objects name a region you cannot see until the edit '
+                'happens. Visual mode is the same idea with the lights on: '
+                'you select first, then apply the operator.\n\n'
+                '`v` selects by character. `V` selects by line. `C-v` selects '
+                'a block, a rectangle of columns. The selection is a motion. '
+                '`d`, `c`, `y`, `>` all apply to it. `o` jumps to the other '
+                'end of the selection so you can adjust it without starting '
+                'over.\n\n'
+                'When the region is irregular, or you need to see it before '
+                'you cut, a text object is the wrong tool. Visual is the '
+                'right one. It is not a place to stay. Escape when the edit '
+                'is done.\n\n'
+                'Block visual is the one that pays for itself on code. `C-v` '
+                'then `I` or `A` edits a column: comment four lines, or put '
+                'the same prefix on each. A visual change repeats poorly '
+                'with the dot. Prefer an operator plus a text object when '
+                'you will walk the file doing the same edit.\n\n'
+                'The next lesson is counts: multiplying a motion you already '
+                'know, now that you can also see a region.'
+            ),
+            'examples': [
+                {
+                    'label': 'See it, then cut it',
+                    'code': ('v      character visual\n'
+                             'V      line visual\n'
+                             'C-v    block visual\n'
+                             'o      other end of the selection\n'
+                             'd c y  operators, same as always\n'
+                             'gv     reselect the last visual'),
+                    'note': '`gv` is how you recover a selection you just '
+                            'operated on and wish you had kept.',
+                },
+                {
+                    'label': 'A column of comments',
+                    'code': ('C-v j j     three lines, one column\n'
+                             'I# Space    insert at the start of the block\n'
+                             'Esc         applies to every selected line'),
+                    'note': '`I` and `A` in block visual are insert and '
+                            'append for the whole column. They fire on Esc.',
+                },
+            ],
+            'misconceptions': [
+                'Visual is not a mode you write in. It is a motion you can '
+                'see. Escape when the region is right, after the operator.',
+                'Dot repeats the last change, not the last selection. A '
+                'visual edit of a ragged region will not walk the file the '
+                'way `ci"` will.',
+            ],
+            'try_it': [
+                'Select three lines with V, yank them, then gv and delete. '
+                'Then try C-v on a column and I to prefix it.',
+            ],
+        },
+        {
             'id': 'vim-counts',
             'title': 'Counts, and where they go',
             'concept': (
-                'Any command takes a count, and the count multiplies it. `3dd` '
+                'A count is how you multiply a command you already know. That '
+                'is why `3dd` is three lines and `d3w` is three words, '
+                'without a new key. `3dd` '
                 'deletes three lines, `2w` moves two words, `5x` deletes five '
                 'characters.\n\n'
                 'The count can go before the verb or between the verb and the '
                 'motion, and both mean the same thing: `d2w` and `2dw` both '
-                'delete two words. Pick whichever you can type faster.\n\n'
+                'delete two words. Pick whichever you can type faster. The '
+                'count binds to whichever piece it sits on: `3dw` is "three '
+                'times, delete a word", `d3w` is "delete, then a 3-word '
+                'motion". For `d` and `w` those are the same region. They '
+                'stop being the same when the verb itself repeats, or when '
+                'the motion is something like `f` that already takes a '
+                'character: `d3fx` deletes through the third `x`, because '
+                'the `3` belongs to `fx`.\n\n'
+                'The failure is counting what you cannot see. `12dd` on a '
+                'guess deletes twelve lines whether or not that was the '
+                'paragraph. A text object or a search motion is almost '
+                'always the better count.\n\n'
                 'Counts also work with `.` and with macros, which is where they '
                 'earn their keep: record a fix once and apply it twenty times '
-                'with `20@a`.'
+                'with `20@a`. Search is the motion that usually replaces the '
+                'count, and it is the next lesson.'
             ),
             'examples': [
                 {
@@ -321,6 +560,17 @@ MODULE = {
                              '42G    go to line 42'),
                     'note': 'A count before G is a line number rather than a '
                             'multiplier, which is the one exception.',
+                },
+                {
+                    'label': 'Where the count sits',
+                    'code': ('3dw     three times: delete a word\n'
+                             'd3w     delete a 3-word motion\n'
+                             '         same region, for this pair\n'
+                             '\n'
+                             'd3fx    delete through the third x\n'
+                             '         3 belongs to fx, not to d'),
+                    'note': 'Read the number as attaching to the next piece. '
+                            'That is why 42G is a line number.',
                 },
             ],
             'misconceptions': [
@@ -341,7 +591,8 @@ MODULE = {
             'title': 'Search, and substitute',
             'next': 'vim-repeat',
             'concept': (
-                'Searching is how you move a long way without counting, and it '
+                'The last lesson multiplied a motion by a number. Searching '
+                'is how you move a long way without counting, and it '
                 'is also a motion, so it composes with verbs like everything '
                 'else.\n\n'
                 '`/pattern` searches forward, `?pattern` searches backward, and '
@@ -366,6 +617,11 @@ MODULE = {
                 'captured on the left.'
             ),
             'examples': [
+                {
+                    'label': 'Typing a search, key by key',
+                    'code': '/error<Enter>     jump to the next "error"\n\n/  opens the search prompt\nerror  is typed into it\nRET  (Enter) runs it, n and N repeat',
+                    'note': 'The slash is a mode of its own: nothing happens until you press Enter, so Esc backs out of a search you started by accident.',
+                },
                 {
                     'label': 'Searching and moving',
                     'code': ('/error       forward to the next "error"\n'
@@ -414,7 +670,8 @@ MODULE = {
             'title': 'Dot, undo, and the redo tree',
             'next': 'vim-registers',
             'concept': (
-                '`.` repeats your last change, and it is the most valuable key '
+                'The last lesson left you with `n` walking matches. `.` '
+                'repeats your last change, and it is the most valuable key '
                 'in vim. Make an edit once, move somewhere else, press `.` and '
                 'it happens again.\n\n'
                 'This changes how you should make edits. `ciwfoo` then Escape '
@@ -422,9 +679,21 @@ MODULE = {
                 'same thing with a search-and-replace is not repeatable and not '
                 'reviewable. The habit worth building is: make the change '
                 'small and repeatable, then walk it with `n` and `.`.\n\n'
+                '`.` repeats the last *change*, not the last motion. Moving '
+                'with `w` or searching with `n` does not update it. That is '
+                'why the n-dot loop works: `n` moves, `.` repeats the edit '
+                'you already made. If you insert a small extra delete in the '
+                'middle, `.` now repeats that delete, and the rename loop is '
+                'gone. The failure looks like "dot is broken". It is doing '
+                'exactly the last change.\n\n'
                 '`u` undoes and `C-r` redoes. Undo in vim is per change rather '
                 'than per keystroke, so one `u` removes the whole of an insert '
-                'session.'
+                'session. `C-r` walks forward along that same chain. vim\'s '
+                'undo is a tree if you undo and then make a new edit, which '
+                'is why `:undolist` exists, but `u` and `C-r` are the whole '
+                'habit for the first month.\n\n'
+                'The next lesson is where the text you deleted actually went, '
+                'because `p` does not always paste what you think you yanked.'
             ),
             'examples': [
                 {
@@ -436,6 +705,16 @@ MODULE = {
                              'n .  n .       and so on'),
                     'note': 'Reviewable, interruptible, and it skips the ones '
                             'you do not want. A blind :%s cannot do that.',
+                },
+                {
+                    'label': 'What dot repeats',
+                    'code': ('ciwfoo Esc     last change is "replace word"\n'
+                             'n              motion, dot unchanged\n'
+                             '.              replace this word too\n'
+                             'x              last change is now "delete char"\n'
+                             '.              deletes a character, not a word'),
+                    'note': 'Dot is a recording of the last edit. Motions '
+                            'are not edits.',
                 },
             ],
             'misconceptions': [
@@ -454,16 +733,26 @@ MODULE = {
             'title': 'Registers: where deleted text goes',
             'next': 'vim-macros',
             'concept': (
-                'Nothing you delete is lost. Deletes and yanks go into '
+                'The last lesson repeated a change. This one is where the '
+                'text from that change went. Nothing you delete is lost. '
+                'Deletes and yanks go into '
                 'registers, and `p` pastes from the unnamed register, which is '
                 'whatever you last cut or copied.\n\n'
                 'Named registers let you keep several things at once. `"ayy` '
                 'yanks a line into register a, `"ap` pastes it back. The '
                 'numbered registers hold your recent deletes automatically, so '
                 '`"1p` pastes your last delete and `"2p` the one before it.\n\n'
+                'The unnamed register is overwritten by the next delete. That '
+                'is the trap. `yy` to copy a line, `dd` to remove a different '
+                'one, `p` to paste: you get the deleted line, not the yanked '
+                'one. The yank is still in `"0`, the yank register, which '
+                'deletes do not touch. `"0p` pastes what you meant. People '
+                'swear vim ate their copy. It filed it.\n\n'
                 'The one to remember on a desktop is `"+`, the system '
                 'clipboard. `"+y` copies out to other applications and `"+p` '
-                'pastes in.'
+                'pastes in.\n\n'
+                'A register can also hold a sequence of keys. That is a '
+                'macro, and it is the next lesson.'
             ),
             'examples': [
                 {
@@ -477,6 +766,16 @@ MODULE = {
                              ':reg  show what is in every register'),
                     'note': ':reg is the way to find the thing you deleted five '
                             'minutes ago and now want back.',
+                },
+                {
+                    'label': 'The yank that seemed to vanish',
+                    'code': ('yy      unnamed and "0 now hold the line\n'
+                             'dd      unnamed now holds the delete\n'
+                             '         "0 is unchanged\n'
+                             'p       pastes the delete\n'
+                             '"0p     pastes the yank'),
+                    'note': 'Deletes clobber the unnamed register. They do '
+                            'not clobber "0.',
                 },
             ],
             'misconceptions': [
@@ -496,8 +795,9 @@ MODULE = {
             'title': 'Macros: recorded keystrokes',
             'next': 'vim-buffers',
             'concept': (
-                'A macro is nothing more than a sequence of keystrokes stored '
-                'in a register. `qa` starts recording into register a, `q` '
+                'A macro is how you replay a sequence of keys you already '
+                'know. That is why a fix you can do once can run on the next '
+                'twenty lines. `qa` starts recording into register a, `q` '
                 'stops, and `@a` plays it back. `@@` replays the last macro.\n\n'
                 'Because they are just keystrokes, everything you already know '
                 'applies. A macro that ends by moving to the next line can be '
@@ -505,7 +805,17 @@ MODULE = {
                 'The discipline that makes macros reliable is to start from a '
                 'known position and end in the equivalent position on the next '
                 'target. Begin with `0` or `^`, end with `j`, and it will '
-                'replay cleanly.'
+                'replay cleanly.\n\n'
+                'Recorded in the wrong mode, a macro is a recording of your '
+                'mistake. Start `qa` while still in insert and you capture '
+                'letters, not commands. The playback then types `j` into the '
+                'file instead of moving down. Escape first, then `qa`. If a '
+                'macro is already wrong, `"ap` pastes it as text, you edit '
+                'the keys, and `"ay$` yanks the corrected line back into '
+                'register a. That is the edit-the-register trick, and it is '
+                'faster than re-recording a twelve-keystroke sequence.\n\n'
+                'The last lesson is vim-only: buffers, windows and tabs, '
+                'which Doom organises differently on purpose.'
             ),
             'examples': [
                 {
@@ -517,6 +827,15 @@ MODULE = {
                              '20@a      do it to the next twenty lines'),
                     'note': 'This is the fastest way to turn a pasted list into '
                             'a markdown list, and it took one recording.',
+                },
+                {
+                    'label': 'Edit a macro as text',
+                    'code': ('"ap      paste register a as a line of keys\n'
+                             '          edit the line like any other\n'
+                             '"ay$     yank it back into a\n'
+                             '@a       play the corrected version'),
+                    'note': 'A macro register is just a register. That is why '
+                            'this works.',
                 },
             ],
             'misconceptions': [
@@ -537,16 +856,27 @@ MODULE = {
             'id': 'vim-buffers',
             'title': 'Buffers, windows and tabs',
             'concept': (
-                'This is the vim-specific lesson: Doom organises this layer '
-                'differently, so everything before this transfers and this does '
-                'not.\n\n'
+                'A buffer is how vim holds a file in memory. That is why you '
+                'switch files without opening a new tab. Doom organises this '
+                'layer differently, so everything before this transfers and '
+                'this does not.\n\n'
                 'A BUFFER is a file in memory. A WINDOW is a viewport onto a '
                 'buffer. A TAB is a layout of windows. The confusion people '
                 'bring from other editors is expecting tabs to be files, and in '
                 'vim they are not: tabs are workspace arrangements, and buffers '
-                'are the files.\n\n'
+                'are the files. Chrome tabs are files. vim tabs are "the split '
+                'layout I want for this task". Using a tab per file is how you '
+                'end up with twenty tabs and no idea which buffer is where.\n\n'
                 'Most of the time you want buffers, not tabs. `:e file` opens '
-                'one, `:ls` lists them, `:b name` switches by partial name.'
+                'one, `:ls` lists them, `:b name` switches by partial name. '
+                '`C-^` toggles the previous buffer, which is the buffer-level '
+                'alt-tab. Closing a window with `C-w q` does not close the '
+                'buffer: `:ls` still shows it, and `:b` brings it back. '
+                '`:bd` is what forgets the file.\n\n'
+                'The Doom module starts where this one stops. Its `SPC b` '
+                'tree and its workspaces replace most of this lesson, and '
+                'the grammar from the earlier lessons is what you will still '
+                'be speaking inside them.'
             ),
             'examples': [
                 {
@@ -593,6 +923,14 @@ MODULE = {
     # ------------------------------------------------------------------
     'drills': [
         # verbs and the line form
+        {'id': 'vim-r', 'type': 'keys', 'keys': ['r', 'x'],
+         'prompt': 'Replace the character under the cursor with x.',
+         'teach': 'r is one character, then you are still in normal mode.'},
+        {'id': 'vim-help', 'type': 'command',
+         'answer': ':help :w',
+         'accepts': [':h :w'],
+         'prompt': 'Look up the :w command in vim help.',
+         'teach': ':help topic. :h is the short form.'},
         {'id': 'vim-dd', 'type': 'keys', 'keys': ['d', 'd'],
          'prompt': 'Delete the whole line the cursor is on.',
          'teach': 'A verb doubled acts on the line. The same rule gives yy '

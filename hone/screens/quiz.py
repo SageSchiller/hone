@@ -180,3 +180,23 @@ class QuizScreen(Screen):
             self.right += 1
         self.last_correct = correct
         self.phase = 'feedback'
+
+    def _advance(self):
+        """Next question, or pop back to Practice when the set is done.
+
+        Missing for the whole life of the file: Enter in feedback called
+        this and raised, which tore the process down. Finish is a pop, not
+        a quit, so the last Enter returns to the module rather than the
+        shell.
+        """
+        if self.index + 1 < len(self.items):
+            self.index += 1
+            self.phase = 'prompt'
+            self.picked = None
+            self.last_correct = None
+            self.started = None
+            self._options_cache = None
+            return STAY
+        if self.on_finish is not None:
+            self.on_finish()
+        return POP

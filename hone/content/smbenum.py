@@ -24,9 +24,108 @@ MODULE = {
     'order': 85,
     'lessons': [
         {
+            'id': 'sa-what',
+            'title': 'Windows networks, in the words they use',
+            'next': 'sa-model',
+            'concept': (
+                'The Windows network vocabulary is how you name the machine '
+                'that holds the accounts and the protocol that offers '
+                'folders. That is why finding the domain controller is the '
+                'first move in almost every exercise in this group.\n\n'
+                '**A domain** is a group of Windows machines with a shared '
+                'list of users. Log in once, and every machine in the domain '
+                'accepts you, because none of them holds the account: a '
+                'central server does.\n\n'
+                '**A domain controller**, the DC, is that server. It holds the '
+                'accounts, checks the passwords, and answers questions about '
+                'who exists. There are usually several and they replicate to '
+                'each other. Finding the DC is the first move in almost every '
+                'exercise in this group.\n\n'
+                '**Active Directory** is the database on it: every user, '
+                'group, computer and policy, stored as objects with '
+                'attributes. It answers over LDAP, which is the ldapsearch '
+                'module, and it hands out tickets over Kerberos.\n\n'
+                '**SMB** is the file-sharing protocol, on port 445. It is how '
+                'Windows machines offer folders to each other, and it is far '
+                'more talkative than that suggests: it also carries printer '
+                'access, remote administration and, importantly here, a pipe '
+                'for asking a machine questions about itself.\n\n'
+                '**A share** is a folder offered over SMB, written '
+                '`\\\\server\\name`. Shares ending in a dollar sign are '
+                'hidden from browsing, not protected: `C$` is the whole C '
+                'drive, offered to administrators, and hidden only in the '
+                'sense of not appearing in a list.\n\n'
+                'So the shape of this module is: find the DC, ask SMB what '
+                'shares exist, ask the directory who exists, and notice that '
+                'a default Windows network answers most of those questions to '
+                'anyone with any valid account at all. Why the directory '
+                'answers so freely is the next lesson.'
+            ),
+            'examples': [
+                {
+                    'label': 'The first commands, and what they need',
+                    'code': 'smbclient -L //10.0.0.5 -N        list shares, no login\nsmbclient //10.0.0.5/public -N    open a share\n\ninside smbclient:  ls, get, put, quit\n-N means "do not ask me for a password"',
+                    'note': 'smbclient is an ftp-style prompt once you are in a share, and quit leaves it. -N is how you test whether anything answers without credentials at all.',
+                },
+                {
+                    'label': 'Who is who on a Windows network',
+                    'code': ('domain           corp.local\n'
+                             'domain controller  dc01.corp.local\n'
+                             'member machines  ws01, ws02, srv-files\n'
+                             '\n'
+                             'the DC holds the accounts.\n'
+                             'the others ask it.'),
+                    'note': 'A machine is itself an account in the domain, '
+                            'with a password it manages on its own. That fact '
+                            'matters more than it sounds.',
+                },
+                {
+                    'label': 'The ports, and what answers on them',
+                    'code': ('445    SMB        shares, admin, pipes\n'
+                             '139    NetBIOS    the older path to the same\n'
+                             '389    LDAP       the directory\n'
+                             '88     Kerberos   tickets\n'
+                             '3389   RDP        the desktop'),
+                    'note': 'A host with 445 and 389 and 88 open is a domain '
+                            'controller, and you have identified it without '
+                            'asking it anything.',
+                },
+                {
+                    'label': 'Shares, and the dollar sign',
+                    'code': ('\\\\srv\\public     a normal share\n'
+                             '\\\\srv\\C$         the whole C: drive\n'
+                             '\\\\srv\\ADMIN$     the Windows directory\n'
+                             '\\\\srv\\IPC$       not a folder at all:\n'
+                             '                  the pipe for asking questions'),
+                    'note': 'IPC$ is the interesting one. It is how a machine '
+                            'is queried about its users and shares, and it is '
+                            'why "null session" appears everywhere in this '
+                            'subject.',
+                },
+            ],
+            'misconceptions': [
+                'A hidden share is not a protected share. The dollar sign '
+                'keeps it out of browse lists and does nothing else; '
+                'permissions are what protect it.',
+                'A domain is not a network. Machines on the same network can '
+                'belong to different domains or to none, and domain '
+                'membership is a configuration rather than a location.',
+                'SMB is not only file sharing. IPC$ carries administrative '
+                'queries, which is why an enumeration tool talks to port 445 '
+                'rather than to something purpose-built.',
+            ],
+            'try_it': [
+                'Say out loud what a domain controller holds and why every '
+                'other machine needs it. That sentence is the foundation of '
+                'this whole group.',
+                'Look at the port list and work out how you would recognise a '
+                'DC from a scan alone.',
+            ],
+        },
+        {
             'id': 'sa-model',
             'title': 'A domain is a database that answers questions',
-            'concept': 'Active Directory is an LDAP directory with Kerberos bolted to the front and a great deal of Windows-specific schema inside. Everything in it is an object with attributes: a user has a samAccountName, a memberOf, a servicePrincipalName, a lastLogon, a userAccountControl. A group has members. A computer is a kind of user object.\n\nThe consequence people miss is that **the directory is meant to be readable.** Domain-joined machines and ordinary users constantly need to look up who is in which group, where a service lives, and what the password policy is, so by default an authenticated account can read a very large share of it. Enumeration is mostly not an exploit; it is using a query interface as designed.\n\nThere are four ways in, and they overlap: **SMB** for shares and files, **MS-RPC** over SMB for the old administrative interfaces, **LDAP** for the directory itself, and **Kerberos** for names and tickets. One tool often speaks several: netexec drives SMB and LDAP and WinRM, and rpcclient rides on top of an SMB session.\n\nThe questions worth asking almost always reduce to five: what accounts exist, what groups do they belong to, what machines are there, what is shared and readable, and what is the policy that governs all of it.',
+            'concept': 'Active Directory is how a Windows domain answers who exists, who is in which group, and what the policy is. That is why an authenticated account can read a large share of it, and why enumeration is usually a query interface working as designed. Everything in it is an object with attributes: a user has a samAccountName, a memberOf, a servicePrincipalName, a lastLogon, a userAccountControl. A group has members. A computer is a kind of user object.\n\nThe consequence people miss is that **the directory is meant to be readable.** Domain-joined machines and ordinary users constantly need to look up who is in which group, where a service lives, and what the password policy is, so by default an authenticated account can read a very large share of it. Enumeration is mostly not an exploit; it is using a query interface as designed.\n\nThere are four ways in, and they overlap: **SMB** for shares and files, **MS-RPC** over SMB for the old administrative interfaces, **LDAP** for the directory itself, and **Kerberos** for names and tickets. One tool often speaks several: netexec drives SMB and LDAP and WinRM, and rpcclient rides on top of an SMB session.\n\nThe questions worth asking almost always reduce to five: what accounts exist, what groups do they belong to, what machines are there, what is shared and readable, and what is the policy that governs all of it.',
             'examples': [
                 {
                     'label': 'The same question, four doors',
@@ -58,7 +157,7 @@ MODULE = {
         {
             'id': 'sa-smb',
             'title': 'SMB: shares, sessions and what anonymous gets you',
-            'concept': "SMB is file sharing, and it is also the transport for a surprising amount of Windows administration. Port 445 is the modern one; 139 is NetBIOS-era SMB and its presence usually means something old.\n\nA **null session** is an anonymous connection with an empty username and password. On Windows 2000 it exposed almost everything, which is why every write-up mentions it, and on anything modern it is heavily restricted by default. It is still worth trying, because it costs one command and occasionally an old file server answers.\n\nThe shares themselves are the point. `IPC$` is the interprocess channel that RPC rides on and is not a file share. `ADMIN$` and `C$` are administrative shares that need administrative rights. Anything else is somebody's idea, and the interesting ones are the ones nobody remembers creating.\n\nTwo distinctions matter and get confused. **Share permissions and NTFS permissions are separate**, and the effective access is the more restrictive of the two, so a share you can list is not necessarily a share you can read. And **listing a share is not reading it**: the listing may be permitted while every file inside is denied.\n\nSMB signing is the other thing to record while you are there. Where it is not required, relay attacks become possible, and every enumeration tool reports it because it is a one-bit fact with large consequences.",
+            'concept': "SMB is how Windows machines offer folders and carry administrative pipes. That is why port 445 is the first place you ask what shares exist and what an anonymous session still gets you.\n\nPort 445 is the modern one; 139 is NetBIOS-era SMB and its presence usually means something old.\n\nA **null session** is an anonymous connection with an empty username and password. On Windows 2000 it exposed almost everything, which is why every write-up mentions it, and on anything modern it is heavily restricted by default. It is still worth trying, because it costs one command and occasionally an old file server answers.\n\nThe shares themselves are the point. `IPC$` is the interprocess channel that RPC rides on and is not a file share. `ADMIN$` and `C$` are administrative shares that need administrative rights. Anything else is somebody's idea, and the interesting ones are the ones nobody remembers creating.\n\nTwo distinctions matter and get confused. **Share permissions and NTFS permissions are separate**, and the effective access is the more restrictive of the two, so a share you can list is not necessarily a share you can read. And **listing a share is not reading it**: the listing may be permitted while every file inside is denied.\n\nSMB signing is the other thing to record while you are there. Where it is not required, relay attacks become possible, and every enumeration tool reports it because it is a one-bit fact with large consequences. What rides on that IPC$ pipe, the old administrative calls, is the next lesson.",
             'examples': [
                 {
                     'label': 'What shares are there, anonymously',
@@ -279,6 +378,53 @@ MODULE = {
     ],
     'challenges': [
         {
+            'id': 'smb-sort-shares',
+            'title': 'Sort a share list into what you can browse',
+            'goal': 'A share listing is the first thing you get back and the first thing people misread. Split it into what is browsable, what is hidden, and the one entry that is not a folder at all.',
+            'setup': {
+                'kind': 'sandbox',
+                'shell': 'bash',
+                'tree': {
+                    'shares.txt': (
+                        '\tSharename       Type      Comment\n'
+                        '\t---------       ----      -------\n'
+                        '\tADMIN$          Disk      Remote Admin\n'
+                        '\tC$              Disk      Default share\n'
+                        '\tIPC$            IPC       Remote IPC\n'
+                        '\tbackups         Disk      nightly dumps\n'
+                        '\tprofiles        Disk      user profiles\n'
+                    ),
+                },
+            },
+            'solution': {
+                'shell': "awk '$2==\"Disk\" && $1 !~ /\\$$/ {print $1}' shares.txt | sort > browsable.txt && awk '$1 ~ /\\$$/ {print $1}' shares.txt | sort > hidden.txt",
+            },
+            'steps': [
+                {
+                    'instruction': 'Write the ordinary disk shares, the ones with no dollar sign, into browsable.txt.',
+                    'hint': 'awk \'$2=="Disk" && $1 !~ /\\$$/ {print $1}\' shares.txt | sort',
+                },
+                {
+                    'instruction': 'Write every share whose name ends in a dollar sign into hidden.txt.',
+                    'hint': 'Hidden means absent from browse lists, not protected.',
+                },
+                {
+                    'instruction': 'Note that IPC$ is typed IPC rather than Disk. It is not a folder, it is the pipe that rpcclient talks to in the next lesson.',
+                },
+            ],
+            'free': 'From shares.txt produce browsable.txt (ordinary disk shares) and hidden.txt (everything ending in a dollar sign), both sorted.',
+            'verify': {
+                'kind': 'sandbox',
+                'expect': {
+                    'file_equals': {'browsable.txt': 'backups\nprofiles\n'},
+                    'file_contains': {'hidden.txt': ['ADMIN$', 'C$', 'IPC$']},
+                    'file_lacks': {'browsable.txt': 'ADMIN$'},
+                },
+            },
+            'fallback': 'self',
+        },
+
+        {
             'id': 'sac-parse-users',
             'title': 'Turn two enumerations into one clean list',
             'goal': 'Real output from two different tools, in two different shapes. Normalise both into one username list and find what only one source saw.',
@@ -417,6 +563,18 @@ MODULE = {
                 'A machine account for the domain controller.',
             ],
             'teach': 'Well-known RIDs are fixed: 500 Administrator, 501 Guest, 512 Domain Admins. Renaming does not change the RID.',
+        },
+        {
+            'id': 'saq-ridcycle',
+            'type': 'mcq',
+            'prompt': 'enumdomusers is blocked. Why might lookupsids still recover the user list?',
+            'answer': 'Hardening is per call: looking up a SID is often still allowed.',
+            'distractors': [
+                'lookupsids is a local command and never talks to the DC.',
+                'RID cycling uses LDAP, which cannot be blocked.',
+                'The block only applies to interactive rpcclient, not -c.',
+            ],
+            'teach': 'RIDs are sequential from 1000, and 500 is still Administrator after a rename. Walking them is the same information through a door that was left open.',
         },
     ],
 }

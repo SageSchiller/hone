@@ -31,10 +31,112 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'py-what',
+            'title': 'What Python looks like',
+            'next': 'py-when',
+            'concept': (
+                'Python is how you write a short program when a pipeline is '
+                'no longer readable. That is why this module is types, files '
+                'and a script someone else can run, not a language course. It '
+                'is not a shell. A shell starts programs. Python evaluates '
+                'expressions and runs statements. That is '
+                'why `ls` at a Python prompt is an error, and why `2 + 2` '
+                'at a shell prompt is also an error.\n\n'
+                'Start it with `python3`. The prompt becomes `>>>`. That is '
+                'the REPL: read a line, evaluate it, print the result, wait '
+                'for the next one. Type `print("hello")` and it prints hello. '
+                'Type `2 + 2` and it prints 4. Leave with `exit()` or Ctrl-D. '
+                'Ctrl-C only cancels the current line, which is why it feels '
+                'stuck the first time.\n\n'
+                'A first program is one line. `print` writes to the screen. '
+                'Quotes mark a string. Parentheses call the function. There '
+                'is no `$` on variables: `name = "ada"` then `print(name)`. '
+                'Assignment is `=`, comparison is `==`, and mixing them is '
+                'the first bug everyone writes.\n\n'
+                'Blocks are indented, not braced. An `if` or a `for` ends '
+                'with a colon, and the next line is indented four spaces. '
+                'The indent is the structure. A missing colon or a mixed '
+                'tab is not a style note: Python refuses to run the file.\n\n'
+                'When a program dies, read the traceback last line first. '
+                'That line is the exception and the message; the lines '
+                'above are the call stack that got there, oldest at the '
+                'top. `NameError` means a name was used that was never '
+                'assigned. `SyntaxError` means the file is not valid '
+                'Python, often a missing colon or parenthesis, and it '
+                'fails before any line runs. `TypeError` means an '
+                'operation was asked of the wrong type, such as adding a '
+                'string to an integer.\n\n'
+                'That is enough to read the rest of the module. The next '
+                'lesson is not more syntax. It is when this language is '
+                'the right tool, and when a pipeline you already have is '
+                'still the better one.'
+            ),
+            'examples': [
+                {
+                    'label': 'The first five minutes',
+                    'code': ('$ python3\n'
+                             '>>> print("hello")\n'
+                             'hello\n'
+                             '>>> 2 + 2\n'
+                             '4\n'
+                             '>>> name = "ada"\n'
+                             '>>> print(name)\n'
+                             'ada\n'
+                             '>>> exit()'),
+                    'note': 'The dollar is the shell. The chevrons are Python. '
+                            'Confusing them is how `print` ends up in bash '
+                            'and `ls` ends up in Python.',
+                },
+                {
+                    'label': 'A file is the same language',
+                    'code': ('# hello.py\n'
+                             'name = "ada"\n'
+                             'print(f"hello, {name}")\n'
+                             '\n'
+                             '$ python3 hello.py\n'
+                             'hello, ada'),
+                    'note': 'An f-string puts a value inside the text. The '
+                            'curly braces are the holes. Ordinary quotes '
+                            'print the braces as characters.',
+                },
+                {
+                    'label': 'A traceback, last line first',
+                    'code': ('NameError: name \'nam\' is not defined\n'
+                             '  a name that was never assigned\n'
+                             'SyntaxError: invalid syntax\n'
+                             '  missing colon or parenthesis; nothing ran\n'
+                             'TypeError: can only concatenate str\n'
+                             '  \'1\' + 1, not 1 + 1\n'
+                             '\n'
+                             'last line first; the stack above is how'),
+                    'note': 'The last line names the exception. The lines '
+                            'above are the path, not the diagnosis.',
+                },
+            ],
+            'misconceptions': [
+                'The Python prompt is not a shell. Commands like `ls` and '
+                '`cd` do not work here, and that is expected.',
+                '`exit` without the parentheses does not leave. Python '
+                'prints a hint to write `exit()`, which is easy to miss '
+                'when you are already lost.',
+                'Indentation is not decoration. Changing it changes what '
+                'the program does, or stops it from running at all.',
+            ],
+            'try_it': [
+                'Open `python3`, print your name, add two numbers, and '
+                'leave with `exit()`. Then write the same print in a file '
+                'and run it with `python3 thatfile.py`.',
+            ],
+        },
+        {
             'id': 'py-when',
             'title': 'When to stop writing a pipeline',
             'next': 'py-running',
             'concept': (
+                'The previous lesson was enough Python to print a line. This '
+                'one is the decision that saves more time than any syntax: '
+                'when to reach for that language, and when to stay in the '
+                'shell.\n\n'
                 'A shell pipeline is the right answer far more often than '
                 'people who like Python admit. It is shorter, it streams, and '
                 'it needs no file. Reach for Python when one of four things is '
@@ -51,7 +153,14 @@ MODULE = {
                 'admitted it yet.\n\n'
                 '**Someone will read it again.** Including you, in six months. '
                 'A named function beats a clever one-liner every time the '
-                'clever one-liner has to be modified.'
+                'clever one-liner has to be modified.\n\n'
+                'The failure mode is rewriting a working pipeline because '
+                'Python feels more serious. The pipeline still streams, still '
+                'fits in a history entry, and still needs no file. Python wins '
+                'when you would have to name a variable that lives across '
+                'records, or when the next person (you) will have to change '
+                'a branch. The next lesson is how the program actually starts: '
+                'the REPL, a file, `-c`, and `-m`.'
             ),
             'examples': [
                 {
@@ -73,6 +182,22 @@ MODULE = {
                              'nobody will be able to change it afterwards.'),
                     'note': 'The tell is holding state across records while '
                             'branching on more than one condition.',
+                },
+                {
+                    # Nothing in this module said how to leave the REPL, which
+                    # is the first thing a beginner needs and the one thing a
+                    # module about when to use Python forgot to mention.
+                    'label': 'The prompt, and how to leave it',
+                    'code': ('python3            >>> is the REPL, not a '
+                             'shell\n'
+                             'exit()             leave it\n'
+                             'Ctrl-D             leave it, faster\n'
+                             'Ctrl-C             stop what is running, stay '
+                             'here'),
+                    'note': 'Typing `exit` without the brackets prints a '
+                            'sentence telling you to add them, which is '
+                            'Python being pedantic at the least helpful '
+                            'moment of your day.',
                 },
             ],
             'misconceptions': [
@@ -97,8 +222,11 @@ MODULE = {
             'title': 'Running it, and the environment',
             'next': 'py-data',
             'concept': (
-                'Four ways to run Python, and knowing which is which saves '
-                'confusion. `python3` alone is the REPL, which is the right '
+                'The REPL, a file, `-c` and `-m` are how a Python program '
+                'starts. That is why a calculator line, a script and '
+                '`python3 -m http.server` are different commands rather than '
+                'different languages. '
+                '`python3` alone is the REPL, which is the right '
                 'place to try something. `python3 script.py` runs a file. '
                 '`python3 -c \'...\'` runs a string, which is the shell-friendly '
                 'form. `python3 -m module` runs an installed module, which is '
@@ -111,7 +239,17 @@ MODULE = {
                 'interpreter and packages: `python3 -m venv .venv`, then '
                 '`source .venv/bin/activate`. Everything installed after that '
                 'lands in the directory and nowhere else, and deleting the '
-                'directory undoes all of it.'
+                'directory undoes all of it.\n\n'
+                '`python` without the 3 may be missing, or Python 2, or a '
+                'shim. Say `python3` in anything you will keep. The REPL is '
+                'left with `exit()` or Ctrl-D; Ctrl-C only cancels the current '
+                'line. `pip install` outside a venv now often errors with '
+                '`externally-managed-environment`, which is the distribution '
+                'protecting its own packages, not a broken pip. Make the '
+                'venv first.\n\n'
+                'The next lesson is the four types a script actually holds '
+                'data in, and the mutability rule that surprises everyone '
+                'coming from a shell.'
             ),
             'examples': [
                 {
@@ -171,9 +309,23 @@ MODULE = {
                 'The mutability rule that catches everyone: lists, dicts and '
                 'sets are **mutable**, so passing one to a function and changing '
                 'it changes the caller\'s copy. Strings, numbers and tuples are '
-                'not.'
+                'not.\n\n'
+                '`d[key]` on a missing key raises `KeyError`. `d.get(key, 0)` '
+                'returns the default. That is why a script dies on the one '
+                'weird line in a log: you used `[]` on a key that was not '
+                'there. `s.upper()` returns a new string and leaves `s` '
+                'alone, because strings are immutable; assigning the result '
+                'is required. Lists mutate in place, which is the opposite '
+                'habit and the usual mix-up.\n\n'
+                'The next lesson is indentation as syntax, truthiness, and '
+                'when a comprehension should stay a loop.'
             ),
             'examples': [
+                {
+                    'label': 'Two kinds of division',
+                    'code': 'total / count      7 / 2  is 3.5\ntotal // count     7 // 2 is 3\ntotal % count      7 % 2  is 1',
+                    'note': 'A single slash always gives a float, even when it divides evenly. Use // when you want an index or a count of whole things.',
+                },
                 {
                     'label': 'The four',
                     'code': ('s = "hello"        s.upper(), s.split(","),\n'
@@ -220,8 +372,10 @@ MODULE = {
             'id': 'py-control',
             'title': 'Control flow, truthiness and comprehensions',
             'concept': (
-                'Indentation is the block structure, which means there are no '
-                'braces and no `end`. Four spaces, consistently. Mixing tabs '
+                'Control flow is how a script chooses a branch and walks a '
+                'list. That is why a colon and an indent replace braces, and '
+                'why `if items:` means there are any. Four spaces, '
+                'consistently. Mixing tabs '
                 'and spaces inconsistently inside one block is a TabError '
                 'in Python 3, so pick one and let your editor enforce it.\n\n'
                 '`if`, `for` and `while` behave as expected. The Python-specific '
@@ -233,7 +387,15 @@ MODULE = {
                 'expression: `[x.strip() for x in lines if x.strip()]`. Used '
                 'for one map and one filter it is clearer than the loop. Two '
                 'nested comprehensions with a conditional is a loop that should '
-                'have stayed a loop.'
+                'have stayed a loop.\n\n'
+                'A TabError is Python refusing to guess whether a line is '
+                'inside the block. It is not a style warning. `if x:` is '
+                'false for `[]`, `""`, `0` and `None`, so `if x is not None` '
+                'is the check when empty is a legitimate value. Mixing those '
+                'two is how a function that should process an empty list '
+                'silently skips it.\n\n'
+                'The next lesson is functions and exceptions: `return`, the '
+                'mutable-default trap, and catching the error you meant.'
             ),
             'examples': [
                 {
@@ -311,7 +473,9 @@ MODULE = {
                 'no matter what, which is where cleanup goes. You raise your own '
                 'with `raise ValueError("message")` when an argument makes no '
                 'sense, and that is how a function refuses bad input instead of '
-                'limping on.'
+                'limping on.\n\n'
+                'The next lesson is files: `with`, pathlib, and the `"w"` that '
+                'truncates before you write, the same trap as `>` in the shell.'
             ),
             'examples': [
                 {
@@ -369,9 +533,11 @@ MODULE = {
             'title': 'Files, paths and the with-statement',
             'next': 'py-stdlib',
             'concept': (
-                'Always open files with `with`. It closes the file however the '
-                'block ends, including on an exception, and there is no reason '
-                'to write it any other way.\n\n'
+                '`with` and pathlib are how a script reads and writes files. '
+                'That is why a log walk does not leak a handle, and why a path '
+                'is not a string you join by hand. `with` closes the file '
+                'however the block ends, including on an exception, and there '
+                'is no reason to write it any other way.\n\n'
                 'Iterating a file object gives you one line at a time and does '
                 'not load the whole thing into memory, which matters on a log '
                 'you did not size first. `f.read()` gives the whole thing as one '
@@ -380,9 +546,24 @@ MODULE = {
                 'most of the string-joining that used to go wrong. '
                 '`Path("logs") / "app.log"` builds a path correctly on any '
                 'platform, and `p.read_text()`, `p.exists()`, `p.glob("*.log")` '
-                'do what they say.'
+                'do what they say.\n\n'
+                '`open(path, "w")` truncates the file the moment it succeeds, '
+                'before the first `write`. A crash after that leaves an empty '
+                'file, which is why `>` and `"w"` share a reputation. '
+                '`encoding="utf-8"` should be written out: the default is the '
+                'platform locale, and that is why a script works here and '
+                'mangles a filename on another box. Lines from `for line in '
+                'f` keep their newline; forget `rstrip` and every print adds '
+                'a blank.\n\n'
+                'The next lesson is the six standard-library modules that '
+                'cover almost every working script.'
             ),
             'examples': [
+                {
+                    'label': 'Writing JSON a human will read',
+                    'code': 'import json\nwith open("out.json", "w") as f:\n    json.dump(data, f, indent=2)',
+                    'note': 'json.dump writes to a file, json.dumps returns a string. The trailing s is the whole difference and it is the most common typo in the language.',
+                },
                 {
                     'label': 'Reading and writing',
                     'code': ('with open("in.log") as f:\n'
@@ -433,18 +614,35 @@ MODULE = {
                 'modules cover almost everything a working script does. All of '
                 'these are already installed everywhere.\n\n'
                 '`json` reads and writes JSON, and `json.loads` on a string '
-                'plus `json.load` on a file is the whole interface. `re` is the '
-                'regex module you already know the language of. `collections` '
+                'plus `json.load` on a file is the whole interface. `csv` '
+                'is the same idea for tables: `csv.DictReader` and '
+                '`DictWriter` give you a dict per row. `re` is the regex '
+                'module you already know the language of. `collections` '
                 'gives you `Counter` and `defaultdict`. `pathlib` handles '
                 'paths. `subprocess` runs other programs. `argparse` builds a '
-                'real command-line interface.\n\n'
+                'real command-line interface. `str.join` and `str.split` are '
+                'the pair every script uses before those modules.\n\n'
                 'The one to be careful with is `subprocess`. Use a **list of '
                 'arguments**, never a string with `shell=True`, unless you '
                 'genuinely need a shell. A list means no quoting, no word '
                 'splitting, and no injection through a filename someone else '
-                'controls.'
+                'controls.\n\n'
+                '`json.loads` takes a string; `json.load` takes a file. The '
+                'missing `s` is the typo that produces `AttributeError` or a '
+                'TypeError that looks like your data is wrong. `subprocess.run` '
+                'with a list never sees a shell, so a filename with a space '
+                'is just an argument. `shell=True` plus an interpolated name '
+                'is the bash quoting bug, back again.\n\n'
+                'The last lesson is the skeleton that turns these pieces into '
+                'a tool someone else can run: shebang, argparse, exit code, '
+                'and the `__main__` guard.'
             ),
             'examples': [
+                {
+                    'label': 'Counting things, which you will do constantly',
+                    'code': 'from collections import Counter\nCounter(items).most_common(5)\n\n[("error", 91), ("warn", 40), ...]',
+                    'note': 'Counter is a dict that counts, and most_common gives you the top n already sorted. This replaces about fifteen lines of dictionary fiddling.',
+                },
                 {
                     'label': 'The six',
                     'code': ('import json, re, subprocess\n'
@@ -501,7 +699,19 @@ MODULE = {
                 'That last one looks like ceremony and is not: without it, '
                 'importing your script to reuse one function runs the whole '
                 'thing, which is surprising exactly once and then never '
-                'forgotten.'
+                'forgotten.\n\n'
+                '`if __name__ == "__main__"` is true only when this file is '
+                'the program being run. Import the file from a test or from '
+                'another script and `__name__` is the module name, so `main` '
+                'does not fire. Without the guard, `from count import tally` '
+                'runs the whole CLI, including argparse, which is the '
+                'surprise that happens the first time you try to reuse a '
+                'function. `sys.exit(main())` is how a `return 1` becomes '
+                'the process exit code `&&` can see.\n\n'
+                'This module stops at a script. The next language on the '
+                'roster that carries objects instead of text is PowerShell, '
+                'and it is a different answer to the same "the pipeline grew '
+                'up" question.'
             ),
             'examples': [
                 {
@@ -523,6 +733,18 @@ MODULE = {
                     'note': 'Returning from main and passing it to sys.exit is '
                             'how the exit code gets set without scattering '
                             'exits through the code.',
+                },
+                {
+                    'label': 'What the guard is for',
+                    'code': ('# count.py\n'
+                             'def tally(path): ...\n'
+                             'if __name__ == "__main__":\n'
+                             '    sys.exit(main())\n'
+                             '\n'
+                             '# elsewhere\n'
+                             'from count import tally   # does not run main'),
+                    'note': 'Without the guard, importing tally would parse '
+                            'argv and start the CLI.',
                 },
             ],
             'misconceptions': [

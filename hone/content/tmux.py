@@ -36,20 +36,42 @@ MODULE = {
             'title': 'Why tmux exists',
             'next': 'tmux-model',
             'concept': (
-                'Everything you run in a terminal is a child of that terminal. '
-                'Close the window, drop the SSH connection, or lose the wifi, '
-                'and the shell gets a hangup signal and takes your work with '
-                'it. A compile halfway through, a download at 90 percent, a '
-                'database migration: all gone.\n\n'
-                'tmux breaks that link. It runs a server in the background and '
-                'your shells are children of the server, not of your terminal. '
-                'Your terminal becomes a viewer that can be closed and reopened '
-                'without the work noticing.\n\n'
-                'That is the whole idea. Every binding you are about to learn '
-                'is bookkeeping on top of it. If you learn only one thing from '
-                'this module, learn detach and attach.'
+                'Everything you run in a terminal is a child of that '
+                'terminal. Close the window, drop the SSH connection, or lose '
+                'the wifi, and the shell is sent a hangup signal and takes '
+                'your work with it. A compile halfway through, a download at '
+                '90 percent, a database migration: all gone.\n\n'
+                '**tmux breaks that link by inserting itself in the middle.** '
+                'It runs a server as a background process, and your shells '
+                'are children of that server rather than of your terminal. '
+                'Your terminal becomes a viewer, and a viewer can be closed '
+                'and reopened without the work noticing or caring.\n\n'
+                'So there are three things where you thought there were two: '
+                'the **terminal** drawing text, the **tmux server** holding '
+                'your sessions, and the **shells** running inside them. When '
+                'you detach, only the first goes away. The server keeps '
+                'running with everything in it, waiting.\n\n'
+                '**This is why tmux is the first thing to install on a '
+                'server**, before anything else. Any long-running command on '
+                'a remote machine is one flaky connection away from dying '
+                'halfway. Started inside tmux, it survives a disconnection '
+                'you did not choose, and you reattach and find it exactly '
+                'where it was, output and all.\n\n'
+                'The two words for that are **detach**, which leaves '
+                'everything running and returns you to your own shell, and '
+                '**attach**, which reconnects a terminal to what is still '
+                'there. They are the whole point, and everything else in '
+                'this module is bookkeeping on top of them.\n\n'
+                'If you learn only one thing here, learn `C-b d` to detach '
+                'and `tmux attach` to come back. That alone is worth the '
+                'install, and the rest of the module is optional comfort.'
             ),
             'examples': [
+                {
+                    'label': 'Reading the key notation, before you meet any',
+                    'code': 'C-b        hold Control, press b\nC-b d      that chord, THEN a plain d\n           (nothing held for the d)\n\nC-b is the prefix. every tmux key\nstarts with it, and lesson three\nexplains why.',
+                    'note': 'A chord is keys together; a sequence is keys one after another. Every tmux binding is one chord followed by one ordinary key, which is the whole notation you need for this module.',
+                },
                 {
                     'label': 'The problem',
                     'code': ('$ ssh server\n'
@@ -92,16 +114,34 @@ MODULE = {
                 'tmux has exactly three levels of container, and almost every '
                 'confusion people have with tmux comes from collapsing them '
                 'into fewer.\n\n'
-                'A SESSION is a workspace. It is the thing that survives when '
-                'you detach, and the thing you name. One per project is a good '
-                'habit.\n\n'
-                'A WINDOW is a full screen inside a session, like a tab. Only '
-                'one window is visible at a time.\n\n'
-                'A PANE is a rectangle inside a window. A window can be split '
-                'into many panes and you see all of them at once.\n\n'
-                'Every binding you learn is a verb attached to one of these '
-                'three nouns. Once you know which noun a command acts on, you '
-                'can usually guess what it does.'
+                '**A session is a workspace.** It is the thing that survives '
+                'when you detach, the thing you give a name, and the thing '
+                'you attach to. One per project is a good habit, and naming '
+                'them is the difference between `tmux attach -t api` and '
+                'guessing which of `0`, `1` and `2` you wanted.\n\n'
+                '**A window is a full screen inside a session**, like a tab '
+                'in a browser. Only one window is visible at a time, and each '
+                'has a number and a name along the status bar at the '
+                'bottom.\n\n'
+                '**A pane is a rectangle inside a window.** A window can be '
+                'split into many, and you see all of them at once. Each pane '
+                'is a separate shell.\n\n'
+                'The useful way to hold it: a session is the project, windows '
+                'are the tasks in it, panes are the things you want side by '
+                'side. Editor and test runner in two panes of one window; '
+                'the database in a second window; a different project in a '
+                'different session entirely.\n\n'
+                '**Every binding you learn is a verb attached to one of those '
+                'three nouns**, and once you know which noun a command acts '
+                'on you can usually guess what it does. `C-b c` creates a '
+                'window. `C-b %` creates a pane. `C-b s` lists sessions. The '
+                'apparent randomness of tmux bindings is mostly you not yet '
+                'knowing which level each one belongs to.\n\n'
+                'The status bar is worth reading for this reason: it shows '
+                'the session name on the left and the windows in the middle, '
+                'with the current one marked. When you feel lost in tmux, '
+                'the answer is nearly always written along the bottom of the '
+                'screen.'
             ),
             'examples': [
                 {
@@ -151,10 +191,25 @@ MODULE = {
                 'for the program you are running". It does that with a prefix.\n\n'
                 'Press `C-b`, release it, then press the command key. `C-b c` '
                 'is three physical actions: hold Ctrl and press b, let go, then '
-                'press c. It is not a chord, and it is not held down.\n\n'
+                'press c. It is not a chord, and it is not held down. The most '
+                'common first failure is holding Ctrl through the second key, '
+                'which sends `C-c` to the shell and looks like tmux ignored '
+                'you.\n\n'
                 'Everything tmux does goes through the prefix. That is why the '
                 'bindings are short and unmemorable-looking: they only have to '
-                'be unique after the prefix, not unique in your whole shell.'
+                'be unique after the prefix, not unique in your whole shell. '
+                '`C-b ?` lists every binding. It is the one to learn before '
+                'any other, because it is how you recover when the next '
+                'lesson\'s keys will not stay in your fingers.\n\n'
+                'Nothing visible happens when you press `C-b` alone. tmux is '
+                'waiting. If you change your mind, press Escape. If you need '
+                'a real `C-b` to reach the program inside (less, emacs, or a '
+                'nested tmux), press `C-b C-b`. That sends one prefix through '
+                'to the inner session. A dead prefix is almost always a '
+                'nested session or a remote that ate the first one.\n\n'
+                'The next lesson is panes: splitting the window, which is '
+                'the thing most people opened tmux to do. Prefix, then `"`, '
+                'then `%`: one session, two panes, the first useful layout.'
             ),
             'examples': [
                 {
@@ -192,9 +247,9 @@ MODULE = {
             'title': 'Panes: splitting and moving',
             'next': 'tmux-windows',
             'concept': (
-                'Panes split the current window. The two splitting bindings are '
-                'the ones people look up forever, because the mnemonic is '
-                'visual rather than verbal.\n\n'
+                'A pane is how you put two shells on one screen. That is why '
+                'you reach for a split when the editor and the test runner '
+                'both need watching.\n\n'
                 'Look at the character, not the word. `%` has a vertical bar in '
                 'the middle, so it splits into left and right. `"` is two marks '
                 'stacked at the top, so it splits into top and bottom.\n\n'
@@ -211,9 +266,19 @@ MODULE = {
                 'Space` cycles through the preset layouts that tidy every '
                 'pane at once, which is faster than nudging borders by hand. '
                 '`C-b q` flashes a number on each pane so you can jump '
-                'straight to one.'
+                'straight to one.\n\n'
+                'A new pane often starts in the home directory, not in the '
+                'directory of the pane you split. In `~/.tmux.conf` that is '
+                'fixed with `-c "#{pane_current_path}"` on the split binds. '
+                'The quoted `#{}` is tmux filling in a value, the same idea '
+                'as a `$variable` in the shell.'
             ),
             'examples': [
+                {
+                    'label': 'Rearranging panes without resizing them',
+                    'code': 'C-b C-o     rotate the panes through the layout\nC-b SPC     cycle the preset layouts\nC-b o       move to the next pane\nC-b !       break this pane out into its own window',
+                    'note': 'C-b SPC is the fastest way out of a layout that has gone wrong: it cycles five presets and one of them is nearly always what you wanted.',
+                },
                 {
                     'label': 'Split and navigate',
                     'code': ('C-b %      split left | right\n'
@@ -267,13 +332,33 @@ MODULE = {
             'concept': (
                 'A window is a whole screen inside your session. If panes are '
                 'for things you want to watch at once, windows are for things '
-                'you want to switch between.\n\n'
+                'you want to switch between, because a pane that is only '
+                'sometimes useful still spends the whole screen even when '
+                'you do not need it.\n\n'
+                'The previous lesson left panes sharing one screen. That is '
+                'the right shape for a log you glance at while you type, and '
+                'the wrong shape for a second editor, a second host, or a '
+                'test run that will take twenty minutes. Those want a full '
+                'screen and a way back, which is a window.\n\n'
                 'The bindings mirror what you already know from browser tabs: '
                 '`c` creates, `n` and `p` move next and previous, and a digit '
-                'jumps straight to that number.\n\n'
+                'jumps straight to that number. `C-b l` is the one that pays '
+                'off daily: it toggles between two windows the way alt-tab '
+                'does, rather than walking the list.\n\n'
                 'Name your windows. `C-b ,` renames the current one, and a '
                 'status bar reading `0:editor 1:server 2:logs` is worth far '
-                'more than `0:zsh 1:zsh 2:zsh`.'
+                'more than `0:zsh 1:zsh 2:zsh`, because the status bar is '
+                'the only map you have once there are more than two. Closing '
+                'the last pane in a window closes the window, which is why a '
+                'stray `exit` in a one-pane window looks like the tab '
+                'vanished.\n\n'
+                'Window numbers are not a count. Kill window 1 and the others '
+                'keep their numbers, leaving a gap, so `C-b 2` may not be '
+                'the third window. That is why names beat numbers as soon as '
+                'you have more than a couple.\n\n'
+                'The next lesson is sessions: detach, attach, and why the '
+                'process outlives the terminal. Windows are tabs; sessions '
+                'are the thing that survives closing the laptop lid.'
             ),
             'examples': [
                 {
@@ -288,6 +373,18 @@ MODULE = {
                              'C-b &      kill this window, asks first'),
                     'note': '`C-b l` is the one that pays off daily: it toggles '
                             'between two windows the way alt-tab does.',
+                },
+                {
+                    'label': 'A layout people actually use',
+                    'code': ('window 1  editor, full screen\n'
+                             'window 2  two panes: server and its logs\n'
+                             'window 3  a long test, named so you find it\n'
+                             '\n'
+                             'C-b , test     name the current window\n'
+                             'C-b w          pick by name, not by number'),
+                    'note': 'Panes share a screen; windows share a session. '
+                            'Put together things you watch at once, and put '
+                            'apart things you switch between.',
                 },
             ],
             'misconceptions': [
@@ -310,13 +407,32 @@ MODULE = {
                 'This is the lesson that pays for the whole module. Detaching '
                 'leaves everything running and hands your terminal back. '
                 'Attaching picks it up exactly where you left it, from any '
-                'terminal, on any connection.\n\n'
+                'terminal, on any connection, because the tmux server is a '
+                'separate process from the terminal you are looking at.\n\n'
+                'That is why closing the laptop lid, dropping an ssh link, or '
+                'killing the terminal emulator does not kill the work. The '
+                'client dies. The server keeps the windows, the panes, and '
+                'every process inside them. Detach is how you leave on '
+                'purpose; a dropped connection is the same leave, accidental.\n\n'
                 'Detach with `C-b d`. Nothing stops. The status bar disappears '
                 'and you are back at your shell, and the session is still there '
-                'in the background.\n\n'
+                'in the background. `tmux ls` after detach is the check that '
+                'it is still there, rather than hoping.\n\n'
                 'Most session work happens from the shell rather than through '
                 'the prefix, because you usually want it before you are inside '
-                'tmux at all.'
+                'tmux at all. Name the session at create time with `-s`, '
+                'otherwise `tmux ls` shows `0:` and `1:` and you have to '
+                'remember which number is which project.\n\n'
+                'Closing the last pane of the last window ends the session. '
+                'That is why a stray `exit` in the only pane looks like tmux '
+                'crashed. Rebooting the machine does end every session: tmux '
+                'survives disconnection, not restarts. Two terminals can '
+                'attach to the same session. `tmux attach -d -t work` '
+                'attaches here and detaches the other client, which is how '
+                'you take a session back from a machine you left open.\n\n'
+                'The next lesson is copy mode: scrolling the pane without '
+                'scrolling the terminal, and yanking text out. That is how '
+                'you grab a stack trace that already scrolled by.'
             ),
             'examples': [
                 {
@@ -373,17 +489,24 @@ MODULE = {
                 'own history per pane. To look at it you enter copy mode.\n\n'
                 '`C-b [` enters copy mode. Now the pane is frozen and your keys '
                 'move a cursor instead of going to the shell. Arrow keys and '
-                'PageUp scroll. `q` leaves.\n\n'
+                'PageUp scroll. `q` leaves. Typing a command does nothing '
+                'useful, which is why copy mode feels broken the first time: '
+                'the keys changed job and there is almost no cue that they '
+                'did.\n\n'
                 'Copying is a three-step ritual: start a selection, extend it, '
                 'confirm it. With the default key table that is Space, then '
-                'movement, then Enter. Paste back with `C-b ]`.\n\n'
+                'movement, then Enter. Paste back with `C-b ]`. The tmux '
+                'buffer is not the system clipboard, so pasting into a '
+                'browser needs a second step, or a clipboard integration '
+                'you set up on purpose.\n\n'
                 'The thing that makes copy mode worth the friction is search. '
-                'Scrolling by hand to find an error twenty screens back is '
-                'miserable; searching for it is one keystroke. With `mode-keys '
-                'vi` set, `/` searches forward and `?` searches backward inside '
-                'copy mode, exactly like vim, and `n` and `N` repeat. That '
-                'turns the scrollback into something you query rather than '
-                'scroll.\n\n'
+                'Default keys already search: `/` finds the next match and `n` '
+                'goes to the one after that. Scrolling by hand to find an '
+                'error twenty screens back is miserable; searching for it is '
+                'one keystroke. That turns the scrollback into something you '
+                'query rather than scroll. `mode-keys vi` is the next lesson, '
+                'and it changes movement and yank to match vim. Search with '
+                '`/` and `n` is already here.\n\n'
                 'This is the part of tmux people bounce off, and the reason is '
                 'almost always that they did not realise they had changed mode.'
             ),
@@ -392,16 +515,29 @@ MODULE = {
                     'label': 'The ritual',
                     'code': ('C-b [      enter copy mode\n'
                              'PageUp     scroll back\n'
-                             '/error     search forward (vi mode-keys)\n'
-                             'n   N      next and previous match\n'
+                             '/error     search forward (default keys)\n'
+                             'n          next match\n'
                              'Space      start selecting\n'
                              '(move)     extend the selection\n'
                              'Enter      copy it and leave copy mode\n'
                              'C-b ]      paste into any pane\n'
                              'q          leave without copying'),
-                    'note': 'With `setw -g mode-keys vi` the movement keys '
-                            'become hjkl, selection becomes v and y, and '
-                            'search becomes / and ? just like vim.',
+                    'note': 'Search with / and n is already on the default '
+                            'key table. mode-keys vi is the next lesson, and '
+                            'that is where hjkl, v and y arrive.',
+                },
+                {
+                    'label': 'What went wrong, recovered',
+                    'code': ('a long build scrolled the error off the pane\n'
+                             '\n'
+                             'C-b [\n'
+                             '/error\n'
+                             'n              next match if the first is noise\n'
+                             'Space ... Enter\n'
+                             'C-b ]          paste the line into the editor'),
+                    'note': 'The terminal emulator scrollback is the wrong '
+                            'history. tmux keeps one per pane, and copy mode '
+                            'is how you read it.',
                 },
             ],
             'misconceptions': [
@@ -423,18 +559,40 @@ MODULE = {
             'id': 'tmux-config',
             'title': 'A config worth having',
             'concept': (
-                'Default tmux is usable and you should learn it first, because '
-                'it is what exists on every server you will ever log into. But '
-                'four settings are worth adding once the defaults are in your '
-                'fingers.\n\n'
-                'Start window numbering at 1, because the 0 key is at the wrong '
-                'end of the keyboard. Turn the mouse on for resizing panes. Use '
-                'vi keys in copy mode if you use vi keys anywhere else. Raise '
-                'the history limit, because the default runs out.\n\n'
-                'Resist the urge to rebind the prefix until you have used the '
-                'default for a month.'
+                'A tmux config is how you change the defaults once they are '
+                'in your fingers. That is why this file waits until you can '
+                'already drive a stock server. A custom prefix on a shared '
+                'box is how you cannot drive tmux when it matters. Learn '
+                '`C-b` first, and leave it until your fingers know it on a '
+                'machine that is not yours.\n\n'
+                'Four settings are worth adding once the defaults are in your '
+                'fingers. Start window numbering at 1, because the 0 key is at '
+                'the wrong end of the keyboard and `C-b 1` is the first '
+                'window you actually want. Turn the mouse on for resizing '
+                'panes, knowing that it steals terminal-native text '
+                'selection (hold Shift to get that back). Use vi keys in '
+                'copy mode if you use vi keys anywhere else, so the last '
+                'lesson\'s search and yank match muscle memory you already '
+                'have. Raise the history limit, because the default 2000 '
+                'lines runs out the first time a compiler is loud.\n\n'
+                'A config change does not apply to running sessions until '
+                'you reload it, and some settings only apply to new windows. '
+                '`C-b : source-file ~/.tmux.conf` reloads without killing '
+                'sessions. Killing the server to pick up a setting is how '
+                'people lose the session this module exists to keep.\n\n'
+                'This module stops at the multiplexer; the next editor you '
+                'open inside a pane is a different tool.'
             ),
             'examples': [
+                {
+                    'label': 'Reload without dying',
+                    'code': ('C-b : source-file ~/.tmux.conf\n'
+                             '\n'
+                             'wrong: kill the server to pick up a setting\n'
+                             'right: source the file, sessions stay up'),
+                    'note': 'Killing the server is how people lose the session '
+                            'this module exists to keep.',
+                },
                 {
                     'label': '~/.tmux.conf',
                     'code': ('set -g base-index 1\n'
@@ -563,10 +721,10 @@ MODULE = {
          'teach': 'The bracket points backwards, into history. C-b ] pastes '
                   'forwards out of it.'},
         {'id': 'tmux-copy-search', 'type': 'recall', 'keys': ['/'],
-         'prompt': 'Inside copy mode with vi keys, search the scrollback '
-                   'forward.',
-         'teach': 'n and N repeat, ? searches backward. Searching beats '
-                  'scrolling by hand to find an error twenty screens up.'},
+         'prompt': 'Inside copy mode, search the scrollback forward.',
+         'teach': 'Default keys already search: / finds the next match and '
+                  'n repeats. mode-keys vi is a later setting, not a '
+                  'requirement for search.'},
         {'id': 'tmux-paste', 'type': 'recall', 'keys': ['C-b', ']'],
          'prompt': 'Paste the most recent tmux buffer.',
          'teach': 'This is the tmux buffer, not your system clipboard.'},

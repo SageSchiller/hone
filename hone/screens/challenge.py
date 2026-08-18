@@ -58,6 +58,11 @@ class ChallengeScreen(Screen):
         self.detail = ''
         self.attempts = 0
         self._adapter_ready = False
+        #: Directory holding the `task` command for the current handover. Held
+        #: on the screen rather than the adapter because it is hone's own
+        #: scaffolding, not part of the sandbox being verified, and because
+        #: `close` is the one place guaranteed to run on every way out.
+        self._task_dir = None
 
     # -- rigor -------------------------------------------------------------
 
@@ -302,6 +307,14 @@ class ChallengeScreen(Screen):
         adapter = self.plan.adapter
         spec = self.challenge.get('setup') or {}
 
+        # The `task` command is built before the adapter branch on purpose. A
+        # self-marked challenge still hands you a shell, its steps still scroll
+        # away, and "there is no adapter" is a statement about verification
+        # rather than about whether the student can still read the task.
+        handover.discard(self._task_dir)
+        self._task_dir = handover.task_helper(self._briefing())
+        env = handover.task_env(self._task_dir)
+
         if adapter is not None:
             if not self._adapter_ready:
                 # Set up once and keep it across retries: killing the session
@@ -317,11 +330,14 @@ class ChallengeScreen(Screen):
             # are still in front of the student once this screen is gone.
             spec = dict(spec)
             spec['brief'] = handover.inline(self.challenge, adapter.return_hint)
+            # The whole briefing travels too, for the tools that can show it
+            # beside the work. One that cannot ignores it and loses nothing.
+            spec['steps'] = self._briefing()
             argv = adapter.handoff(spec)
             cwd = adapter.handoff_cwd(spec)
-            env = adapter.handoff_env(spec)
+            env = {**adapter.handoff_env(spec), **env}
         else:
-            argv, cwd, env = [], None, {}
+            argv, cwd = [], None
 
         if self._handoff is not None:
             self._handoff(argv, cwd, self._shell_brief(), env=env)
@@ -354,27 +370,28 @@ class ChallengeScreen(Screen):
             return
         self._finish(ok, detail)
 
-    def _shell_brief(self) -> list[str]:
-        """Full briefing for a handover into a shell.
+    def _briefing(self) -> list[str]:
+        """Full briefing for a handover, at the rigor the student chose.
 
-        A shell does not clear the screen, so unlike an editor it can simply
-        be told everything: the goal, the steps at the current rigor, and the
-        way back. This is the most generous of the handovers and costs
-        nothing but printing.
+        Built once and used three ways: printed into a shell, opened in a
+        second window by an editor, and written into the `task` command. They
+        used to be separate code paths, which meant the words could differ
+        depending on which tool you were handed.
         """
-        c = self.challenge
-        out = [handover.goal_of(c)]
-        if self.rigor != 'free':
-            for i, step in enumerate(c.get('steps') or (), 1):
-                out.append(f'  {i}. {step.get("instruction", "")}')
-                hint = step.get('hint')
-                if hint and (self.rigor == 'guided' or self.show_hints):
-                    out.append(f'     hint: {hint}')
         adapter = self.plan.adapter
-        if adapter is not None:
+        return handover.briefing(
+            self.challenge, self.rigor, self.show_hints,
+            adapter.return_hint if adapter is not None else '')
+
+    def _shell_brief(self) -> list[str]:
+        """What a shell handover prints, which is the briefing plus its own way
+        of getting it back. Only a shell needs telling: an editor shows the
+        same text in a window and nothing scrolls it away.
+        """
+        out = self._briefing()
+        if self._task_dir is not None:
             out.append('')
-            out.append(f'When you are done, {adapter.return_hint}. '
-                       f'hone will then check your work.')
+            out.append(f'Type  {handover.TASK_CMD}  to see this again.')
         return out
 
     def _finish(self, ok: bool, detail: str) -> None:
@@ -404,3 +421,8 @@ class ChallengeScreen(Screen):
             except Exception:
                 pass
             self._adapter_ready = False
+        # hone's own scaffolding, outside the sandbox and so not covered by
+        # the adapter's teardown. D1 counts it the same: we made it, we remove
+        # it, on every way out including the ones nobody plans for.
+        handover.discard(self._task_dir)
+        self._task_dir = None

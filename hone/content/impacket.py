@@ -73,7 +73,18 @@ MODULE = {
                 '`-dc-ip` deserves its own mention: when the target is a '
                 'NetBIOS name you cannot resolve, or when DNS points somewhere '
                 'unhelpful, that flag tells the script which machine is '
-                'actually the domain controller.'
+                'actually the domain controller.\n\n'
+                'Two scripts are the everyday siblings of the tools in the '
+                'smbenum module. `lookupsid.py` is RID cycling without the '
+                'rpcclient loop: it asks the host to translate SIDs to names '
+                'and walks the RID space for you. `smbclient.py` is an '
+                'smbclient-style share prompt that takes the same target '
+                'string and `-hashes` as everything else here. Neither is '
+                'exotic; they are how you list users and open a share once '
+                'you already have a credential.\n\n'
+                'The target string is one axis. The next lesson is the '
+                'second: whether you authenticate with a password, a '
+                'hash, or a ticket.'
             ),
             'examples': [
                 {
@@ -98,6 +109,16 @@ MODULE = {
                             'deliberately, because every other tool here '
                             'taught you the opposite.',
                 },
+                {
+                    'label': 'The two everyday scripts',
+                    'code': ('lookupsid.py CORP/alice@10.0.0.10\n'
+                             'smbclient.py CORP/alice@10.0.0.10\n'
+                             '\n'
+                             'lookupsid.py  rpcclient lookupsids, as a script\n'
+                             'smbclient.py  smbclient, with this target string'),
+                    'note': 'Same target string, same -hashes. These are the '
+                            'siblings of rpcclient and smbclient, not extras.',
+                },
             ],
             'misconceptions': [
                 'impacket options take a single dash, not two. `--just-dc` '
@@ -119,10 +140,10 @@ MODULE = {
             'title': 'Password, hash, or ticket: the second axis',
             'next': 'imp-dump',
             'concept': (
-                'The insight that makes the toolkit click is that **what you '
-                'authenticate with is independent of which script you run**. '
-                'Every script accepts the same three, so once you have any one '
-                'of them you can use all sixty.\n\n'
+                'Password, hash, or ticket is how every impacket script '
+                'authenticates. That is why once you have any one of them you '
+                'can use all sixty, and why a hash on `-hashes` needs no '
+                'cracking.\n\n'
                 '**A password** goes in the target string, or is prompted '
                 'for.\n\n'
                 '**A hash** goes in `-hashes LMHASH:NTHASH`. NTLM '
@@ -186,8 +207,10 @@ MODULE = {
             'title': 'secretsdump, and the three places secrets live',
             'next': 'imp-kerberos',
             'concept': (
-                '`secretsdump.py` is the script the toolkit is known for, and '
-                'reading its output is most of the skill.\n\n'
+                '`secretsdump.py` is how you pull SAM, LSA secrets, and NTDS '
+                'hashes into one output format. That is why reading the '
+                '`user:rid:lmhash:nthash` line is most of the skill, and why '
+                'the same dump feeds a cracker or `-hashes`.\n\n'
                 'It pulls from three places. **SAM** holds the local accounts '
                 'of one machine. **LSA secrets** hold service account '
                 'passwords, cached domain logons and machine account keys, '
@@ -286,6 +309,11 @@ MODULE = {
                 'in a domain.'
             ),
             'examples': [
+                {
+                    'label': 'Forging a ticket, and what it needs',
+                    'code': 'ticketer.py -nthash HASH \\\n  -domain-sid S-1-5-21-... \\\n  -domain corp.local Administrator\n\n-nthash the krbtgt hash, -domain-sid the domain',
+                    'note': 'A golden ticket needs the krbtgt hash and the domain SID, and nothing else. That is why the krbtgt hash is the thing worth protecting.',
+                },
                 {
                     'label': 'No credentials needed at all',
                     'code': ('GetNPUsers.py CORP/ -usersfile users.txt \\\n'

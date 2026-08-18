@@ -34,19 +34,37 @@ MODULE = {
             'concept': (
                 'awk is a small language people mistake for a command, and it '
                 'answers one question: given a stream of lines, keep the '
-                'interesting ones and reshape them. Its records are lines and '
-                'its fields are the columns within a line, which is exactly the '
-                'shape of a password file, of process output, and of a log.\n\n'
-                'The reason to learn it is the moment you are chaining three '
-                '`cut`s and a `grep` and it is still not right. awk does all of '
-                'that in one program, and it can do arithmetic and keep state '
-                'between lines, which the pipeline cannot. You do not need to '
-                'learn it fully: ten percent of awk covers almost everything '
-                'anyone actually types.\n\n'
-                'The one habit to build from the start is to single-quote the '
-                'program. Everything inside an awk program looks like shell '
+                'interesting ones and reshape them.\n\n'
+                '**Two words carry the whole model.** A **record** is one '
+                'line. A **field** is one column within it. awk reads a '
+                'record at a time, splits it into fields for you, and hands '
+                'you both. That is the entire data model, and it happens to '
+                'be the exact shape of a password file, of `ps` output, of a '
+                'web log, and of most things a Unix tool prints.\n\n'
+                '**Why not cut and grep.** They each do a third of the job. '
+                '`grep` chooses lines and cannot reshape them. `cut` takes '
+                'columns and cannot choose lines, cannot reorder them, and '
+                'cannot cope with runs of spaces. `sort | uniq -c` counts and '
+                'destroys your ordering to do it. The moment you are chaining '
+                'three of those and it is still not right, that is awk asking '
+                'for the job: one program that filters, reshapes, does '
+                'arithmetic, and remembers things between lines.\n\n'
+                '**And where awk is the wrong answer.** It thinks in lines '
+                'and columns, so anything without that shape fights it. JSON '
+                'is jq\'s job. Anything genuinely nested wants a real '
+                'program. Reaching for awk on structured data is the mirror '
+                'image of reaching for grep on JSON, and it fails the same '
+                'way: fine on the example, wrong on the real file.\n\n'
+                'You do not need to learn it fully. There is a large awk '
+                'nobody uses and a small one everybody does, and about ten '
+                'percent of the language covers almost everything anyone '
+                'actually types. This module is that ten percent.\n\n'
+                '**One habit from the very start: single-quote the program.** '
+                'Everything inside an awk program looks like shell '
                 'metacharacters, and double quotes let the shell eat `$1` '
-                'before awk ever sees it.'
+                'before awk ever sees it. The symptom is an awk program that '
+                'mysteriously prints whole lines, because `$1` became empty '
+                'and `{print $1}` quietly became `{print}`.'
             ),
             'examples': [
                 {
@@ -58,6 +76,15 @@ MODULE = {
                              '  ... but now with a condition cut cannot express'),
                     'note': 'The moment you need a comparison or a running '
                             'total, the pipeline stops and awk starts.',
+                },
+                {
+                    'label': 'The three tools it replaces',
+                    'code': ('grep ERROR access.log | cut -d" " -f1 | sort | uniq -c\n'
+                             '\n'
+                             "awk '/ERROR/ {c[$1]++} END {for (h in c)\n"
+                             "        print c[h], h}' access.log"),
+                    'note': 'One program filters, counts, and remembers. The '
+                            'pipeline is not wrong, it just ran out.',
                 },
             ],
             'misconceptions': [
@@ -82,12 +109,26 @@ MODULE = {
                 'runs the whole list against every line of input for you. That '
                 'implicit loop is the thing to internalise: you never write '
                 '`for`, you describe what to do to one line.\n\n'
+                'The previous lesson said awk writes the loop. This is what '
+                'that means in practice. Each pair is tried in order, on this '
+                'record, then awk advances. There is no `for line in file`, '
+                'which is why `awk \'/ERROR/\'` is already a whole program.\n\n'
                 'Leave out the pattern and the action runs on every line. Leave '
                 'out the action and the default is `{ print }`, which is why '
-                '`awk \'/ERROR/\'` behaves exactly like grep.\n\n'
-                'A pattern can be a regex between slashes, a comparison, or a '
-                'combination. That is already most of what people use awk for: '
-                'a smarter grep that can also do arithmetic.'
+                '`awk \'/ERROR/\'` behaves exactly like grep. A pattern can be '
+                'a regex between slashes, a comparison, or a combination, and '
+                'that is already most of what people use awk for: a smarter '
+                'grep that can also do arithmetic.\n\n'
+                'Two special patterns sit outside the loop. `BEGIN` runs once '
+                'before any line, `END` once after the last. They are how a '
+                'variable survives from one record to the next and how a '
+                'total gets printed. The next lesson is the fields those '
+                'patterns look at: `$1`, `$NF`, and why runs of spaces are '
+                'one separator rather than many.\n\n'
+                'The implicit loop is also why a syntax error in one pair '
+                'stops the whole program before any line is read. awk parses '
+                'the program first, then opens the file, rather than the '
+                'other way around.'
             ),
             'examples': [
                 {
@@ -99,6 +140,16 @@ MODULE = {
                              "awk '$1 == \"GET\" {n++} END {print n}'"),
                     'note': 'The last one counts matching lines and prints the '
                             'total. No loop, no counter initialisation.',
+                },
+                {
+                    'label': 'What actually runs, per line',
+                    'code': ("awk '/ERROR/ {print $1} $3 > 100 {n++}'\n"
+                             '\n'
+                             'line matches ERROR   -> print field 1\n'
+                             'line has $3 > 100    -> increment n\n'
+                             'a line can fire both, or neither'),
+                    'note': 'Pairs are independent. They are not if/else '
+                            'unless you write them that way with `next`.',
                 },
             ],
             'misconceptions': [
@@ -123,17 +174,38 @@ MODULE = {
             'title': 'Fields, separators and the built-in variables',
             'next': 'aj-awk-accumulate',
             'concept': (
-                '`$1` is the first field, `$2` the second, and `$0` is the whole '
-                'record. `NF` is the number of fields, so `$NF` is the last one '
-                'and `$(NF-1)` the one before it, which is how you handle lines '
-                'whose length varies.\n\n'
-                '`NR` is the record number, so `NR == 1` is the header line and '
-                '`NR > 1` skips it.\n\n'
-                'The field separator is whitespace by default, and crucially '
-                '**runs of whitespace count as one**, which is exactly the thing '
-                '`cut` cannot do and the usual reason to reach for awk. `-F:` '
-                'sets it to a colon, `-F\'\\t\'` to a tab, and `-F` takes a '
-                'regex, so `-F\'[,;]\'` splits on either.'
+                'Fields are how awk names the columns of a line: `$1`, `$2`, '
+                '`$0`. That is why `/etc/passwd` or `ps` output is an awk job. '
+                'The dollar is '
+                'not a variable marker as it is in the shell: it means "the '
+                'field numbered by what follows", so `$NF` and `$(i+1)` are '
+                'both legal and mean exactly what they look like.\n\n'
+                '`NF` is the number of fields on this line, so **`$NF` is the '
+                'last field** and `$(NF-1)` the one before it.\n\n'
+                '`NR` is the record number, counting from 1 across the whole '
+                'input, so `NR == 1` is the header line and `NR > 1` skips it. '
+                '`FNR` is the same count but restarts for each file, which is '
+                'how you tell "the tenth line overall" from "the tenth line of '
+                'this file" when awk is given several.\n\n'
+                '**The field separator is whitespace by default, and runs of '
+                'whitespace count as one.** This is the single most useful '
+                'default in the language and exactly the thing `cut -d\' \'` '
+                'cannot do: given a name and a number separated by four '
+                'spaces, cut sees three empty fields between them and awk '
+                'sees two fields. It also strips leading and trailing '
+                'whitespace from the record for free.\n\n'
+                '`-F:` sets the separator to a colon, `-F\'\\t\'` to a tab, and '
+                '`-F` takes a **regex**, so `-F\'[,;]\'` splits on either '
+                'character and `-F\' *, *\'` handles a comma with optional '
+                'spaces around it. The moment you set `-F` explicitly, the '
+                'run-collapsing behaviour goes away and one separator means '
+                'one split, which is why `-F,` on a CSV gives you empty '
+                'fields for empty columns, correctly.\n\n'
+                '**Assigning to a field rebuilds the record.** Set `$2 = '
+                '"x"` and `$0` is regenerated with fields joined by `OFS`, '
+                'the output field separator, which defaults to a single '
+                'space. That is why a program that edits one column can '
+                'quietly reformat the spacing of the whole line.'
             ),
             'examples': [
                 {
@@ -175,18 +247,34 @@ MODULE = {
         {
             'id': 'aj-awk-accumulate',
             'title': 'BEGIN, END, and counting things',
-            'next': 'aj-awk-real',
+            'next': 'aj-awk-types',
             'concept': (
                 '`BEGIN { }` runs once before any input and `END { }` runs once '
                 'after all of it. Between them, awk stops being a filter and '
-                'becomes a small program that summarises.\n\n'
-                'This is where awk earns its keep. Sum a column, count by key, '
-                'find a maximum, compute an average: all of them are a variable '
-                'incremented in the body and printed in END.\n\n'
+                'becomes a small program that summarises, because a variable '
+                'you set on one line is still there on the next. That is the '
+                'whole trick.\n\n'
+                'The previous lesson split a line into fields. This one keeps '
+                'something about those fields after the line is gone. Sum a '
+                'column, count by key, find a maximum, compute an average: all '
+                'of them are a variable incremented in the body and printed '
+                'in END.\n\n'
                 'Associative arrays make counting by key trivial. `count[$1]++` '
                 'creates the entry on first use, and `for (k in count)` in END '
                 'walks it. That single idiom replaces `sort | uniq -c` and is '
-                'faster on large files because nothing has to be sorted.'
+                'faster on large files because nothing has to be sorted. The '
+                'walk has no defined order, so pipe the output to `sort` if '
+                'order matters rather than hoping.\n\n'
+                'BEGIN runs before the first line is read, so `$1` is empty '
+                'there. Set `FS` in BEGIN, not from the data. END still sees '
+                'the last record\'s fields, and `NR` in END is the total '
+                'count, which is why `awk \'END {print NR}\'` is the shortest '
+                '`wc -l` anyone writes. An empty file still runs BEGIN and '
+                'END, which is how a missing input prints zero rather than '
+                'nothing.\n\n'
+                'The next lesson is types: why `$1 == 10` and `$1 == "10"` '
+                'can disagree, and the six functions that cover almost '
+                'everything else.'
             ),
             'examples': [
                 {
@@ -223,21 +311,144 @@ MODULE = {
             ],
         },
         {
+            'id': 'aj-awk-types',
+            'title': 'Numbers, strings, and the six functions',
+            'next': 'aj-awk-real',
+            'concept': (
+                'Types are how awk decides whether `$1 > 10` is a number '
+                'compare or a string compare. That is why `010` equals 10 in '
+                'one test and fails in another.\n\n'
+                '**A value is whatever the context needs.** `$1 + 0` treats '
+                'the field as a number, `$1 ""` treats it as a string. A '
+                'field that looks numeric is compared numerically, and one '
+                'that does not is compared as text, so `$1 > 10` behaves '
+                'differently on `9` than on `banana` and neither is an '
+                'error.\n\n'
+                '**An unset variable is both empty string and zero.** This is '
+                'why `count[$1]++` works with no initialisation and why '
+                '`sum += $3` needs none either. It is also why a typo in a '
+                'variable name gives you zero rather than a complaint, which '
+                'is the one place this convenience costs you.\n\n'
+                '**The comparison trap worth meeting once**: `$1 == "10"` and '
+                '`$1 == 10` can disagree, because the first forces a string '
+                'comparison and the second a numeric one. `010` equals 10 '
+                'numerically and does not equal `"10"` as text. When it '
+                'matters, force it: `$1+0 == 10`.\n\n'
+                '**`print` and `printf` are different tools.** `print` joins '
+                'its arguments with `OFS` and adds a newline. `printf` takes '
+                'a format string, adds nothing, and is how you control width '
+                'and decimal places: `printf "%-20s %6.2f\\n", $1, $2` gives '
+                'you aligned columns, which `print` cannot.\n\n'
+                '**Six functions cover almost everything.** `length($0)` is '
+                'the length of a string, or of the record with no argument. '
+                '`substr($0, 5, 3)` takes three characters from position five, '
+                '**counting from one**, not zero. `index($0, "x")` finds a '
+                'position. `split($0, a, ",")` explodes a string into an '
+                'array and returns how many pieces. `sub()` replaces the '
+                'first match and `gsub()` every match, both editing in place '
+                'and returning a count rather than the new string, which '
+                'catches everyone once.'
+            ),
+            'examples': [
+                {
+                    'label': 'The same field, two ways',
+                    'code': ("echo '007 x' | awk '{print ($1 == 7)}'    1\n"
+                             "echo '007 x' | awk '{print ($1 == \"7\")}'  0\n"
+                             '\n'
+                             'numeric on the left, textual on the right,\n'
+                             'and awk chose based on what it compared to'),
+                    'note': 'Neither is a bug and neither is an error. When '
+                            'the answer matters, write `$1+0 == 7` and be '
+                            'explicit about which comparison you meant.',
+                },
+                {
+                    'label': 'print versus printf',
+                    'code': ("awk '{print $1, $2}'\n"
+                             '  alice 3.14159        joined by OFS\n'
+                             '\n'
+                             'awk \'{printf "%-10s %6.2f\\n", $1, $2}\'\n'
+                             '  alice        3.14   aligned, rounded'),
+                    'note': 'printf adds no newline of its own, which is the '
+                            'first thing everyone forgets. The format string '
+                            'is C\'s, so every other language you know has '
+                            'already taught you it.',
+                },
+                {
+                    'label': 'The functions, in one place',
+                    'code': ('length($1)            how long\n'
+                             'substr($1, 1, 3)      first three chars\n'
+                             'index($0, "ERROR")    position, or 0\n'
+                             'split($1, a, ":")     into array a, returns n\n'
+                             'sub(/x/, "y")         first match, in $0\n'
+                             'gsub(/x/, "y", $2)    every match, in $2'),
+                    'note': 'substr counts from 1. Every off-by-one you write '
+                            'in awk will be this, and knowing that in advance '
+                            'saves the ten minutes.',
+                },
+                {
+                    'label': 'sub and gsub return a count, not a string',
+                    'code': ("awk '{gsub(/,/, \"\"); print}'      right\n"
+                             "awk '{print gsub(/,/, \"\")}'       prints 3\n"
+                             '\n'
+                             'they edit the target in place and\n'
+                             'return how many replacements happened'),
+                    'note': 'So the usual shape is: call gsub as a statement, '
+                            'then print. Trying to use its return value as the '
+                            'new text gives you a number.',
+                },
+            ],
+            'misconceptions': [
+                'An unset variable is not an error. It is zero and empty '
+                'string at the same time, which is why counters need no '
+                'setup and why a misspelt variable silently reads as zero.',
+                'sub and gsub do not return the modified string. They modify '
+                'their target in place and return the number of replacements '
+                'made.',
+                'substr does not count from zero. Position 1 is the first '
+                'character, which is the opposite of nearly every other '
+                'language you will have used.',
+            ],
+            'try_it': [
+                'Run `echo "007 x" | awk \'{print ($1 == 7), ($1 == "7")}\'` '
+                'and satisfy yourself about why the two answers differ.',
+                'Reformat any two-column output with printf so the columns '
+                'line up. That one habit makes awk output readable.',
+            ],
+        },
+        {
             'id': 'aj-awk-real',
             'title': 'The one-liners that pay for the language',
             'concept': (
                 'A handful of awk programs cover most of what anyone actually '
                 'types, and knowing them by shape means you can adapt rather '
                 'than look up.\n\n'
-                'Filter by a column. Sum or count. Print a range of lines. '
-                'Reformat a line. Deduplicate without sorting, which is the one '
-                'people are most surprised by: `!seen[$0]++` keeps the first '
+                'The previous lessons built the pieces: a pattern, a field, a '
+                'counter that lives across lines. This is what they look like '
+                'when they are short enough to type from memory. Filter by a '
+                'column. Sum or count. Print a range of lines. Reformat a '
+                'line. Deduplicate without sorting, which is the one people '
+                'are most surprised by: `!seen[$0]++` keeps the first '
                 'occurrence of each line and preserves the original order, '
                 'which `sort -u` cannot do.\n\n'
                 'The last one deserves explaining because it looks like magic. '
                 '`seen[$0]++` is zero the first time a line appears, so `!` '
                 'makes it true, and the default action prints. Every later '
-                'time it is non-zero, so `!` is false and nothing prints.'
+                'time it is non-zero, so `!` is false and nothing prints. '
+                'That idiom is a set: first time a key is seen, print it.\n\n'
+                '`awk \'NF\'` drops blank lines because a blank line has zero '
+                'fields, which is false, and the default action prints '
+                'everything else. `NR==10,NR==20` is a range pattern: it '
+                'turns on at 10 and stays on through 20, rather than testing '
+                'each number on its own.\n\n'
+                '`if` and `else` live inside an action. Pattern-action pairs '
+                'are independent, so a line can fire two of them; they are '
+                'not if/else unless written that way. `next` is how: it skips '
+                'the remaining rules for this record and goes to the next '
+                'one. Handle the special case, then `next`, so the later '
+                'default cannot also fire on the same line.\n\n'
+                'Awk does not sort unless you ask. When the one-liner grows a '
+                'third function and a comment, it wants to be a script, or '
+                'it wants to be Python. That is the stop sign, not a failure.'
             ),
             'examples': [
                 {
@@ -251,6 +462,28 @@ MODULE = {
                     'note': "`awk 'NF'` works because a blank line has zero "
                             'fields, which is false, and the default action '
                             'prints everything else.',
+                },
+                {
+                    'label': 'Same job, two tools',
+                    'code': ('sort -u file          unique, but reordered\n'
+                             "awk '!seen[$0]++' file   unique, first-seen order\n"
+                             '\n'
+                             'the difference is the first occurrence of\n'
+                             'each line, kept where it first appeared'),
+                    'note': 'Reach for sort when you want the result ordered. '
+                            'Reach for the awk idiom when the original order '
+                            'is the information.',
+                },
+                {
+                    'label': 'if/else, and next so both do not fire',
+                    'code': ("awk '{if ($3 > 100) {print \"big\", $0; next}\n"
+                             "          print \"small\", $0}'\n"
+                             '\n'
+                             "awk '$1 == \"#\" {next} {print}'\n"
+                             '  skip comment lines, print the rest'),
+                    'note': 'Without next, a later pair still runs on the '
+                            'same record. next is the stop, not a jump to '
+                            'else.',
                 },
             ],
             'misconceptions': [

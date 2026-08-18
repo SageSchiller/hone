@@ -37,18 +37,113 @@ MODULE = {
     'prereqs': ['linux'],
     'adapter': 'sandbox',
     'estimate': '4-5 hours',
-    'order': 44,
+    'order': 14,
 
     'lessons': [
+        {
+            'id': 'sd-what',
+            'title': 'Who starts everything, and why it needs a manager',
+            'next': 'sd-model',
+            'concept': (
+                'A machine boots. The kernel loads, finds its hardware, '
+                'mounts the root filesystem, and then starts exactly one '
+                'program. **Everything else on the system is a descendant of '
+                'that one process.** It is process 1, it is called init, and '
+                'on most Linux systems today it is systemd.\n\n'
+                'Its job is larger than "start things". It has to start them '
+                '**in a sensible order** (the network before anything that '
+                'needs the network), **in parallel where possible** (or boot '
+                'takes minutes), **restart them when they die**, **stop them '
+                'cleanly on shutdown**, and **collect their output** so there '
+                'is something to read afterwards.\n\n'
+                'The old answer was a directory of shell scripts run in '
+                'alphabetical order, which is why service names used to start '
+                'with numbers. It worked and it was slow, serial, and unable '
+                'to say anything useful about what had gone wrong.\n\n'
+                'systemd replaced that with **declarations rather than '
+                'scripts**. You describe what a service is, what it needs, '
+                'and when it should run; systemd works out the order and does '
+                'it. That is why a unit file has no `start` function in it: '
+                'you are not writing the procedure, you are describing the '
+                'thing.\n\n'
+                'It is also, and this is the honest half, **large and '
+                'opinionated**. It absorbed logging, timers, device '
+                'management, network configuration, DNS and mounting, which '
+                'is why opinions about it are strong. What is not in dispute '
+                'is that on a modern Linux machine it is what you will '
+                'actually be talking to, so it is worth being fluent in.\n\n'
+                'Two commands carry most of that fluency: `systemctl` to '
+                'inspect and control units, `journalctl` to read what they '
+                'said.'
+            ),
+            'examples': [
+                {
+                    'label': 'The shape of a running system',
+                    'code': ('kernel\n'
+                             ' |\n'
+                             ' systemd  (pid 1)\n'
+                             '   |-- sshd.service\n'
+                             '   |-- nginx.service\n'
+                             '   |-- cron.service\n'
+                             '   \'-- your login session'),
+                    'note': 'Run `ps -p 1` on any modern Linux machine and '
+                            'see what answers. Everything else is below it.',
+                },
+                {
+                    'label': 'Declaring, not scripting',
+                    'code': ('[Unit]\n'
+                             'Description=My web app\n'
+                             'After=network.target\n'
+                             '\n'
+                             '[Service]\n'
+                             'ExecStart=/usr/local/bin/myapp\n'
+                             'Restart=on-failure'),
+                    'note': 'Six lines and you have ordering, restart on '
+                            'crash, and logging. The equivalent shell script '
+                            'was fifty lines and got the edge cases wrong.',
+                },
+                {
+                    'label': 'The two commands you will live in',
+                    'code': ('systemctl status nginx    what is it doing?\n'
+                             'systemctl restart nginx   do it again\n'
+                             '\n'
+                             'journalctl -u nginx       what did it say?\n'
+                             'journalctl -u nginx -f    say it as it happens'),
+                    'note': 'status then journalctl, in that order, is the '
+                            'answer to "the service is broken" about nine '
+                            'times in ten.',
+                },
+            ],
+            'misconceptions': [
+                'systemd is not a replacement for the shell or for your '
+                'scripts. It is what starts and supervises them, and a unit '
+                'file usually points at a perfectly ordinary program.',
+                'A unit file is not a script. It has no commands and no '
+                'control flow; it describes a service and systemd decides how '
+                'to act on the description.',
+                'Process 1 is not special because it is first. It is special '
+                'because everything else descends from it and because the '
+                'kernel will panic if it exits.',
+            ],
+            'try_it': [
+                'Run `ps -p 1 -o comm=` and confirm what is managing your '
+                'machine.',
+                'Run `systemctl status` with no arguments and look at the '
+                'tree. That is every running thing, arranged by who started '
+                'it.',
+            ],
+        },
         {
             'id': 'sd-model',
             'title': 'Units, and the three states people collapse into one',
             'next': 'sd-systemctl',
             'concept': (
-                'systemd manages a machine as a set of **units**, and a unit '
-                'is anything it can start, stop or watch. The suffix tells you '
-                'which kind: `.service` is a process, `.timer` starts '
-                'something on a schedule, `.socket` starts something when a '
+                'A unit is how systemd names anything it can start, stop or '
+                'watch. That is why "the service is broken" is three '
+                'questions, not one: loaded, active, and enabled. The '
+                'suffix tells you which kind: `.service` is a process, '
+                '`.timer` starts something on a schedule, `.socket` starts '
+                'something when a '
                 'connection arrives, `.mount` is a filesystem, and `.target` '
                 'is just a named group used as a milestone, which is what '
                 '`multi-user.target` is.\n\n'
@@ -69,7 +164,10 @@ MODULE = {
                 '`/etc/systemd/system/`, and drop-in fragments in a '
                 '`<unit>.d/` directory beside either. `systemctl cat` prints '
                 'what is actually in effect, which is the only honest answer '
-                'to "what does this unit say".'
+                'to "what does this unit say".\n\n'
+                'Three states, several files, one honest view. The next '
+                'lesson is `systemctl`, which is how you ask all of '
+                'that in one verb.'
             ),
             'examples': [
                 {
@@ -122,6 +220,10 @@ MODULE = {
             'title': 'Driving it, and asking it questions',
             'next': 'sd-units',
             'concept': (
+                '`systemctl` is how you start, stop, and ask about units. '
+                'That is why `status` is the first command on a box that '
+                'misbehaves: the three states and the last log lines are '
+                'often the whole answer.\n\n'
                 '`systemctl` is one verb plus one unit name, and about eight '
                 'verbs cover everything you will do.\n\n'
                 '`status` is the one you type most and the one worth reading '
@@ -133,7 +235,12 @@ MODULE = {
                 'only works if the service supports it; `reload-or-restart` '
                 'falls back.\n\n'
                 '`enable` and `disable` control boot only. `enable --now` is '
-                'the one you almost always want when installing something.\n\n'
+                'the one you almost always want when installing something. '
+                '`disable` still lets you start the unit by hand, or lets '
+                'another unit pull it in. `mask` points the unit at '
+                '`/dev/null` so nothing can start it, which is the right '
+                'tool for a service that keeps coming back. `unmask` undoes '
+                'that.\n\n'
                 'For scripts there are two quiet verbs that answer with an '
                 'exit status and no output: `is-active` and `is-enabled`. '
                 'Those are what belongs in a check, not grepping the output of '
@@ -153,6 +260,8 @@ MODULE = {
                              'systemctl restart nginx       full bounce\n'
                              'systemctl reload nginx        reread config\n'
                              'systemctl enable --now nginx  boot AND now\n'
+                             'systemctl mask nginx          nothing can start it\n'
+                             'systemctl unmask nginx\n'
                              'systemctl daemon-reload       after editing a unit'),
                     'note': 'daemon-reload reloads systemd itself. `reload '
                             'nginx` reloads nginx. Different things, similar '
@@ -193,8 +302,10 @@ MODULE = {
             'title': 'Writing a unit, and the dependency trap',
             'next': 'sd-journal',
             'concept': (
-                'A `.service` file has three sections and you need about six '
-                'keys.\n\n'
+                'A unit file is how you tell systemd what to run and what '
+                'it needs. That is why a prompt command can die as a '
+                'service: no login `PATH`, and no `After=` unless you '
+                'write it.\n\n'
                 '`[Unit]` carries the description and the relationships. '
                 '`[Service]` says how to run the thing: `ExecStart` is the '
                 'command, given as an absolute path because there is no shell '
@@ -214,12 +325,16 @@ MODULE = {
                 'that starts too, and if it fails, I fail". It says nothing '
                 'about *when*. Without `After=postgresql.service` as well, '
                 'systemd is free to start both at the same instant, and your '
-                'service races the database it depends on. The pair you almost '
-                'always want is both keys naming the same unit. `Wants=` is '
+                'service races the database it depends on. `Wants=` is '
                 'the weak form: start it too, but carry on if it fails.\n\n'
                 'Do not edit vendor files. `systemctl edit nginx` writes a '
                 'drop-in under `/etc/systemd/system/nginx.service.d/`, which '
-                'survives package updates and changes only the keys you name.'
+                'survives package updates and changes only the keys you name.\n\n'
+                '`ExecStart=` is one absolute command. '
+                '`WorkingDirectory=` sets where it runs. `User=` sets who. '
+                '`Environment=` and `EnvironmentFile=` are how it sees '
+                'variables. `status=203/EXEC` almost always means the '
+                'binary was not at that path, or was not executable.'
             ),
             'examples': [
                 {
@@ -310,7 +425,10 @@ MODULE = {
                 'exactly why it is worth knowing when you are working out what '
                 'happened on a machine.\n\n'
                 'The debugging incantation to memorise is `journalctl -xeu '
-                'UNIT`: explain, jump to the end, one unit.'
+                'UNIT`: explain, jump to the end, one unit.\n\n'
+                'The output of a service is queryable. The next lesson is '
+                'timers, and why they beat cron: the job is a service, '
+                'so it gets this journal for free.'
             ),
             'examples': [
                 {
@@ -370,6 +488,10 @@ MODULE = {
             'title': 'Timers, and why they beat cron',
             'next': 'sd-debug',
             'concept': (
+                'A timer is how systemd runs a service on a schedule. That '
+                'is why a missed run can catch up after downtime, and why '
+                'the job\'s output is in the journal rather than in mail '
+                'nobody reads.\n\n'
                 'A timer is two units: a `.timer` that says when, and a '
                 '`.service` with the same stem that says what. They pair by '
                 'name, so `backup.timer` runs `backup.service` and neither '
@@ -526,11 +648,32 @@ MODULE = {
          'prompt': 'Show the full state of a service, with its recent log lines.',
          'teach': 'The three states plus the last few journal lines, which is '
                   'often the whole diagnosis without opening the journal.'},
+        {'id': 'sdd-start', 'type': 'command',
+         'answer': 'systemctl start nginx',
+         'prompt': 'Start nginx now, without changing whether it starts at boot.',
+         'teach': 'start is now. enable is boot. They are independent.'},
+        {'id': 'sdd-stop', 'type': 'command',
+         'answer': 'systemctl stop nginx',
+         'prompt': 'Stop nginx now, without changing whether it starts at boot.',
+         'teach': 'stop is now. disable is boot. A disabled unit can still be started by hand.'},
+        {'id': 'sdd-restart', 'type': 'command',
+         'answer': 'systemctl restart nginx',
+         'prompt': 'Stop nginx and start it again.',
+         'teach': 'A full bounce. Connections drop. Use reload when the service can reread config.'},
+        {'id': 'sdd-reload', 'type': 'command',
+         'answer': 'systemctl reload nginx',
+         'prompt': 'Ask nginx to reread its configuration without dropping connections.',
+         'teach': 'reload is the process. daemon-reload is systemd rereading unit files. Different verbs.'},
         {'id': 'sdd-enable-now', 'type': 'command',
          'answer': 'systemctl enable --now nginx',
          'prompt': 'Start a service now and also have it start at boot.',
          'teach': 'enable is boot only and start is now only. --now is the '
                   'flag that stops you doing half the job.'},
+        {'id': 'sdd-mask', 'type': 'command',
+         'answer': 'systemctl mask nginx',
+         'prompt': 'Stop a service so nothing, including another unit, can start it.',
+         'teach': 'disable still allows a hand start. mask points the unit at '
+                  '/dev/null. unmask undoes it.'},
         {'id': 'sdd-daemon-reload', 'type': 'command',
          'answer': 'systemctl daemon-reload',
          'prompt': 'Make systemd reread unit files after you edited one.',

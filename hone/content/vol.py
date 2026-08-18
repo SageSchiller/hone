@@ -45,9 +45,12 @@ MODULE = {
             'id': 'vo-model',
             'title': 'What a memory image actually is',
             'concept':
-                'A memory image is a copy of physical RAM, taken while the '
-                'machine was running. It is not a filesystem and it has no '
-                'index. What it contains is the raw contents of memory: '
+                'Volatility is how you parse a memory image for kernel '
+                'structures, processes, and data that never hit disk. That '
+                'is why malware that only ran in RAM, an unpacked payload, '
+                'and a closed connection are recoverable here and nowhere '
+                'else.\n\n'
+                'A memory image contains the raw contents of memory: '
                 'kernel structures, process address spaces, cached file '
                 'contents, network state, and a great deal of data that was '
                 'never written to disk and never would be.\n\n'
@@ -70,7 +73,10 @@ MODULE = {
                 'one kind of structure and how to walk it, and the plugin '
                 'names are consistent: `windows.pslist`, `linux.pslist`, '
                 '`windows.netscan`. The operating system is the first path '
-                'element and it is not optional.',
+                'element and it is not optional.\n\n'
+                'A plugin walks a structure. The next lesson is symbol '
+                'tables, without which nothing knows where a field '
+                'lives.',
             'examples': [
                 {'label': 'The shape of every command',
                  'code': 'vol -f memory.raw windows.info',
@@ -105,8 +111,11 @@ MODULE = {
             'id': 'vo-symbols',
             'title': 'Symbol tables, and why nothing works without them',
             'concept':
-                'Volatility has to know where, inside a kernel structure, a '
-                'given field lives. Those offsets differ between operating '
+                'A symbol table is how Volatility finds a field inside a '
+                'kernel structure. That is why Windows usually downloads the '
+                'matching table, and why a Linux image without debug symbols '
+                'may be unanalysable.\n\n'
+                'Those offsets differ between operating '
                 'system versions, service packs, and in the Linux case '
                 'between individual kernel builds. Symbol tables carry that '
                 'information.\n\n'
@@ -195,7 +204,10 @@ MODULE = {
                 'where anomalies are most visible: the wrong parent for a '
                 'well known process is a stronger signal than any process '
                 'name. And `psinfo` style detail, plus `cmdline`, gives you '
-                'the arguments, which are usually the interesting part.',
+                'the arguments, which are usually the interesting part.\n\n'
+                'List versus scan is the pattern, not just the process '
+                'question. The next lesson is the plugin families, each '
+                'of which has that pair.',
             'examples': [
                 {'label': 'The kernel\'s own answer',
                  'code': 'vol -f mem.raw windows.pslist',
@@ -241,9 +253,10 @@ MODULE = {
             'id': 'vo-families',
             'title': 'The plugin families, and what each answers',
             'concept':
-                'There are hundreds of plugins and they group into a handful '
-                'of families. Learning the families means you can guess the '
-                'plugin name, which is faster than searching.\n\n'
+                'The plugin families are how you guess the right name '
+                'without searching hundreds of plugins. That is why '
+                'processes, memory, files, network, registry and kernel are '
+                'the groups, and why malfind is the highest-yield one.\n\n'
                 '**Processes.** pslist, psscan, pstree, cmdline, '
                 'privileges, getsids. Who was running, related how, with what '
                 'arguments and what rights.\n\n'

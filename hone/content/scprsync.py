@@ -22,9 +22,121 @@ MODULE = {
     'order': 51,
     'lessons': [
         {
+            'id': 'xfer-what',
+            'title': 'Getting a file from here to there',
+            'next': 'scp-basics',
+            'concept': (
+                'scp and rsync are how you put a file on another machine, or '
+                'pull one back. That is why they are the pair to reach for '
+                'once ssh works and the file is still only here. There are '
+                'two tools worth knowing, they look almost identical, and '
+                'choosing between them is the whole of this module.\n\n'
+                '**Both of them ride on ssh.** That is the piece to '
+                'internalise first: neither scp nor rsync is a network '
+                'protocol. They run ssh underneath, so if `ssh server` works, '
+                'they work, with the same keys, the same `~/.ssh/config` '
+                'aliases and the same jump hosts. If ssh does not work, '
+                'nothing here will, and fixing ssh is the whole fix.\n\n'
+                '**The syntax borrows from cp**, with a colon marking the '
+                'remote side. `scp file server:/tmp/` means "this local file, '
+                'to that path over there". The colon is doing all the work, '
+                'and leaving it out quietly performs a local copy to a file '
+                'named `server` instead, which is the classic first '
+                'mistake.\n\n'
+                '**scp copies. rsync synchronises.** scp sends everything you '
+                'named, every time, no questions. rsync compares the two '
+                'sides first and sends only what differs, which on the second '
+                'run of a large directory is the difference between minutes '
+                'and seconds. rsync can also resume, preserve permissions and '
+                'timestamps properly, and delete things on the far side that '
+                'you deleted here.\n\n'
+                'The rule of thumb: **one file once, scp. A directory, or '
+                'more than once, rsync.** rsync is not harder, it just has '
+                'one piece of syntax that catches everybody, and the next '
+                'lessons are largely about that.'
+            ),
+            'examples': [
+                {
+                    'label': 'The shape, both directions',
+                    'code': ('scp report.pdf server:/tmp/     to there\n'
+                             'scp server:/tmp/report.pdf .    from there\n'
+                             '\n'
+                             'the colon marks which side is remote'),
+                    'note': 'No colon anywhere means both sides are local, '
+                            'and scp will happily do that without comment.',
+                },
+                {
+                    'label': 'Why it needs no configuration',
+                    'code': ('ssh prod           works?\n'
+                             'scp file prod:     then this works too\n'
+                             'rsync -a dir/ prod:/srv/   and this\n'
+                             '\n'
+                             'same keys, same config, same aliases'),
+                    'note': 'A host alias you defined in ~/.ssh/config is '
+                            'usable here immediately. Nothing needs telling '
+                            'twice.',
+                },
+                {
+                    'label': 'The same job, twice',
+                    'code': ('scp -r site/ server:/var/www/\n'
+                             '  second run: sends all of it again\n'
+                             '\n'
+                             'rsync -a site/ server:/var/www/\n'
+                             '  second run: sends what changed'),
+                    'note': 'On a directory you will transfer more than once, '
+                            'this is not a small difference, and it is the '
+                            'reason rsync exists.',
+                },
+            ],
+            'misconceptions': [
+                'scp and rsync are not network protocols. They are programs '
+                'that drive ssh, which is why they inherit every part of your '
+                'ssh setup for free.',
+                'rsync is not only for backups. It is the better choice for '
+                'any repeated transfer, and most transfers turn out to be '
+                'repeated.',
+                'A missing colon is not an error. `scp file server` copies '
+                'the file to a local file named server, silently and '
+                'successfully.',
+            ],
+            'try_it': [
+                'Copy one file to a machine you can ssh to, then copy it '
+                'back. Note that you configured nothing.',
+                'Copy a directory with rsync twice in a row and watch how '
+                'much less the second run transfers.',
+            ],
+        },
+        {
             'id': 'scp-basics',
             'title': 'scp: copying over the same connection as ssh',
-            'concept': 'scp copies files over ssh, using the same keys, the same config and the same aliases, so once ssh works, scp works. The shape is `scp SOURCE DEST`, where a remote side is written `host:path` with a colon. Leave the colon off and you have quietly made a local copy instead.\n\nA bare colon means the remote home directory, so `scp report.txt web:` drops the file in your home on web. Copying the other way just swaps the arguments: `scp web:/etc/hostname .` brings it here. `-r` copies a directory, and `-P` sets the port, capital P because lowercase -p preserves timestamps, which is the opposite of what you reach for.\n\nscp is fine for one file or a small handful. The moment you are copying a tree, or copying it more than once, the next lesson is the tool you actually want.',
+            'concept': (
+                'The previous lesson said both tools ride on ssh. This one is '
+                'the smaller of the two, the one you reach for when the job '
+                'is one file and you want it over there now.\n\n'
+                'scp copies files over ssh, using the same keys, the same '
+                'config and the same aliases, so once ssh works, scp works. '
+                'The shape is `scp SOURCE DEST`, where a remote side is '
+                'written `host:path` with a colon. Leave the colon off and '
+                'you have quietly made a local copy instead. There is no '
+                'error. The file sits in the current directory with the '
+                'hostname as its name, and nothing left the machine.\n\n'
+                'A bare colon means the remote home directory, so `scp '
+                'report.txt web:` drops the file in your home on web. '
+                'Copying the other way just swaps the arguments: `scp '
+                'web:/etc/hostname .` brings it here. `-r` copies a '
+                'directory. `-P` sets the port, capital P, because lowercase '
+                '`-p` preserves timestamps, which is the opposite of what '
+                'you reach for when ssh taught you `-p`.\n\n'
+                'There is no progress bar by default and no resume. A dropped '
+                'link starts the whole file over. That is why scp is fine '
+                'for one file or a small handful, and why the next lesson is '
+                'the tool you actually want the moment the tree is large or '
+                'the transfer will happen twice.\n\n'
+                'A trailing slash on the source is just a path to scp. It is '
+                'not the rsync rule. Mixing the two is how people copy a '
+                'directory into itself and wonder where the extra folder '
+                'came from.'
+            ),
             'examples': [
                 {
                     'label': 'Both directions',
@@ -51,7 +163,54 @@ MODULE = {
             'id': 'rm-transfer',
             'title': 'Moving data, and the trailing slash',
             'next': None,
-            'concept': '`scp` copies a file and is fine for one file. `rsync` copies only differences, resumes, preserves permissions, and can delete things on the destination that no longer exist on the source. For anything more than one file, rsync.\n\nThe trailing slash on the SOURCE is the thing that catches everyone, and it is worth learning deliberately rather than by accident. `rsync -a src dest/` copies the directory **into** dest, giving `dest/src/`. `rsync -a src/ dest/` copies the **contents** of src into dest. One character, completely different result.\n\n`--delete` makes the destination match the source exactly, including removing files. Combined with a wrong trailing slash it will happily delete a great deal. `--dry-run` first, every time: it is a habit rather than a flag.',
+            'concept': (
+                '`scp` copies a file and is fine for one file. `rsync` copies '
+                'only differences, resumes, preserves permissions, and can '
+                'delete things on the destination that no longer exist on '
+                'the source. For anything more than one file, rsync.\n\n'
+                '**How it knows what differs**, because this is the part that '
+                'makes it feel like magic. For each file, rsync compares size '
+                'and modification time; if they match it skips the file '
+                'entirely. If they differ, it does not resend the file, it '
+                'splits both copies into blocks, compares checksums, and '
+                'sends only the blocks that changed. Appending a line to a '
+                'one-gigabyte log transfers a few kilobytes.\n\n'
+                '**`-a` is the flag you will use every time.** It is not one '
+                'option but a bundle: recurse into directories, preserve '
+                'permissions, timestamps, symlinks, owner and group. Without '
+                'it you get a copy whose metadata is subtly wrong in ways you '
+                'discover much later. Add `-v` to see what moved and `-h` to '
+                'make the sizes readable, and `-avh` becomes muscle '
+                'memory.\n\n'
+                '**The trailing slash on the SOURCE catches everyone**, and it '
+                'is worth learning deliberately rather than by accident. '
+                '`rsync -a src dest/` copies the directory **into** dest, '
+                'giving `dest/src/`. `rsync -a src/ dest/` copies the '
+                '**contents** of src into dest. One character, completely '
+                'different result. The way to remember it: a trailing slash '
+                'means "the things inside", not "the thing".\n\n'
+                'The slash on the destination changes nothing at all, which '
+                'is why people conclude the rule is inconsistent. It is not, '
+                'it just only applies to one side.\n\n'
+                '**`--delete` makes the destination match the source exactly**, '
+                'including removing files that are no longer in the source. '
+                'That is what you want for a mirror and it is a loaded gun '
+                'pointed at the destination: combined with a wrong trailing '
+                'slash, or a source that failed to mount and is therefore '
+                'empty, it will remove a great deal very efficiently.\n\n'
+                '**`--dry-run` first, every time.** It is a habit rather than '
+                'a flag: `-n` shows exactly what would happen and changes '
+                'nothing. On any command with `--delete` in it, running '
+                'without `-n` first is how the story starts.\n\n'
+                '`-P` is `--progress` plus `--partial`. Progress prints each '
+                'file as it moves; `--partial` keeps an unfinished copy so a '
+                'dropped link resumes rather than starting over. That is why '
+                '`-avP` is the everyday form for a large tree. `-P` does not '
+                'print a single total for the whole run: each file gets its '
+                'own bar, and a tree of thousands looks like noise. '
+                '`--info=progress2` is the tree total, one running count for '
+                'the whole transfer.'
+            ),
             'examples': [
                 {
                     'label': 'The trailing slash',
@@ -60,8 +219,8 @@ MODULE = {
                 },
                 {
                     'label': 'Using it safely',
-                    'code': 'rsync -av --dry-run src/ host:dest/   look first\nrsync -av src/ host:dest/            then do it\n\n-a  archive: recursive, keeps permissions,\n    times, symlinks\n-v  verbose      -z  compress in transit\n--delete  make dest match src exactly\n-P  progress and resume partial files\n--exclude .git --exclude node_modules',
-                    'note': '`-avP --dry-run` is the combination to type by reflex before anything with --delete.',
+                    'code': 'rsync -av --dry-run src/ host:dest/   look first\nrsync -av src/ host:dest/            then do it\n\n-a  archive: recursive, keeps permissions,\n    times, symlinks\n-v  verbose      -z  compress in transit\n--delete  make dest match src exactly\n-P  --progress plus --partial (resume)\n--info=progress2   one total for the tree\n--exclude .git --exclude node_modules',
+                    'note': '`-avP --dry-run` is the combination to type by reflex before anything with --delete. Use --info=progress2 when the per-file bar is too noisy to read.',
                 },
             ],
             'misconceptions': [

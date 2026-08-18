@@ -43,11 +43,103 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'ps-what',
+            'title': 'PowerShell on Linux, and why you would',
+            'next': 'ps-objects',
+            'concept': (
+                'PowerShell is how you run a shell that pipes objects rather '
+                'than text, and on Linux the command is `pwsh`. That is why '
+                'Windows administration and the event-log work later in this '
+                'module are readable from the machine you already have.\n\n'
+                'That surprises people, and it is worth being clear about why '
+                'you might care even if you never touch Windows.\n\n'
+                '**The reason is the pipeline.** Every Unix shell pipes text '
+                'between programs, so every program has to format its output '
+                'for a human and every other program has to unpick that '
+                'formatting. `cut`, `awk` and `sed` exist in large part to '
+                'undo layout that was applied one step earlier. PowerShell '
+                'pipes **objects**: structured things with named properties '
+                'and types. Nothing is formatted until the very end, so '
+                'nothing has to be parsed.\n\n'
+                'Whether that is better is a genuine argument. What is not in '
+                'doubt is that it is a **different idea worth having**, and '
+                'that meeting it changes how you look at the shell you '
+                'already use.\n\n'
+                'The other reason is practical: **Windows administration '
+                'happens in PowerShell**, and every DFIR and security module '
+                'in this trainer that touches Windows expects you to read it. '
+                'The event log module is written in it. Being able to read a '
+                'PowerShell one-liner is a prerequisite for a lot of writing '
+                'about Windows, whatever you run at home.\n\n'
+                '**The naming is the friendly part.** Commands are '
+                '`Verb-Noun`: `Get-Process`, `Stop-Service`, '
+                '`Get-ChildItem`. The verbs come from a fixed approved list, '
+                'so a command you have never seen is usually guessable, which '
+                'is the exact opposite of `awk`, `dd` and `tar`.'
+            ),
+            'examples': [
+                {
+                    'label': 'Starting it, and leaving',
+                    'code': ('pwsh              PS > is PowerShell\n'
+                             'exit              back to bash\n'
+                             '\n'
+                             'pwsh -c "Get-Process | Select -First 3"\n'
+                             '                  one command, no prompt'),
+                    'note': 'It is an ordinary program you start and leave. '
+                            'The prompt changing to PS > is the only sign you '
+                            'are in it.',
+                },
+                {
+                    'label': 'Guessable names, for once',
+                    'code': ('Get-Process       list processes\n'
+                             'Get-ChildItem     list a directory (ls)\n'
+                             'Get-Content       print a file (cat)\n'
+                             'Stop-Process      kill\n'
+                             '\n'
+                             'Get-Command -Verb Get   list them all'),
+                    'note': 'Verbose, and deliberately so. The aliases ls, '
+                            'cat and cd all exist for interactive use, so '
+                            'muscle memory mostly survives.',
+                },
+                {
+                    'label': 'The difference in one line',
+                    'code': ('bash   ls -l | awk \'{print $5}\'\n'
+                             '       (which column was size again?)\n'
+                             '\n'
+                             'pwsh   Get-ChildItem | Select Length\n'
+                             '       (the property is called Length)'),
+                    'note': 'The bash version breaks if the format changes or '
+                            'a filename has a space. The PowerShell one asks '
+                            'for a named property and cannot.',
+                },
+            ],
+            'misconceptions': [
+                'PowerShell is not Windows-only. It is open source, runs on '
+                'Linux and macOS, and everything in this module works from a '
+                'Linux terminal.',
+                'PowerShell is not a replacement for bash on Linux. It is a '
+                'different model worth knowing, and most people use it '
+                'alongside rather than instead.',
+                'The long command names are not the whole story. Aliases like '
+                'ls, cat and cd exist for typing, and the long forms are what '
+                'you write in scripts and read in other people\'s.',
+            ],
+            'try_it': [
+                'Run `pwsh`, then `Get-Process | Select -First 3`, then '
+                '`exit`. That is the whole round trip.',
+                'Run `Get-Command -Verb Get | Measure-Object` and see how '
+                'many things you can now guess the name of.',
+            ],
+        },
+        {
             'id': 'ps-objects',
             'title': 'The pipeline carries objects',
             'next': 'ps-verbnoun',
             'concept': (
-                'This is the module. Everything else follows from it.\n\n'
+                'The PowerShell pipeline is how you pass objects with named '
+                'properties, not formatted text. That is why `Sort-Object '
+                'Length` sorts on a number, and a space in a filename cannot '
+                'break the line.\n\n'
                 'In bash, `ls -l | awk \'{print $5}\'` works by counting '
                 'columns in text somebody formatted for a human. If the format '
                 'changes, or a filename has a space, it breaks. Every Unix '
@@ -62,7 +154,18 @@ MODULE = {
                 'The text you see is produced at the very end, by a formatter, '
                 'purely for your benefit. That is why the display can lie about '
                 'what is there, and why the next lesson\'s `Get-Member` matters '
-                'so much.'
+                'so much.\n\n'
+                'Formatting at the end is not the object. `Format-Table` '
+                'destroys the objects for anything downstream, which is why '
+                'a pretty table piped into `Where-Object` then fails. The '
+                'TypeName becomes FormatStartData, `CPU` is gone, and '
+                '`Where-Object CPU -gt 10` matches nothing. It looks like '
+                'the filter is wrong. It is not; there is no CPU property '
+                'left to test. `Select-Object Name` still prints a table, '
+                'so people reach for `cut`. `-ExpandProperty Name` is the '
+                'actual value. Filter and select first; format last. The '
+                'next lesson is how commands are named, so you can find '
+                'the next one.'
             ),
             'examples': [
                 {
@@ -87,6 +190,22 @@ MODULE = {
                              '  shows sixty-odd properties and methods'),
                     'note': 'The display picked eight. The object has all of '
                             'them, and you can filter on any of them.',
+                },
+                {
+                    # The module never said how to start or leave pwsh, which
+                    # matters more here than for most tools: on Linux it is a
+                    # prompt inside your own shell, so leaving it and leaving
+                    # the terminal look identical and are not.
+                    'label': 'Starting it, and leaving it',
+                    'code': ('pwsh               PS > is PowerShell, inside '
+                             'your shell\n'
+                             'exit               back to bash\n'
+                             'Ctrl-D             the same thing\n'
+                             'Ctrl-C             stop what is running, stay '
+                             'here'),
+                    'note': 'On Linux pwsh is a program you start and leave '
+                            'like any other. The prompt changing to PS > is '
+                            'the only sign you are in it.',
                 },
             ],
             'misconceptions': [
@@ -123,7 +242,17 @@ MODULE = {
                 '`Get-Help` explains one, with `-Examples` being the part worth '
                 'reading first. Between them you can work almost anything out '
                 'without leaving the shell, which is the closest analogue to '
-                '`apropos` and rather better than it.'
+                '`apropos` and rather better than it.\n\n'
+                'What that looks like on a fresh machine: `Get-Help '
+                'Get-WinEvent` prints a one-paragraph stub and no examples. '
+                'The cmdlet exists; the help files were never downloaded. '
+                '`Update-Help` is the fetch, and until it runs, `-Examples` '
+                'is empty and people assume the cmdlet is undocumented.\n\n'
+                '`Get-Command *event*` is the search; `Get-Help Get-WinEvent '
+                '-Examples` is the read. Guessing a Unix name (`ls` works as '
+                'an alias) and then looking for `grep` is how people miss '
+                '`Where-Object`. The next lesson is `Get-Member`, which is '
+                'how you stop guessing at property names.'
             ),
             'examples': [
                 {
@@ -166,10 +295,11 @@ MODULE = {
             'title': 'Get-Member is the way in',
             'next': 'ps-filtering',
             'concept': (
-                'If you learn one habit from this module, learn this: pipe '
-                'anything you do not understand into `Get-Member`.\n\n'
-                'It tells you the object\'s type and lists every property and '
-                'method it has. Since the default display shows only a handful '
+                '`Get-Member` is how you list every property and method an '
+                'object has, not the handful the display shows. That is why '
+                'you find the field you actually want to filter on, instead '
+                'of guessing at names.\n\n'
+                'Since the default display shows only a handful '
                 'of properties, `Get-Member` is how you discover the other '
                 'fifty, and it is how you find the one you actually want to '
                 'filter on.\n\n'
@@ -177,7 +307,19 @@ MODULE = {
                 'every property for one object rather than just their names. '
                 '`Get-Member` for the shape, `Select-Object *` for the '
                 'contents. Between them you never have to guess what is '
-                'available.'
+                'available.\n\n'
+                '`gm` is the alias. Run it on one object, not a thousand: '
+                '`Get-Process | Select-Object -First 1 | Get-Member`. The '
+                'failure is piping a formatted table into it and seeing '
+                'format objects instead of processes. The TypeName starts '
+                'with Format, `Kill()` is gone, and it looks as if '
+                'processes have no methods. They do; the format cmdlet '
+                'replaced them. The other miss is piping a thousand '
+                'processes in and reading the same type description a '
+                'thousand times. One unformatted object is the habit. The '
+                'next lesson is Where, Select, ForEach and Sort, which is '
+                'the pipeline vocabulary. Those cmdlets take property '
+                'names; Get-Member is how those names stop being a guess.'
             ),
             'examples': [
                 {
@@ -193,6 +335,17 @@ MODULE = {
                     'note': 'The TypeName line is worth reading: it tells you '
                             'what to search for when you need the '
                             'documentation.',
+                },
+                {
+                    'label': 'After Format-Table, Get-Member shows the wrapper',
+                    'code': ('Get-Process | Format-Table | Get-Member\n'
+                             '  TypeName: ...Format.FormatStartData\n'
+                             '\n'
+                             'Kill() is gone. CPU is gone.\n'
+                             'these are display objects, not processes'),
+                    'note': 'If the TypeName is not the type expected, '
+                            'something upstream already destroyed the objects. '
+                            'That is almost always a Format-* cmdlet.',
                 },
             ],
             'misconceptions': [
@@ -214,8 +367,9 @@ MODULE = {
             'title': 'Where, Select, ForEach and Sort',
             'next': 'ps-output',
             'concept': (
-                'Four cmdlets do most of the work, and they map onto things you '
-                'already know.\n\n'
+                'Where-Object, Select-Object, Sort-Object and ForEach-Object '
+                'are how you filter, pick, sort and act on objects. That is '
+                'why they do most of the work.\n\n'
                 '`Where-Object` filters, so it is grep and awk\'s pattern. '
                 '`Select-Object` picks properties or a number of items, so it '
                 'is cut and head. `Sort-Object` sorts on a named property, so '
@@ -228,9 +382,51 @@ MODULE = {
                 'means the same.\n\n'
                 'The comparison operators are worth memorising because they are '
                 'not symbols: `-eq`, `-ne`, `-gt`, `-lt`, `-like` for wildcards, '
-                '`-match` for regex.'
+                '`-match` for regex.\n\n'
+                '`-eq` is case-insensitive. `-ceq` is not. Using `>` in a '
+                'filter is a redirect, not a comparison, and it will write a '
+                'file you did not want. What that looks like: `Where-Object '
+                'CPU > 10` opens a file named `10` and writes the incoming '
+                'objects into it, then the filter sees no comparison. The '
+                'file appearing in the directory is the clue. The silent '
+                'one is `-like` given a regex: `Name -like "^app"` matches '
+                'nothing, because `^` is not a wildcard, and the pipeline '
+                'just looks empty.\n\n'
+                'A script is the same language as the prompt. `$n = 3` '
+                'stores a value for the rest of the session. Names start '
+                'with `$`. `$_` is the current pipeline object, which is '
+                'why it appears inside `Where-Object` and `ForEach-Object` '
+                'blocks and nowhere else.\n\n'
+                '`if ($n -gt 1) { ... } else { ... }` is a language branch, '
+                'not a cmdlet. The condition is in parentheses, the body in '
+                'braces, and `-gt` is still the comparison because `>` '
+                'would redirect.\n\n'
+                '`foreach ($f in Get-ChildItem) { $f.Name }` is a statement: '
+                'it collects the whole list, then loops. `ForEach-Object { '
+                '$_.Name }` is a cmdlet: it streams one object at a time. '
+                'The statement is clearer for a short script. The cmdlet is '
+                'what belongs in a pipeline.\n\n'
+                '`Group-Object Name` groups a stream and hands you `Name` '
+                'and `Count`. That is the histogram. `Select-Object '
+                '@{n="KB";e={$_.Length/1KB}}` is a calculated property: a '
+                'new field from an expression.\n\n'
+                'A pipeline function is `function Get-Root { param([Parameter('
+                'ValueFromPipeline=$true)]$Path) process { Split-Path $Path '
+                '-Leaf } }`. `[pscustomobject]@{Name=$n}` builds an object '
+                'you can pipe onward.\n\n'
+                '`pwsh ./script.ps1` runs a file. The `./` is required for '
+                'the same reason a Unix shell refuses a name in the current '
+                'directory: a script in `.` is not on `$env:PATH`. On '
+                'Windows, ExecutionPolicy can refuse an unsigned file. '
+                '`Get-ExecutionPolicy` shows the rule. A script is how a '
+                'one-liner you trust becomes something you can run again.'
             ),
             'examples': [
+                {
+                    'label': 'Doing arithmetic on a property',
+                    'code': 'Get-Process | Measure-Object CPU -Sum\nGet-Process | Measure-Object CPU -Average -Maximum\n\nCount, Sum, Average, Minimum, Maximum',
+                    'note': 'Measure-Object counts by default and computes nothing else unless asked, which is why -Sum exists rather than being implied.',
+                },
                 {
                     'label': 'The four',
                     'code': ('Get-Process |\n'
@@ -256,6 +452,21 @@ MODULE = {
                     'note': 'Comparisons are case-insensitive by default, which '
                             'is the opposite of every other shell you know.',
                 },
+                {
+                    'label': 'Variables, if, foreach, and a file',
+                    'code': (
+                        '$n = 3\n'
+                        'if ($n -gt 1) { "many" } else { "one" }\n'
+                        'foreach ($f in Get-ChildItem) { $f.Name }\n'
+                        'Get-ChildItem | ForEach-Object { $_.Name }\n'
+                        '\n'
+                        'pwsh ./script.ps1'
+                    ),
+                    'note': 'foreach the statement collects first. '
+                            'ForEach-Object streams. $_ is only the '
+                            'pipeline object. pwsh ./script.ps1 is how a '
+                            'file runs.',
+                },
             ],
             'misconceptions': [
                 '`==` is not a comparison operator; it is a syntax error. '
@@ -264,6 +475,8 @@ MODULE = {
                 'wrong one silently matches nothing.',
                 'String comparison is case-insensitive by default. Prefix with '
                 '`c` when case matters, which is a real trap coming from Unix.',
+                '`foreach` the statement is not `ForEach-Object`. The '
+                'statement collects the whole list first. The cmdlet streams.',
             ],
             'try_it': [
                 'Write one pipeline that finds the five largest files in a '
@@ -296,7 +509,14 @@ MODULE = {
                 '`Format-Table` and `Format-List` destroy the objects and emit '
                 'formatting instructions, so anything after them receives '
                 'nonsense. If your export is full of empty columns, a '
-                '`Format-Table` is upstream of it.'
+                '`Format-Table` is upstream of it.\n\n'
+                'The other quiet loss is encoding. `>` is `Out-File` with '
+                'the default encoding, which on Windows PowerShell 5 was '
+                'UTF-16 with a BOM. Open that file on Linux and `grep` sees '
+                'garbage at the start of every line, or a binary-looking '
+                'file. `-Encoding utf8` is the fix. `ConvertTo-Json` has a '
+                'different trap: `-Depth` defaults to 2, so a nested event '
+                'object becomes `{...}` and the fields are gone.'
             ),
             'examples': [
                 {
@@ -355,10 +575,23 @@ MODULE = {
                 'The hashtable form is the readable one and covers most needs: '
                 'log name, event id, and a time range. XPath is more expressive '
                 'and is what you need to filter on a field inside the event '
-                'data rather than on its metadata.\n\n'
+                'data rather than on its metadata. Against an XML *file*, '
+                '`Select-Xml -Path events.xml -XPath //Event` is the same '
+                'language without the event log.\n\n'
                 'Worth knowing by number: 4624 is a successful logon, 4625 a '
                 'failed one, 4688 a process creation, and 1102 is the security '
-                'log being cleared, which is rarely innocent.'
+                'log being cleared, which is rarely innocent.\n\n'
+                'This module is useful on Linux for the object pipeline. '
+                'Get-WinEvent needs Windows. Filtering at the source is the '
+                'habit that transfers: push the predicate into the tool, do '
+                'not pull a million rows and then grep.\n\n'
+                'What the slow path looks like: `Get-WinEvent -LogName '
+                'Security | Where-Object Id -eq 4625` starts printing '
+                'eventually, then the prompt never comes back, because it '
+                'is still walking millions of events you already decided '
+                'you do not want. `-MaxEvents` on the unfiltered query '
+                'does not save you if `Where-Object` is downstream: the '
+                'source still emits everything.'
             ),
             'examples': [
                 {

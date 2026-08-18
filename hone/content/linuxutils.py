@@ -8,20 +8,21 @@ pad it, because each of these tools does have a model worth teaching. `find` is
 a small query language, not a search command. `lsof` rests on "everything is an
 open file", which is broader than it sounds. Links only make sense once you see
 that a name is a pointer to an inode. `df` and `du` disagree for a reason worth
-understanding. The flags are still the daily friction, and the drills still
-carry them, but the lessons now supply the idea the flags hang off.
+understanding. tar packs a tree; gzip compresses one stream, which is why a
+`.gz` log is not an archive. The flags are still the daily friction, and the
+drills still carry them, but the lessons now supply the idea the flags hang off.
 """
 
 MODULE = {
     'id': 'linuxutils',
     'title': 'Linux Utilities',
     'group': 'Linux',
-    'blurb': 'find, lsof, tar, links, and inspecting files, bytes and space.',
+    'blurb': 'find, lsof, tar, gzip, links, and inspecting files, bytes and space.',
     'context': 'You are at a shell prompt. The answer is a command you would actually type.',
     'prereqs': ['linux'],
     'adapter': 'sandbox',
     'estimate': '3-4 hours',
-    'order': 43,
+    'order': 13,
 
     'lessons': [
         {
@@ -38,7 +39,10 @@ MODULE = {
                 '`&&`.\n\n'
                 'The common tests are `-name` (by name, with globs), `-type` '
                 '(`f` file, `d` directory, `l` symlink), `-mtime` (by age in '
-                'days) and `-size`. The signs on `-mtime` and `-size` are the '
+                'days), `-size`, `-maxdepth` (do not walk into subtrees: '
+                '`find src -maxdepth 1 -type f` is this directory only), '
+                'and `-newer file` (modified more recently than that file). '
+                'The signs on `-mtime` and `-size` are the '
                 'thing everyone gets wrong: `-mtime -7` is "less than seven '
                 'days old", `+7` is "more than", and a bare `7` means the '
                 'seventh day exactly, which matches almost nothing. Tests '
@@ -55,7 +59,10 @@ MODULE = {
                 'That is the entire reason both `-print0` and `-0` exist, and '
                 'it is the safety habit worth building.\n\n'
                 '`-prune` is the last piece: it tells find to skip a subtree, '
-                'which is how you keep it out of `.git` or `node_modules`.'
+                'which is how you keep it out of `.git` or `node_modules`.\n\n'
+                'The next lesson is lsof: the same machine, asked a different '
+                'question. find walks names on disk. lsof lists what is '
+                'already open, including files that no longer have a name.'
             ),
             'examples': [
                 {
@@ -83,6 +90,31 @@ MODULE = {
                     'note': '{} is the file, \\; ends a per-file -exec, and + '
                             'batches instead. -print0 with xargs -0 is the '
                             'safe pipe.',
+                },
+                {
+                    # -n1 and -I{} were drilled and never taught. They are also
+                    # the two flags that make xargs do anything interesting.
+                    'label': 'xargs, past the safe pipe',
+                    'code': ('... | xargs -n1 echo\n'
+                             '        one argument per run\n'
+                             '\n'
+                             '... | xargs -I{} mv {} /tmp/\n'
+                             '        put the argument somewhere specific'),
+                    'note': 'By default xargs crams as many arguments as it '
+                            'can onto one command line, which is fast and '
+                            'wrong when the command takes exactly one. -n1 '
+                            'forces one at a time.',
+                },
+                {
+                    'label': 'Why -I is the one you reach for',
+                    'code': ('xargs mv /tmp/          appends: mv a b c /tmp/\n'
+                             'xargs -I{} mv {} /tmp/  substitutes: mv a /tmp/\n'
+                             '\n'
+                             '-I implies -n1, because a placeholder\n'
+                             'can only stand for one thing at a time'),
+                    'note': 'Any command where the argument does not go last '
+                            'needs -I. The brace pair is conventional, not '
+                            'magic: -Ifoo works and reads worse.',
                 },
             ],
             'misconceptions': [
@@ -128,7 +160,11 @@ MODULE = {
                 'starting your own server. `lsof -p 1234` shows everything one '
                 'process has open. And `lsof /mnt/disk` shows who is using a '
                 'path, which is the answer to "target is busy" when you cannot '
-                'unmount something.'
+                'unmount something.\n\n'
+                'The previous lesson walked the tree to find files by name. '
+                'This one asks what is already open, which is a different '
+                'question and the one `find` cannot answer. The next lesson is '
+                'tar: one verb, one file, and why the `f` has to come last.'
             ),
             'examples': [
                 {
@@ -139,6 +175,16 @@ MODULE = {
                              'lsof +L1          deleted files still held open'),
                     'note': '+L1 means "link count below 1", which is exactly a '
                             'file with no name left on disk.',
+                },
+                {
+                    'label': 'Disk full, du finds nothing',
+                    'code': ('df -h /var          100% used\n'
+                             'du -sh /var/*       the numbers do not add up\n'
+                             'sudo lsof +L1 /var  a deleted log, still open\n'
+                             '                    restart that process'),
+                    'note': 'df counts the bytes. du only sees names. A deleted '
+                            'file with an open handle has no name, so only lsof '
+                            'can point at it.',
                 },
             ],
             'misconceptions': [
@@ -159,7 +205,7 @@ MODULE = {
         {
             'id': 'lu-tar',
             'title': 'tar: one verb, one file, and options',
-            'next': 'lu-inspect',
+            'next': 'lu-gzip',
             'concept': (
                 'tar\'s flags look like a random string and are not. Every tar '
                 'command picks exactly one **verb**, almost always names a '
@@ -180,7 +226,11 @@ MODULE = {
                 'files everywhere. And listing with `t` before extracting lets '
                 'you read the paths first: an archive with absolute paths or '
                 '`../` in it can write outside where you expected, and the '
-                'listing is where you catch that.'
+                'listing is where you catch that.\n\n'
+                'The previous lesson asked what is open. This one packs a '
+                'tree. The `z` in `-czf` is gzip, but gzip on its own is a '
+                'different tool: one stream, not a directory. That is the '
+                'next lesson.'
             ),
             'examples': [
                 {
@@ -192,6 +242,18 @@ MODULE = {
                              'tar -xzf out.tar.gz --strip-components=1'),
                     'note': 'z gzip, j bzip2, J xz. On extract, modern tar '
                             'auto-detects, so -xf alone usually works.',
+                },
+                {
+                    'label': 'Look before you extract',
+                    'code': ('tar -tzf mystery.tar.gz | head\n'
+                             '  notes.txt\n'
+                             '  ../../etc/cron.d/job    walk-out, stop\n'
+                             '\n'
+                             'tar -xzf safe.tar.gz -C /tmp/out\n'
+                             '  extract only after the list looks right'),
+                    'note': '`-t` is not optional on an archive you did not '
+                            'make. Absolute paths and `../` are the two things '
+                            'the listing is for.',
                 },
             ],
             'misconceptions': [
@@ -207,6 +269,79 @@ MODULE = {
             'try_it': [
                 'Make a directory, `tar -czf` it, `tar -tzf` to list it, then '
                 '`tar -xzf` it into a fresh directory with `-C`.',
+            ],
+        },
+        {
+            'id': 'lu-gzip',
+            'title': 'gzip: one stream, not a tree',
+            'next': 'lu-inspect',
+            'concept': (
+                'gzip compresses one stream of bytes. That is why a `.gz` '
+                'log is not an archive, and why `tar -xzf app.log.gz` is '
+                'the wrong tool. tar packs a tree and may then compress '
+                'the pack. gzip only shrinks a single file, or whatever '
+                'you pipe through it.\n\n'
+                '`gzip app.log` writes `app.log.gz` and **deletes** '
+                '`app.log`. That default is the first surprise. `gzip -k` '
+                'keeps the original. `gzip -d` or `gunzip` inflates it '
+                'back, and again eats the `.gz` unless you pass `-k`. '
+                '`gzip` on a directory prints "is a directory -- ignored" '
+                'and does nothing. A tree wants tar, then gzip, which is '
+                'what `-czf` already did.\n\n'
+                'Reading without writing a second file is the daily use. '
+                '`zcat app.log.gz` prints the decompressed bytes to '
+                'stdout. `zgrep error app.log.gz` searches them. A '
+                'rotated log that is only on disk as `.gz` is still '
+                'grepable; you do not have to unpack it into `/tmp` and '
+                'remember to delete the copy.\n\n'
+                '`gzip -l app.log.gz` prints compressed size, original '
+                'size, and the name. `gzip -t` tests the stream without '
+                'writing it out. Both are local and cheap. `file` on the '
+                'result says "gzip compressed data" for a lone stream and '
+                '"POSIX tar archive (gzip compressed)" for a `.tar.gz`, '
+                'which is how you tell them apart before you pick a tool.\n\n'
+                '`gzip -c` writes the stream to stdout and leaves the '
+                'input alone, which is the pipe form: `cmd | gzip -c > '
+                'out.gz`. That is the same default as zcat, in reverse.\n\n'
+                'bzip2 and xz are the same model with a different '
+                'letter (`bzcat`, `xzcat`). The stream is the thing to '
+                'learn once. The next lesson is inspecting a file you '
+                'did not write: `stat`, `file`, `strings`, `xxd`.'
+            ),
+            'examples': [
+                {
+                    'label': 'Keep the original, then read it',
+                    'code': ('gzip -k app.log\n'
+                             '  app.log      still here\n'
+                             '  app.log.gz   the stream\n'
+                             '\n'
+                             'zcat app.log.gz\n'
+                             'zgrep ERROR app.log.gz\n'
+                             'gzip -l app.log.gz'),
+                    'note': 'Without -k, app.log is gone. zcat and zgrep '
+                            'never write a decompressed file.',
+                },
+                {
+                    'label': 'A tree is tar, a log is gzip',
+                    'code': ('gzip src/                 ignored, a directory\n'
+                             'tar -czf src.tar.gz src/  the tree\n'
+                             '\n'
+                             'gzip -k app.log           the log\n'
+                             'tar -xzf app.log.gz       not an archive'),
+                    'note': '.tar.gz is a tar stream, then gzip. .gz alone '
+                            'is just the file. file will tell you which.',
+                },
+            ],
+            'misconceptions': [
+                'gzip does not archive a directory. It compresses one '
+                'file. tar is the tree; gzip is the stream.',
+                'zcat is not "cat a .gz and hope". It decompresses to '
+                'stdout. cat app.log.gz prints garbage.',
+            ],
+            'try_it': [
+                'gzip -k a small text file, zcat it, gzip -l it, then '
+                'gzip the original without -k and confirm only the .gz '
+                'remains.',
             ],
         },
         {
@@ -233,7 +368,16 @@ MODULE = {
                 'to an offset and `-l` limits the length, so `xxd -s 512 -l 64` '
                 'shows 64 bytes starting half a kilobyte in. That is how you '
                 'look at one structure inside a disk image without reading the '
-                'whole thing.'
+                'whole thing.\n\n'
+                'The fourth everyday question is "did this change". `diff '
+                '-u old new` prints a unified patch: lines starting with `-` '
+                'left, `+` arrived. No output means the files are the same. '
+                '`diff -rq a/ b/` walks two trees and only names the files '
+                'that differ, which is how you compare a backup to a live '
+                'directory without opening either.\n\n'
+                'The previous lesson packed files. This one asks what a file '
+                'is before you treat it as one. The next lesson is space: why '
+                '`df` and `du` disagree, and how to watch a number change.'
             ),
             'examples': [
                 {
@@ -246,6 +390,26 @@ MODULE = {
                     'note': 'file reads content, never the extension. strings '
                             'defaults to a minimum run of 4, which is noisy; '
                             '-n raises it.',
+                },
+                {
+                    'label': 'When the name lies',
+                    'code': ('file photo.jpg\n'
+                             '  photo.jpg: Zip archive data\n'
+                             'strings -n 8 photo.jpg | head\n'
+                             '  PK\\x03\\x04   the zip signature, in ASCII\n'
+                             'xxd -l 4 photo.jpg\n'
+                             '  00000000: 504b 0304            PK..'),
+                    'note': 'The extension said image. The first bytes said '
+                            'archive. Trust `file`, then confirm with `xxd`.',
+                },
+                {
+                    'label': 'Did this change',
+                    'code': ('diff -u nginx.conf.orig nginx.conf\n'
+                             '  --- a  +++ b, then -removed +added\n'
+                             'diff -rq /backup/etc /etc\n'
+                             '  only the files that differ'),
+                    'note': 'Empty output is the success case. That is why a '
+                            'quiet `diff` is not a frozen command.',
                 },
             ],
             'misconceptions': [
@@ -285,7 +449,11 @@ MODULE = {
                 'and keep a copy at once. Its most-reached-for form is `sudo '
                 'tee`: a plain `sudo cmd > /etc/file` does not work, because the '
                 'shell opens the redirect as you before sudo runs, so `cmd | '
-                'sudo tee /etc/file` is how you write to a root-owned file.'
+                'sudo tee /etc/file` is how you write to a root-owned file.\n\n'
+                'The previous lesson identified a file. This one asks where '
+                'the bytes went. The next lesson is names and inodes: why a '
+                'filename is not the file, and why that makes two kinds of '
+                'link.'
             ),
             'examples': [
                 {
@@ -299,6 +467,16 @@ MODULE = {
                              'echo 1 | sudo tee /proc/sys/...   write as root'),
                     'note': 'df asks the filesystem; du counts files. Their gap '
                             'is usually a deleted-but-held file or a mount.',
+                },
+                {
+                    'label': 'Why sudo redirect fails',
+                    'code': ('sudo echo 1 > /proc/sys/vm/drop_caches\n'
+                             '  permission denied: the shell opened the file\n'
+                             '\n'
+                             'echo 1 | sudo tee /proc/sys/vm/drop_caches\n'
+                             '  tee runs as root, so the write succeeds'),
+                    'note': 'The redirect is done by your shell, not by sudo. '
+                            'That is why the pipe-through-tee form exists.',
                 },
             ],
             'misconceptions': [
@@ -322,6 +500,9 @@ MODULE = {
             'title': 'Names, inodes, and the two kinds of link',
             'next': 'lu-less',
             'concept': (
+                'The previous lesson asked where the bytes went. This one is '
+                'why two names can be the same file, which is the fact `du` '
+                'counts once and `ls` shows twice.\n\n'
                 'A filename is not the file. The file is an **inode**: the data '
                 'plus its metadata, owner, permissions and timestamps. A '
                 'directory entry is just a name that points at an inode. Hold '
@@ -341,7 +522,10 @@ MODULE = {
                 'shows every meaning the shell has for a name, in priority '
                 'order, which matters because an alias or a shell function '
                 'beats anything on `PATH`. `which` only sees the PATH '
-                'executables, so `type` is the more honest of the two.'
+                'executables, so `type` is the more honest of the two.\n\n'
+                'The next lesson is the pager: how to query a file that is '
+                'longer than a screen, which is what those names usually '
+                'point at once they are logs.'
             ),
             'examples': [
                 {
@@ -403,7 +587,10 @@ MODULE = {
                 '`g` and `G` jump to the top and bottom.\n\n'
                 'All of this is worth learning once because `less` is what '
                 '`man` uses to display pages, so every one of these keys works '
-                'in a man page too.'
+                'in a man page too.\n\n'
+                'The previous lesson treated a name as a pointer. This one is '
+                'how you actually read what that pointer leads to, once the '
+                'file is longer than a screen.'
             ),
             'examples': [
                 {
@@ -416,6 +603,18 @@ MODULE = {
                              'g   G      jump to the top / the end'),
                     'note': 'The keys are vim\'s keys, and because man uses '
                             'less, they all work in a man page as well.',
+                },
+                {
+                    'label': 'Follow, then read, then follow again',
+                    'code': ('less +F /var/log/app.log\n'
+                             '  new lines appear as they are written\n'
+                             'Ctrl-C\n'
+                             '  now you can /search and page\n'
+                             'F\n'
+                             '  resume following from here'),
+                    'note': '`tail -f` cannot pause and search. `F` can, which '
+                            'is why it is the better live log once you know '
+                            'the key.',
                 },
             ],
             'misconceptions': [
@@ -437,7 +636,25 @@ MODULE = {
     ],
 
     'drills': [
+        {'id': 'lu-diff-u', 'type': 'command',
+         'answer': 'diff -u old.conf new.conf',
+         'prompt': 'Show a unified diff between old.conf and new.conf.',
+         'teach': 'Empty output means they match. -u is the form patch and '
+                  'humans both read.'},
+        {'id': 'lu-diff-rq', 'type': 'command',
+         'answer': 'diff -rq a/ b/',
+         'prompt': 'Compare two directory trees and name only the files that differ.',
+         'teach': '-r walks, -q stays quiet except for names. That is how you '
+                  'compare a backup to a live tree.'},
         # find and xargs
+        {'id': 'lu-find-maxdepth', 'type': 'command',
+         'answer': 'find src -maxdepth 1 -type f',
+         'prompt': 'List files in src only, without walking subdirectories.',
+         'teach': '-maxdepth 1 is this directory. Put it before -name.'},
+        {'id': 'lu-find-newer', 'type': 'command',
+         'answer': 'find . -type f -newer stamp',
+         'prompt': 'Find files newer than a file called stamp.',
+         'teach': '-newer compares mtime to another file, not a number of days.'},
         {'id': 'lu-find-name', 'type': 'command',
          'answer': 'find . -name "*.log"',
          'prompt': 'Find every .log file under the current directory.',
@@ -548,6 +765,32 @@ MODULE = {
                    'directory.',
          'teach': 'The fix for an archive that wraps everything in a version '
                   'directory you do not want.'},
+        {'id': 'lu-gzip', 'type': 'command',
+         'answer': 'gzip app.log',
+         'prompt': 'Compress app.log in place, replacing it with app.log.gz.',
+         'teach': 'gzip deletes the original. gzip -k keeps it.'},
+        {'id': 'lu-gzip-k', 'type': 'command',
+         'answer': 'gzip -k app.log',
+         'prompt': 'Compress app.log and keep the original file.',
+         'teach': '-k is keep. The default is to replace.'},
+        {'id': 'lu-gunzip', 'type': 'command',
+         'answer': 'gzip -d app.log.gz',
+         'accepts': ['gunzip app.log.gz'],
+         'prompt': 'Decompress app.log.gz back to app.log.',
+         'teach': 'gzip -d and gunzip are the same command. They eat the .gz '
+                  'unless you pass -k.'},
+        {'id': 'lu-zcat', 'type': 'command',
+         'answer': 'zcat app.log.gz',
+         'prompt': 'Print the decompressed contents of app.log.gz to stdout.',
+         'teach': 'No second file. cat app.log.gz is the compressed bytes.'},
+        {'id': 'lu-zgrep', 'type': 'command',
+         'answer': 'zgrep ERROR app.log.gz',
+         'prompt': 'Search a compressed log for ERROR without unpacking it.',
+         'teach': 'zgrep is grep through the stream. The .gz stays on disk.'},
+        {'id': 'lu-gzip-l', 'type': 'command',
+         'answer': 'gzip -l app.log.gz',
+         'prompt': 'Show compressed size, original size, and name for app.log.gz.',
+         'teach': '-l reads the header. -t tests the stream without writing it.'},
 
         # inspection
         {'id': 'lu-stat', 'type': 'command', 'answer': 'stat file.txt',
@@ -708,6 +951,27 @@ MODULE = {
                            'out/b.txt'],
                 'missing': ['out/project'],
                 'file_contains': {'listing.txt': 'project/a.txt'}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'lu-gzip-log',
+            'title': 'Compress a log, then read it without unpacking',
+            'goal': 'gzip a single file and prove zcat reads the stream. Keep '
+                    'the original so the check can see both.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash',
+                      'tree': {'app.log': 'ERROR start\nINFO ok\nERROR end\n'}},
+            'solution': {'shell': 'gzip -k app.log && zcat app.log.gz > out.txt'},
+            'steps': [
+                {'instruction': 'Compress app.log and keep the original.',
+                 'hint': 'gzip -k app.log'},
+                {'instruction': 'Write the decompressed contents to out.txt '
+                                'without using gunzip.',
+                 'hint': 'zcat app.log.gz > out.txt'},
+            ],
+            'free': 'Produce app.log.gz and out.txt, leaving app.log in place.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'is_file': ['app.log', 'app.log.gz', 'out.txt'],
+                'file_contains': {'out.txt': ['ERROR start', 'ERROR end']}}},
             'fallback': 'self',
         },
         {
@@ -961,6 +1225,24 @@ MODULE = {
          'teach': 'Put -delete last. This is a genuinely destructive ordering '
                   'mistake.'},
 
+        {'id': 'luq-gzip-stream', 'type': 'mcq',
+         'prompt': 'Why is tar -xzf the wrong tool for app.log.gz?',
+         'answer': 'gzip compresses one stream. A .gz log is not a tar archive.',
+         'distractors': [
+             'gzip files cannot be read at all.',
+             'tar -xzf only works on directories.',
+             'app.log.gz is already extracted.',
+         ],
+         'teach': 'tar packs a tree. gzip shrinks one file. .tar.gz is both, in that order.'},
+        {'id': 'luq-gzip-k', 'type': 'mcq',
+         'prompt': 'What does gzip app.log do to app.log?',
+         'answer': 'Replaces it with app.log.gz. Pass -k to keep the original.',
+         'distractors': [
+             'Leaves app.log and writes app.log.gz beside it.',
+             'Deletes both files after printing the stream.',
+             'Archives the directory that contains app.log.',
+         ],
+         'teach': 'The default is replace. zcat is how you read without unpacking.'},
         {'id': 'luq-tar-list', 'type': 'mcq',
          'prompt': 'Why list an archive before extracting one you did not make?',
          'answer': 'It can contain absolute paths or .. and write outside the '

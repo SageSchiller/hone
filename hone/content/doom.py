@@ -13,6 +13,17 @@ Emacs is *not* vim. The vanilla `C-x` and `C-c` bindings arrive as the last
 lesson, framed as the layer underneath, never as a parallel track. Learning
 both at once is a reliable way to learn neither.
 
+**The survival keys are the exception, and they go first.** That rule above put
+`C-x C-c`, what a chord is, and the fact that `SPC f s` is three presses into
+lesson nine of nine. All true, all arriving after the eight lessons and every
+challenge that assume them. A student testing this module read the whole
+opening, pressed Enter on a challenge, and could not get out of the editor,
+which is not a pacing problem but a stranding one. So lesson one is now how to
+quit and how to cancel, and the distinction between a chord and a sequence,
+because the notation is unreadable without it. That is not the same thing as
+teaching the vanilla binding system as a parallel track: it is four keys and a
+piece of syntax, and the rest still waits for lesson nine.
+
 Drills are **capture type**. `SPC` is an ordinary space in normal mode and
 nothing intercepts it, so `SPC f s` is graded as the actual keystroke.
 """
@@ -27,16 +38,99 @@ MODULE = {
     'prereqs': ['vim'],
     'adapter': 'emacs',
     'estimate': '3-5 hours',
-    'order': 11,
+    'order': 42,
 
     # ------------------------------------------------------------------
     'lessons': [
+        {
+            'id': 'doom-survive',
+            'title': 'Getting in, and getting back out',
+            'next': 'doom-what',
+            'concept': (
+                'Two things stop a first session dead, and neither of them is '
+                'interesting enough to be anyone\'s favourite lesson. They go '
+                'first anyway, because everything after this assumes you can '
+                'get out of the editor you are about to be dropped into.\n\n'
+                'This module assumes the vim module. Doom runs evil, so `ciw`, '
+                '`daw` and the rest of the verb-plus-motion grammar are '
+                'already yours. If `ciw` is not in your fingers, do vim '
+                'first. The rest of these lessons will not reteach it.\n\n'
+                '**C-x C-c quits Emacs.** Doom\'s own quit is `SPC q q`, '
+                'three presses on the leader tree. Either one leaves. Closing '
+                'the terminal window works too, in the sense that a fire '
+                'solves a kitchen, and it takes anything you had not saved '
+                'with it.\n\n'
+                '**C-g cancels whatever Emacs is in the middle of.** A '
+                'half-typed key sequence, a prompt you did not mean to open, '
+                'a minibuffer asking a question you do not understand: C-g '
+                'puts you back in a normal buffer. Press it twice if once did '
+                'nothing. It is the most useful key in Emacs and the one '
+                'nobody is told about.\n\n'
+                '**Now the notation, because the rest of this module is '
+                'written in it.** C-x means hold Control and press x. M-x '
+                'means hold Meta, which is Alt on most keyboards, and press '
+                'x. Written together, C-x C-c is one then the other: Control '
+                'and x, then Control and c.\n\n'
+                'SPC f s is a different animal. Those are three separate '
+                'presses, space then f then s, with nothing held down at all. '
+                'A chord is keys at the same time; a sequence is keys one '
+                'after another. Doom\'s leader tree is sequences, Emacs\'s own '
+                'bindings are chords, and telling them apart on sight is most '
+                'of what makes the notation readable.\n\n'
+                'The next lesson is which of the three layers you just used: '
+                'Emacs, evil, or Doom, because the same key can belong to any '
+                'of them and the fix depends on which.'
+            ),
+            'examples': [
+                {
+                    'label': 'The keys that get you unstuck',
+                    'code': ('C-g        cancel whatever is happening\n'
+                             'ESC        back to normal mode, if you are in '
+                             'insert\n'
+                             'C-x C-s    save this file\n'
+                             'C-x C-c    quit Emacs\n'
+                             'SPC h k    what does this key do?'),
+                    'note': 'C-g and C-x C-c are worth having in your fingers '
+                            'before you need either of them.',
+                },
+                {
+                    'label': 'Chord or sequence',
+                    'code': ('C-x C-c    two chords, one after the other\n'
+                             '           hold Ctrl, x. hold Ctrl, c.\n'
+                             '\n'
+                             'SPC f s    three presses, nothing held\n'
+                             '           space. f. s.'),
+                    'note': 'If SPC types a space instead of opening the '
+                            'menu, you are in insert mode. Press ESC first.',
+                },
+            ],
+            'misconceptions': [
+                'C-x C-c is not "close this file". It quits Emacs entirely, '
+                'though it will ask about unsaved buffers before it goes.',
+                'C-g is not undo. It abandons the command in progress and '
+                'changes nothing you have already typed.',
+                'SPC is only the leader in normal mode. In insert mode it is '
+                'a space, which is why the leader appears to stop working '
+                'right after you type something.',
+            ],
+            'try_it': [
+                'Run `emacs` with no arguments. Press C-g a few times, then '
+                'quit with C-x C-c. Doing it once on purpose is worth more '
+                'than reading it twice.',
+                'Press SPC and wait a second without pressing anything else. '
+                'The menu that appears is the subject of the next lesson.',
+                'If `ciw` is not automatic, stop and do the vim module '
+                'before continuing.',
+            ],
+        },
         {
             'id': 'doom-what',
             'title': 'What Doom actually is',
             'next': 'doom-leader',
             'concept': (
-                'Doom is not an editor. It is a configuration framework for '
+                'The last lesson used keys from all three layers without '
+                'naming them. Doom is not an editor. It is a configuration '
+                'framework for '
                 'Emacs, which means three separate things are in play and '
                 'confusing them is the main source of frustration.\n\n'
                 'EMACS is the program: a Lisp interpreter that happens to edit '
@@ -48,7 +142,17 @@ MODULE = {
                 'layer owns it. A motion that misbehaves is evil. A missing '
                 'command is a Doom module you have not enabled. An error '
                 'mentioning a function name is Emacs, and it is telling you '
-                'more than you think.'
+                'more than you think.\n\n'
+                '`doom sync` is the command that makes a change to `init.el` '
+                'or `packages.el` real. Those files are a shopping list: they '
+                'do not take effect until Doom installs and compiles what they '
+                'name. Edit `init.el`, skip `doom sync`, restart, and nothing '
+                'changed. That is the failure that looks like "Doom ignored '
+                'me". It did not. You updated a list and never asked it to '
+                'go shopping. `config.el` is different: it is evaluated at '
+                'startup, so a restart (or `SPC h r r`) is enough.\n\n'
+                'The next lesson is the tree those leader keys hang from, and '
+                'why waiting after `SPC` is the documentation, not a lag.'
             ),
             'examples': [
                 {
@@ -62,6 +166,15 @@ MODULE = {
                     'note': 'After editing init.el or packages.el you must run '
                             '`doom sync`. After editing config.el you usually '
                             'need only a restart.',
+                },
+                {
+                    'label': 'Which file, which command',
+                    'code': ('init.el / packages.el   doom sync, then restart\n'
+                             'config.el               SPC h r r, or restart\n'
+                             '\n'
+                             '~/.config/emacs/bin/doom   the binary, not PATH'),
+                    'note': 'doom is rarely on PATH until you put it there. '
+                            'The full path is the one that always works.',
                 },
             ],
             'misconceptions': [
@@ -84,7 +197,10 @@ MODULE = {
             'title': 'The SPC tree, and why it is a tree',
             'next': 'doom-files',
             'concept': (
-                'In normal mode, `SPC` is the leader. Everything Doom adds '
+                'The leader tree is how you reach every Doom command without '
+                'memorising a chord. That is why you press `SPC` and wait: '
+                'the menu is the map. In normal mode, `SPC` is '
+                'the leader. Everything Doom adds '
                 'hangs off it in a tree grouped by noun: `SPC f` for files, '
                 '`SPC b` for buffers, `SPC w` for windows, `SPC p` for '
                 'projects, `SPC g` for git, `SPC s` for search.\n\n'
@@ -92,10 +208,21 @@ MODULE = {
                 'wait. A menu appears showing every next key and what it does. '
                 'This is the design: you are not expected to memorise the tree, '
                 'you are expected to walk it and let the menu teach you.\n\n'
+                'A chord you must remember (`C-x C-s`) is gone if you forget '
+                'it. A tree you can pause on is still there: you press `SPC`, '
+                'read `f` for files, press `f`, read `s` for save. The delay '
+                'before the menu is which-key doing its job, not Emacs being '
+                'slow. Turn the delay to zero and you lose the only map.\n\n'
                 'That changes how to learn Doom. Do not look bindings up. Press '
                 '`SPC`, read, and pick. The ones you use daily will become '
                 'muscle memory on their own, and the rest stay discoverable '
-                'forever.'
+                'forever. If `SPC` types a space, you are in insert mode: '
+                'Escape first. That is the same wrong-mode failure the vim '
+                'module named, and it is the most common "leader is broken" '
+                'report.\n\n'
+                'The next lesson is the first three branches you will live '
+                'in: files, buffers, and projects, which are three different '
+                'questions and not three names for open.'
             ),
             'examples': [
                 {
@@ -140,15 +267,26 @@ MODULE = {
             'title': 'Files, buffers and projects',
             'next': 'doom-windows',
             'concept': (
-                'Three different questions, three different branches, and '
+                'The last lesson was the tree. Three different questions, '
+                'three different branches, and '
                 'picking the wrong one is the most common beginner stumble.\n\n'
                 '`SPC f f` finds a file by path, starting where you are. `SPC '
                 'b b` switches to a buffer you already have open. `SPC SPC` '
                 'finds a file inside the current project, which is usually what '
                 'you actually wanted.\n\n'
+                'A buffer is a file in memory, the same idea as the last vim '
+                'lesson. `SPC f f` on a path you have not opened yet creates '
+                'a buffer with no file on disk until you save. `SPC f s` then '
+                'asks where to write it, because there is no path yet. That '
+                'is not a broken save. It is Emacs refusing to invent a name. '
+                'People hit `SPC f s` on the `*scratch*` buffer and think '
+                'Doom ate the binding.\n\n'
                 'Saving is `SPC f s`. It is worth typing that a hundred times '
                 'until it is reflex, because it is the one binding you will use '
-                'more than any other.'
+                'more than any other.\n\n'
+                'The next lesson is what happens when one file is not enough: '
+                'windows that split the frame, and workspaces that keep a '
+                'layout per task.'
             ),
             'examples': [
                 {
@@ -163,6 +301,16 @@ MODULE = {
                              'SPC p p    switch project'),
                     'note': 'A project is usually a git repository. Doom works '
                             'that out on its own.',
+                },
+                {
+                    'label': 'Three questions',
+                    'code': ('already open?     SPC b b\n'
+                             'in this repo?     SPC SPC\n'
+                             'somewhere else?   SPC f f\n'
+                             '\n'
+                             'no path yet?      SPC f s will ask for one'),
+                    'note': 'Scratch and new unsaved buffers have no file. '
+                            'Save then has to invent one.',
                 },
             ],
             'misconceptions': [
@@ -185,7 +333,10 @@ MODULE = {
             'title': 'Windows and workspaces',
             'next': 'doom-evil-gaps',
             'concept': (
-                'Windows split the frame, exactly as they do in vim, and the '
+                'A window is how you show two buffers at once. A workspace '
+                'is how you keep a layout per task. That is why a split is '
+                'for now, and a workspace is for switching context. Windows '
+                'split the frame, exactly as they do in vim, and the '
                 'bindings live under `SPC w`. Because evil is running, `C-w v` '
                 'and `C-w s` work too, and most people end up using those.\n\n'
                 'WORKSPACES are Doom\'s addition and they have no vim '
@@ -194,7 +345,16 @@ MODULE = {
                 'layout. They live under `SPC TAB`.\n\n'
                 'If tmux is already in your fingers, the mental model is the '
                 'same shape: workspace is to Doom roughly what session is to '
-                'tmux, and window is to Doom what pane is to tmux.'
+                'tmux, and window is to Doom what pane is to tmux.\n\n'
+                '`C-x C-c` from a split still quits Emacs. It does not close '
+                'the split. That is the first-lesson exit key, and it does '
+                'the same thing in a one-window frame and a four-window one. '
+                '`SPC w c` or `C-w c` closes this window. `C-x C-c` is how '
+                'people lose an unsaved buffer in the other split because they '
+                'wanted "close this pane" and got "quit the program".\n\n'
+                'The next lesson is where evil stops being the vim you already '
+                'know: the seams, not the grammar. The vim module still owns '
+                '`ciw`.'
             ),
             'examples': [
                 {
@@ -236,8 +396,12 @@ MODULE = {
             'title': 'Where evil is not vim',
             'next': 'doom-search',
             'concept': (
-                'Evil is a faithful reimplementation, and the grammar you '
-                'learned transfers essentially unchanged. But it is running '
+                'The seams are how you tell when evil is still vim and when '
+                'Emacs is answering instead. That is why a missing `:command` '
+                'is usually `M-x` or `SPC :`, not a broken install. Evil is '
+                'a faithful reimplementation, and the grammar you '
+                'learned transfers essentially unchanged. Do not relearn '
+                '`ciw` here; the vim module already owns it. But it is running '
                 'inside Emacs, and there are seams. Knowing where they are '
                 'saves an afternoon.\n\n'
                 'The `:` commands are the biggest one. Some ex commands exist, '
@@ -247,7 +411,23 @@ MODULE = {
                 'with a longer name.\n\n'
                 'The other seam is undo. Doom uses Emacs undo underneath, so '
                 'the granularity can differ from vim, and `SPC` bindings that '
-                'run Emacs commands may group differently than you expect.'
+                'run Emacs commands may group differently than you expect. '
+                '`C-g` is the Emacs-shaped Escape: it aborts a minibuffer, a '
+                'half-typed `SPC` sequence, or a prompt you did not mean to '
+                'open. Escape still returns to normal mode. They are not '
+                'interchangeable, which is why a stuck minibuffer ignores '
+                'Escape and yields to `C-g`.\n\n'
+                'Window keys are the third seam. `C-w` is evil\'s, and it '
+                'works. `C-x 2` is Emacs\'s, and it also works. Mixing them '
+                'is fine. Looking for vim\'s `:sp` and finding nothing is '
+                'how you discover `SPC w s`.\n\n'
+                '`gc` is a Doom operator, not a vim one: `gc` plus a motion '
+                'comments that region, `gcc` comments the line, `gc2j` is '
+                'this line and the two below. It uses the same grammar as '
+                '`d` and `c`. That is why it feels like vim and is not in '
+                'the vim module.\n\n'
+                'The next lesson is search, which in a large project replaces '
+                'most of the navigation you just learned.'
             ),
             'examples': [
                 {
@@ -260,6 +440,16 @@ MODULE = {
                              'SPC h k          ask what a key really does'),
                     'note': '`SPC h k` then pressing the key is the fastest way '
                             'to find out which layer owns a binding.',
+                },
+                {
+                    'label': 'Escape versus C-g',
+                    'code': ('Esc    back to normal mode\n'
+                             'C-g    abort whatever Emacs is doing\n'
+                             '\n'
+                             'stuck in a prompt?     C-g\n'
+                             'typed i by accident?   Esc'),
+                    'note': 'The first lesson named both. This is why they '
+                            'are not the same key with two labels.',
                 },
             ],
             'misconceptions': [
@@ -281,15 +471,25 @@ MODULE = {
             'id': 'doom-search',
             'title': 'Search, and why it replaces navigation',
             'concept': (
-                'In a large project, searching beats browsing, and Doom leans '
+                'The last lesson was the seams. In a large project, searching '
+                'beats browsing, and Doom leans '
                 'hard on that. `SPC s p` searches every file in the project and '
                 'gives you a live-filtered list of results.\n\n'
                 'This changes how you move around. Rather than remembering where '
                 'a function lives, search for its name and jump. Rather than '
                 'opening a file tree, `SPC SPC` and type three letters.\n\n'
+                '`/` still searches this buffer and still composes with '
+                'operators, exactly as the vim module taught. `SPC s p` is a '
+                'different question: every file in the project. Searching the '
+                'buffer you are not in is the usual miss: you typed `/TODO` '
+                'and the other file is full of them. `SPC s p` then `TODO` is '
+                'the one that finds them.\n\n'
                 'The search results buffer is itself editable in Doom, which is '
                 'the feature nobody discovers: you can filter to the matches you '
-                'want and apply an edit across all of them at once.'
+                'want and apply an edit across all of them at once.\n\n'
+                'The next lesson is magit, which is the same idea applied to '
+                'git: a menu instead of a memory test, still sitting on the '
+                'model the git module taught.'
             ),
             'examples': [
                 {
@@ -302,6 +502,16 @@ MODULE = {
                              'SPC s i   jump to a heading or symbol'),
                     'note': '`SPC *` is the fastest way to answer "where else '
                             'is this used".',
+                },
+                {
+                    'label': 'This buffer versus the project',
+                    'code': ('/TODO          this buffer, a vim motion\n'
+                             'SPC s b TODO   this buffer, a live list\n'
+                             'SPC s p TODO   every file in the project\n'
+                             'SPC *          the word under the cursor,\n'
+                             '               across the project'),
+                    'note': '/ still composes: d/foo works. SPC s p does not, '
+                            'because it is a different tool.',
                 },
             ],
             'misconceptions': [
@@ -345,7 +555,9 @@ MODULE = {
                 'It runs the same commands you would type, shows you what it is '
                 'about to do, and lets you stage at a finer grain than the '
                 'command line makes comfortable. When it does something you did '
-                'not expect, `$` shows the actual git commands it ran.'
+                'not expect, `$` shows the actual git commands it ran.\n\n'
+                'The next lesson is how to change Doom itself without the '
+                'change vanishing on restart.'
             ),
             'examples': [
                 {
@@ -389,15 +601,27 @@ MODULE = {
             'title': 'Changing Doom without breaking it',
             'next': 'doom-vanilla',
             'concept': (
-                'Three files, and knowing which one takes which kind of change '
-                'is most of the skill.\n\n'
+                'The last lesson was magit. This one is the files that make '
+                'Doom yours. Three files, and knowing which one takes which '
+                'kind of change is most of the skill.\n\n'
                 '`init.el` is a list of MODULES to enable, mostly by '
                 'uncommenting. `packages.el` declares extra packages Doom does '
                 'not ship. `config.el` is your own settings and bindings.\n\n'
                 'The rule that catches everyone: after changing `init.el` or '
                 '`packages.el` you must run `doom sync`, because those files '
                 'decide what gets installed. Changing `config.el` needs only a '
-                'restart, or `SPC h r r` to reload.'
+                'restart, or `SPC h r r` to reload.\n\n'
+                '`doom sync` rebuilds the autoloads and installs what '
+                '`packages.el` named. It does not evaluate `config.el`. That '
+                'is why a new package you listed is still missing until sync, '
+                'and a `setq` you just wrote is missing until reload. A '
+                'package uncommented in `init.el` and never synced is the '
+                'same vanishing act as the second lesson: the list changed, '
+                'the install did not. `doom doctor` is the next thing to run '
+                'when a module you enabled still has no keys: it will name '
+                'the missing binary or the module that did not load.\n\n'
+                '`SPC f p` opens those three files. The last lesson is the '
+                'layer they sit on, and why this module kept it until now.'
             ),
             'examples': [
                 {
@@ -437,16 +661,26 @@ MODULE = {
             'id': 'doom-vanilla',
             'title': 'The layer underneath',
             'concept': (
-                'This lesson comes last on purpose. Learning vanilla Emacs '
-                'bindings alongside evil is a reliable way to learn neither, so '
-                'it is deliberately not a parallel track.\n\n'
+                'Vanilla chords are how you read Emacs documentation and '
+                'survive a minibuffer that is not running evil. That is why '
+                'this lesson is last: learn them as a reading skill, not as '
+                'a second editor.\n\n'
                 'You need them anyway, for two reasons. Some places do not run '
                 'evil, particularly minibuffer prompts. And every piece of Emacs '
                 'documentation, every StackOverflow answer, and every package '
                 'README is written in `C-x` and `C-c`.\n\n'
                 'Learn the handful that appear constantly and let the rest stay '
                 'foreign. You are not switching; you are gaining the ability to '
-                'read.'
+                'read.\n\n'
+                '`M-x` is the way out when the tree has no leaf for what you '
+                'want. Type a few letters of the command name and Emacs '
+                'completes it. That is also how you survive a broken binding: '
+                'the function still exists, the key does not. `SPC :` is the '
+                'same prompt with a Doom-shaped entrance. `C-g` cancels it, '
+                'which is why that key was lesson one and this is lesson ten.\n\n'
+                'The vanilla Emacs module exists if you want the other half as '
+                'its own course. This module stops here, because the job was '
+                'the Doom layer on top of the vim grammar you already have.'
             ),
             'examples': [
                 {
@@ -489,6 +723,12 @@ MODULE = {
     # Drill: capture type. SPC is an ordinary key in normal mode.
     # ------------------------------------------------------------------
     'drills': [
+        {'id': 'doom-quit', 'type': 'keys', 'keys': ['SPC', 'q', 'q'],
+         'prompt': 'Quit Doom using the leader tree.',
+         'teach': 'SPC q q is Doom\'s quit. C-x C-c is Emacs\'s. Either leaves.'},
+        {'id': 'doom-gc', 'type': 'keys', 'keys': ['g', 'c', 'c'],
+         'prompt': 'Comment the current line with the Doom operator.',
+         'teach': 'gc is an operator: gcc the line, gc2j this line and two down.'},
         {'id': 'doom-save', 'type': 'keys', 'keys': ['SPC', 'f', 's'],
          'prompt': 'Save the current file.',
          'teach': 'The binding you will use more than any other. Worth typing '

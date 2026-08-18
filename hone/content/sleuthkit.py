@@ -112,6 +112,100 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'tsk-why',
+            'title': 'Why not just mount the disk and look',
+            'next': 'tsk-layers',
+            'concept': (
+                'The Sleuth Kit is how you read a disk image as bytes '
+                'without asking the kernel to mount it. That is why deleted '
+                'entries still appear, and why looking at the image cannot '
+                'change it.\n\n'
+                '**Mounting changes things.** The kernel replays the journal, '
+                'may update timestamps, and on a dirty filesystem may repair '
+                'it. Read-only mounting helps and does not fully solve it. '
+                'The Sleuth Kit reads the image as bytes and never asks the '
+                'kernel to interpret anything, so nothing can be modified by '
+                'looking.\n\n'
+                '**Mounting only shows you what still exists.** This is the '
+                'bigger reason. A mounted filesystem shows live files, which '
+                'is precisely the set of things an attacker had the '
+                'opportunity to tidy. Deleted files whose blocks have not '
+                'been reused are still there, and a normal `ls` will never '
+                'mention them.\n\n'
+                'That is the gap this tool fills. It reads the structures '
+                'directly, so it can list entries marked deleted, recover '
+                'their contents by inode number, and extract the unallocated '
+                'space between files where the remains of everything else '
+                'sit.\n\n'
+                '**A note on the file/inode split**, because everything here '
+                'rests on it: a filename is a directory entry pointing at an '
+                'inode, and the inode points at the data. Delete a file and '
+                'typically the directory entry is marked unused while the '
+                'inode and the data sit untouched until something needs the '
+                'space. Recovery is walking that chain backwards, and it is '
+                'why the tool has separate commands for names and for '
+                'contents.'
+            ),
+            'examples': [
+                {
+                    'label': 'Two ways to look at the same image',
+                    'code': ('mount -o ro,loop disk.img /mnt\n'
+                             '  live files only. kernel interprets.\n'
+                             '\n'
+                             'fls -r disk.img\n'
+                             '  live files AND deleted entries.\n'
+                             '  nothing interprets, nothing changes.'),
+                    'note': 'The second lists things the first cannot show '
+                            'you, which is usually the entire reason you were '
+                            'given the image.',
+                },
+                {
+                    'label': 'What deleting actually does',
+                    'code': ('before   secret.txt -> inode 24 -> data\n'
+                             '\n'
+                             'after    (entry marked unused)\n'
+                             '                        inode 24 -> data\n'
+                             '\n'
+                             'the data is untouched until reused'),
+                    'note': 'This is why "I deleted it" and "it is gone" are '
+                            'different statements, and why the gap between '
+                            'them is measured in whether anything has been '
+                            'written since.',
+                },
+                {
+                    'label': 'The safety rule, stated once',
+                    'code': ('work on a copy. always.\n'
+                             '\n'
+                             'cp disk.img working.img\n'
+                             'sha256sum disk.img working.img\n'
+                             '\n'
+                             'and verify the two match'),
+                    'note': 'The hash is not ceremony. It is how you answer '
+                            '"is what you examined the same as what you were '
+                            'given", which is a question with consequences.',
+                },
+            ],
+            'misconceptions': [
+                'Mounting read-only is not the same as not touching. The '
+                'kernel may still replay a journal, and a forensic tool '
+                'reading bytes avoids the question entirely.',
+                'Deleting a file does not erase its contents. It usually '
+                'marks a directory entry unused, and the data stays until '
+                'something else claims the space.',
+                'A disk image is not a file archive. It is the raw bytes of a '
+                'device, including all the structure and all the space '
+                'between the files.',
+            ],
+            'try_it': [
+                'Before reading on, say what you would lose by mounting an '
+                'image instead of parsing it. There are two answers and one '
+                'matters more.',
+                'Look at any image you have with `ls -l`. Its size is the '
+                'whole device, not the sum of the files in it, and the '
+                'difference is where this module works.',
+            ],
+        },
+        {
             'id': 'tsk-layers',
             'title': 'Four layers, and the prefix that names them',
             'next': 'tsk-volumes',
@@ -188,8 +282,10 @@ MODULE = {
             'title': 'Partitions, and the offset everybody forgets',
             'next': 'tsk-files',
             'concept': (
-                'A whole-disk image starts with a volume system, not a '
-                'filesystem, and this is where most first attempts fail.\n\n'
+                '`mmls` is how you find the start sector of a partition '
+                'inside a whole-disk image. That is why every later '
+                'filesystem command needs `-o`, and why "Cannot determine '
+                'file system type" almost always means a missing offset.\n\n'
                 '`mmls disk.img` prints the partition table: a row per slot, '
                 'with a start sector, a length and a description. The number '
                 'that matters is the **start sector**, because every '
@@ -210,7 +306,10 @@ MODULE = {
                 'rather than a problem.\n\n'
                 'Once inside, `fsstat` tells you the filesystem type, the '
                 'sector and cluster size, and which sectors hold which '
-                'structures. It is the orientation command.'
+                'structures. It is the orientation command.\n\n'
+                'You know where the filesystem starts. The next lesson '
+                'is names and inodes, which is the chain that pays off '
+                'on a deleted file.'
             ),
             'examples': [
                 {
@@ -254,9 +353,10 @@ MODULE = {
             'title': 'Names, inodes, and getting a deleted file back',
             'next': 'tsk-timeline',
             'concept': (
-                'Three commands do the actual work, and they chain: `fls` '
-                'gives you an inode number, `istat` describes it, `icat` '
-                'prints its contents.\n\n'
+                '`fls`, `istat` and `icat` are how you go from a name to an '
+                'inode to the bytes still on disk. That is why a deleted '
+                'entry marked with `*` can still give its contents back, as '
+                'long as nothing has reused the blocks.\n\n'
                 '`fls` lists the name layer. Each row is a type, an inode '
                 'number and a name: `r/r 3: NOTES.TXT` is a regular file at '
                 'inode 3. `-r` recurses into directories, and `-d` shows '
@@ -279,6 +379,11 @@ MODULE = {
                 'plausible before trusting its contents.'
             ),
             'examples': [
+                {
+                    'label': 'Carving from the space between files',
+                    'code': 'blkls disk.img > unalloc.raw\nstrings unalloc.raw | less\n\nblkls extracts the unallocated blocks:\ndeleted content nothing points at any more',
+                    'note': 'A deleted file whose metadata is gone is invisible to fls and still sitting on the disk. blkls is how you get at it.',
+                },
                 {
                     'label': 'The chain',
                     'code': ('fls disk.img\n'

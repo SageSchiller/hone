@@ -50,12 +50,115 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'td-what',
+            'title': 'What a packet is, and what capturing means',
+            'next': 'td-two-languages',
+            'concept': (
+                'tcpdump is how you print the packets that actually crossed '
+                'the wire. That is why a capture settles what logs cannot: '
+                'whether a request left, whether it was answered, and whether '
+                'the thing that answered was the one you asked. Everything a '
+                'machine sends or receives travels as **packets**: small, '
+                'self-contained chunks of bytes, each carrying enough '
+                'addressing to find its way. A one-megabyte download is not '
+                'one thing arriving. It is a few hundred packets arriving '
+                'and being reassembled.\n\n'
+                'Each packet is built in **layers**, wrapped like envelopes '
+                'inside envelopes. The outermost says which machine on this '
+                'cable; inside that, which machine on the internet; inside '
+                'that, which program on that machine; and inside that, '
+                'whatever the program actually meant to say.\n\n'
+                '**Capturing means asking the network card for copies** of '
+                'packets as they pass. Not intercepting, not delaying, not '
+                'modifying: copies. The traffic carries on exactly as it '
+                'would have. That is why capture is a diagnostic rather than '
+                'an intervention, and why it needs privileges: the card '
+                'ordinarily hands your process only its own traffic, and you '
+                'are asking for all of it.\n\n'
+                '**Why it is worth the trouble.** Logs tell you what a '
+                'program decided to write down. A capture tells you what '
+                'actually crossed the wire, which settles arguments nothing '
+                'else can: whether the request left at all, whether it was '
+                'answered, whether it was answered slowly, and whether the '
+                'thing that answered was the thing you meant to ask.\n\n'
+                '`tcpdump` prints packets. That is the whole of what it does. '
+                'Everything else in this module is about choosing which '
+                'packets and how much of each to show, because the default of '
+                '"all of them" becomes unreadable in about two seconds.'
+            ),
+            'examples': [
+                {
+                    'label': 'Stopping it, which you will need immediately',
+                    'code': 'Ctrl-C     stop capturing, print the counts\n\n1274 packets captured\n1281 packets received by filter\n7 packets dropped by kernel\n\n-c 20      stop on its own after 20 packets',
+                    'note': 'tcpdump runs until interrupted, so Ctrl-C is part of the command. The dropped count is worth reading: if it is high, the filter is too wide and you are losing packets you never saw.',
+                },
+                {
+                    'label': 'One packet, unwrapped',
+                    'code': ('Ethernet   which card, on this cable\n'
+                             ' IP        which machine, on the internet\n'
+                             '  TCP      which program, and in what order\n'
+                             '   HTTP    "GET /index.html"\n'
+                             '\n'
+                             'each layer wraps the one below it'),
+                    'note': 'tcpdump can filter at any of these layers, which '
+                            'is why its filter language has words like '
+                            '`ether`, `ip`, `tcp` and `port` sitting side by '
+                            'side.',
+                },
+                {
+                    'label': 'What a line of output says',
+                    'code': ('09:15:02.123 IP 10.0.0.5.54321 > '
+                             '93.184.216.34.443: Flags [S]\n'
+                             '\\__________/    \\___________/   '
+                             '\\______________/       \\___/\n'
+                             '    when          from            to           '
+                             ' kind'),
+                    'note': 'Flags [S] is a connection starting. Reading these '
+                            'lines fluently is most of the module and it '
+                            'arrives faster than you expect.',
+                },
+                {
+                    'label': 'Why you almost always need a filter',
+                    'code': ('tcpdump -i any\n'
+                             '  everything: thousands of lines a second,\n'
+                             '  including the ssh session you are typing\n'
+                             '  this into.\n'
+                             '\n'
+                             'tcpdump -i any port 53\n'
+                             '  just the DNS'),
+                    'note': 'Capturing your own remote session is the classic '
+                            'first move: every line printed generates '
+                            'traffic, which prints a line. Filter it out or '
+                            'watch it feed itself.',
+                },
+            ],
+            'misconceptions': [
+                'Capturing does not intercept traffic. It copies packets as '
+                'they pass, and nothing is delayed, blocked or altered by '
+                'being watched.',
+                'A packet is not a message. One request can be split across '
+                'several, and several small messages can share one, which is '
+                'why reassembly is something tools do for you.',
+                'Reading a capture does not need root, though taking one '
+                'does. A saved file is an ordinary file that anyone who can '
+                'read it can analyse.',
+            ],
+            'try_it': [
+                'Run `sudo tcpdump -i any -c 5` and read the five lines. '
+                'Ignore the detail; just find the two addresses in each.',
+                'Run it again while loading a web page, and see how many '
+                'packets one page turns out to be.',
+            ],
+        },
+        {
             'id': 'td-two-languages',
             'title': 'Two filter languages, and which is which',
             'next': 'td-bpf',
             'concept': (
-                'This is the lesson that saves the most time, so it comes '
-                'first.\n\n'
+                'Capture filters and display filters are how you choose which '
+                'packets you record, and which of those you later show. That '
+                'is why mixing the two languages is the mistake that looks '
+                'like an empty capture.\n\n'
                 'A **capture filter** decides which packets are recorded at '
                 'all. It is written in BPF, it is what tcpdump takes on the '
                 'command line, and because it runs in the kernel it is fast and '
@@ -67,7 +170,19 @@ MODULE = {
                 'They look similar enough that people paste one into the other '
                 'and get either a syntax error or, worse, a filter that '
                 'silently matches nothing. The rule: **spaces and words are '
-                'BPF, dots and double equals are display.**'
+                'BPF, dots and double equals are display.**\n\n'
+                'The reason they cannot be the same language is where they '
+                'run. A capture filter is compiled into a tiny program the '
+                'kernel runs on every packet, before anything is copied up. '
+                'That is why it is fast, why it cannot see a reassembled '
+                'stream, and why it has no word for HTTP. A display filter '
+                'runs later, after a dissector has named every field, so '
+                '`http.request` is cheap there and impossible at capture '
+                'time.\n\n'
+                'Pasting a Wireshark filter into tcpdump is the usual first '
+                'failure: a syntax error, or a filter that matches nothing '
+                'and looks like an empty capture. The next lesson is BPF: '
+                'hosts, ports, and the parentheses the shell will eat.'
             ),
             'examples': [
                 {
@@ -115,9 +230,9 @@ MODULE = {
             'title': 'BPF: types, directions and protocols',
             'next': 'td-reading',
             'concept': (
-                'BPF syntax is three kinds of primitive combined with three '
-                'logical operators, and once you see the grid it stops looking '
-                'arbitrary.\n\n'
+                'BPF is how you write a capture filter for a host, a port or '
+                'a protocol. That is why the grid of type, direction and '
+                'protocol is the language tcpdump actually takes.\n\n'
                 'A primitive has a **type** (`host`, `net`, `port`, '
                 '`portrange`), optionally a **direction** (`src`, `dst`), and '
                 'optionally a **protocol** (`tcp`, `udp`, `icmp`, `ip`, '
@@ -130,7 +245,18 @@ MODULE = {
                 '`not` outranks `and`: `not port 22 and tcp` reads as `(not '
                 'port 22) and tcp`, not as "not (port 22 and tcp)". '
                 'Parenthesise anything with more than two terms, and remember '
-                'the shell wants the parentheses quoted.'
+                'the shell wants the parentheses quoted.\n\n'
+                '`tcpdump not port 22 and tcp` is `(not port 22) and tcp`. '
+                'That is why a filter you thought excluded SSH-over-TCP still '
+                'shows UDP. Quote the whole expression.\n\n'
+                'Leave the quotes off and the shell treats `(` as a subshell '
+                'start, so the filter never reaches tcpdump, or only part of '
+                'it does. The capture then looks empty. And `host 10.0.0.1` '
+                'with no direction matches both ways: usually right, but a '
+                'filter you meant as traffic to the server also catches '
+                'everything it sent, which can hide the handshake you were '
+                'looking for. The next lesson is reading the one-line output '
+                'so you know whether the filter did what you meant.'
             ),
             'examples': [
                 {
@@ -191,6 +317,25 @@ MODULE = {
                 'rather than `https`. It is faster, it does not leak reverse '
                 'lookups onto the network, and it means the output matches the '
                 'filter you typed.'
+                '\n\n'
+                'Without `-nn` two things go wrong at once. tcpdump fires a '
+                'reverse DNS lookup for every new address, and that lookup '
+                'is itself traffic on the network you are trying to watch. A '
+                'slow or broken resolver then stalls the next line for '
+                'seconds, so a busy capture looks like it froze. The port '
+                'names compound it: you filtered on `443` and the output '
+                'says `https`, which is the same thing written two ways and '
+                'is how people miss the match.\n\n'
+                'The default line is the header. `-A` prints the payload as '
+                'ASCII, `-X` prints hex with ASCII beside it. Cleartext HTTP, '
+                'DNS and banners become readable; TLS is ciphertext and looks '
+                'like junk under both flags. That junk is not a broken '
+                'capture, it is the encryption working. Reach for `-A` when '
+                'you expect text, `-X` when you need to see the bytes.\n\n'
+                'The next lesson is matching on TCP flags and packet size, '
+                'which is how you find SYNs and refusals in a noisy capture. '
+                'A SYN is `[S]` with length 0; a refuse is `[R]`. Once you '
+                'can see those, the capture is no longer a wall of text.'
             ),
             'examples': [
                 {
@@ -218,6 +363,17 @@ MODULE = {
                             'firewall dropping you and nothing listening, and '
                             'you can read it straight off the capture.',
                 },
+                {
+                    'label': 'The payload, when you need to read it',
+                    'code': ('tcpdump -nn -A -r cap.pcap \'port 80\'\n'
+                             'tcpdump -nn -X -r cap.pcap icmp\n'
+                             '\n'
+                             '-A   ASCII payload\n'
+                             '-X   hex, with ASCII beside it\n'
+                             'TLS on 443 looks like junk either way'),
+                    'note': 'Junk on a TLS port is the encryption working, not '
+                            'a truncated capture.',
+                },
             ],
             'misconceptions': [
                 'Without `-nn`, tcpdump does reverse DNS lookups, which is slow '
@@ -238,10 +394,11 @@ MODULE = {
             'title': 'Matching on bits',
             'next': 'td-capture',
             'concept': (
-                'BPF can index into the packet, which is how you match things '
-                'that have no named primitive. The syntax is '
-                '`proto[offset:size]`, and there are two idioms worth having by '
-                'heart.\n\n'
+                'Indexing into a packet is how you match TCP flags and sizes '
+                'that have no named primitive. That is why this is the syntax '
+                'for finding SYNs, refusals and scans in a noisy capture. The '
+                'form is `proto[offset:size]`, and two idioms are worth having '
+                'by heart.\n\n'
                 '`tcp[tcpflags] & tcp-syn != 0` matches any packet with the SYN '
                 'bit set. Adding `and tcp[tcpflags] & tcp-ack == 0` narrows it '
                 'to connection attempts only, which is how you find scans and '
@@ -249,7 +406,21 @@ MODULE = {
                 'The other common one is length: `greater 1000` matches packets '
                 'over a size, and `ip[2:2] > 1000` does it by reading the IP '
                 'total-length field directly. The first is easier; the second '
-                'shows you the mechanism.'
+                'shows you the mechanism.\n\n'
+                '`tcp[tcpflags] & tcp-syn != 0` is the SYN hunt. Forgetting '
+                'the mask and writing `tcp[tcpflags] == tcp-syn` misses '
+                'SYN-ACK, because that packet has two bits set. TCP flags '
+                'live in one byte as individual bits, so several can be set '
+                'at once. A SYN-ACK has both SYN and ACK. Equality against a '
+                'single named constant therefore misses every packet that is '
+                'doing two things, which is most of the handshake. The mask '
+                '(`&`) asks whether this bit is on, regardless of its '
+                'neighbours. Forgetting it is the usual miss: the filter '
+                'looks right, the SYN-ACKs vanish, and the capture looks '
+                'like nothing answered.\n\n'
+                'The next lesson is capturing to a file without wrecking the '
+                'machine or the evidence. Write first, filter second: a live '
+                'typo is gone, a pcap is not.'
             ),
             'examples': [
                 {
@@ -308,12 +479,26 @@ MODULE = {
                 'stops a capture eating a disk. `-s0` captures whole packets '
                 'rather than truncating, and is the default on modern versions '
                 'but worth stating. `-i any` captures on every interface, which '
-                'is the fastest way to stop guessing which one matters.'
+                'is the fastest way to stop guessing which one matters. `-D` '
+                'lists the interfaces tcpdump can capture on, with a number '
+                'for each, which is how you see what `any` is collecting '
+                'before you start.\n\n'
+                '`-s 0` (or no snaplen cap) keeps full packets; a short '
+                'snaplen silently truncates payloads and looks like missing '
+                'data. Older tcpdump defaulted to 68 or 96 bytes, enough for '
+                'headers and not for payloads. Reading that file later, HTTP '
+                'looks empty and TLS looks cut, and it is easy to conclude '
+                'the traffic never carried data. `-C` and `-W` rotate files '
+                'so a forgotten capture cannot fill the disk. An unbounded '
+                '`-w` on a busy interface will, and the capture you needed '
+                'is the one that ran out of space. The next lesson is a '
+                'workflow that uses a file first, filters later.'
             ),
             'examples': [
                 {
                     'label': 'The standard invocation',
-                    'code': ("sudo tcpdump -i any -nn -s0 -w cap.pcap "
+                    'code': ('tcpdump -D                       what can be captured\n'
+                             "sudo tcpdump -i any -nn -s0 -w cap.pcap "
                              "'port 443'\n"
                              '\n'
                              'tcpdump -nn -r cap.pcap                no root\n'
@@ -366,7 +551,18 @@ MODULE = {
                 'And know where this tool stops. tcpdump shows packets. If the '
                 'question is about application behaviour, reassembled streams, '
                 'or TLS contents, the answer is Wireshark or tshark reading the '
-                'same pcap, and that is a handoff rather than a failure.'
+                'same pcap, and that is a handoff rather than a failure.\n\n'
+                'Capture wide, save the file, filter in a second command. '
+                'A live filter you typed wrong is gone; a pcap you can '
+                're-read. The layer it stops at is readable in the flags. '
+                'SYNs with no SYN-ACK means the packet left and nothing '
+                'answered: host down, port filtered, or the wrong address. '
+                'SYN then RST is a host that is up and a port that is '
+                'closed. A completed handshake and then no data is an '
+                'application problem, not a network one. Each of those is a '
+                'different ticket, and the capture is what tells them apart. '
+                'This module stays on the packet. Reassembled streams belong '
+                'to Wireshark.'
             ),
             'examples': [
                 {
@@ -380,6 +576,19 @@ MODULE = {
                              '4  read the flags: [S] with no [S.]'),
                     'note': 'Steps 2 and 3 are re-filters of one capture, which '
                             'is why step 1 wrote to a file.',
+                },
+                {
+                    'label': 'An empty capture is not a finding yet',
+                    'code': ("tcpdump -nn -i any -c 20 "
+                             "'host 10.0.0.5 and port 443'\n"
+                             '  0 packets captured\n'
+                             '\n'
+                             'write first, then ask:\n'
+                             'tcpdump -nn -i any -c 50 -w cap.pcap\n'
+                             "tcpdump -nn -r cap.pcap 'host 10.0.0.5'\n"
+                             '  traffic was there; the live filter was not'),
+                    'note': 'The first command proved nothing. A file you can '
+                            're-filter is how a dead host is told from a typo.',
                 },
             ],
             'misconceptions': [

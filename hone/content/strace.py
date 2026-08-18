@@ -57,8 +57,24 @@ MODULE = {
                 'process at every syscall, so a syscall-heavy program can run '
                 'an order of magnitude slower under it. That is fine for '
                 'diagnosis and misleading for benchmarking, and it is why '
-                'timing questions get -c rather than a stopwatch.',
+                'timing questions get -c rather than a stopwatch.\n\n'
+                'What "stops the process" means is ptrace: the kernel pauses '
+                'the program on the way into each syscall and again on the '
+                'way out, and strace prints what it sees in between. That is '
+                'why the first dozen lines of `strace ls` are the dynamic '
+                'loader opening `ld-linux` and `libc`, before `main` runs at '
+                'all. People scroll past those looking for their program and '
+                'miss that the failure already happened: a missing `.so` is '
+                'an openat ENOENT in that prologue, not later.\n\n'
+                'The next lesson is how to read a line of that list, '
+                'because a syscall you cannot parse is a boundary you '
+                'still cannot see.',
             'examples': [
+                {
+                    'label': 'Stopping a trace you attached to',
+                    'code': 'strace ./prog        ends when prog does\nstrace -p 1234       runs until you stop it\n\nCtrl-C               detach and stop tracing\n\nthe traced process keeps running,\nwhich is the whole point of -p',
+                    'note': 'Ctrl-C on an attached trace detaches cleanly and leaves the target alive. That is worth knowing before you attach to something in production for the first time.',
+                },
                 {'label': 'The whole tool, in one command',
                  'code': 'strace ls',
                  'note': 'Every syscall ls makes, in order, on stderr. Start '
@@ -89,10 +105,10 @@ MODULE = {
             'id': 'st-reading',
             'title': 'Reading a line of output',
             'concept':
-                'Every line has the same shape: the syscall name, the '
-                'arguments in parentheses, an equals sign, and the return '
-                'value. When the return is -1, an errno name and its message '
-                'follow, and that is where almost every answer lives.\n\n'
+                'A strace line is how you read the name, the arguments, and '
+                'the return of one syscall. That is why a -1 with ENOENT '
+                'names the exact path that was missing, not the path you '
+                'assumed.\n\n'
                 'openat(AT_FDCWD, "/etc/hosts", O_RDONLY|O_CLOEXEC) = 3 says '
                 'a file was opened relative to the current directory, read '
                 'only, and got file descriptor 3. The same call ending in -1 '
@@ -107,7 +123,16 @@ MODULE = {
                 'Unfinished and resumed lines appear when tracing more than '
                 'one process: a syscall that blocks is printed as unfinished, '
                 'other processes get their turn, and the resumed half appears '
-                'later with the return value.',
+                'later with the return value.\n\n'
+                'The path in the argument is the whole diagnosis. '
+                '`openat(AT_FDCWD, "conf/app.cfg", ...)` means relative to '
+                'the working directory at that moment, not relative to the '
+                'binary, not relative to `$HOME`. A program started from the '
+                'wrong directory will ENOENT a file that is sitting right '
+                'next to it. `AT_FDCWD` is that working directory. A numeric '
+                'first argument is a directory fd from an earlier open, and '
+                '`-y` will name it so you do not have to walk the trace by '
+                'hand.',
             'examples': [
                 {'label': 'A success and a failure, side by side',
                  'code': 'openat(AT_FDCWD, "/etc/hosts", O_RDONLY) = 3\n'
@@ -161,7 +186,15 @@ MODULE = {
                 '-e signal= selects which signals are reported, and -e '
                 'inject= is the sharp one: it makes a chosen syscall fail on '
                 'purpose, which turns strace from an observation tool into a '
-                'fault injection tool for testing error handling.',
+                'fault injection tool for testing error handling.\n\n'
+                'The trap with `-e status=failed` is the successful call that '
+                'made the failure inevitable. A program chdirs to the wrong '
+                'place and then fails to open `./config`: the failed open is '
+                'what you see, the chdir is what you needed. Start with '
+                'failures to find the errno, then widen to `%file` around '
+                'that timestamp to see the setup. `-e` never makes the '
+                'program faster. strace still stops it at every syscall and '
+                'then throws away the lines you did not ask for.',
             'examples': [
                 {'label': 'Only the file operations',
                  'code': 'strace -e trace=%file ls',
@@ -179,6 +212,26 @@ MODULE = {
                  'code': 'strace -e inject=openat:error=EACCES myprogram',
                  'note': 'Fault injection. Tests the error path you can never '
                          'reproduce otherwise.'},
+                # -q, -i and -u were all drilled and none of them appeared
+                # anywhere in seven lessons.
+                {'label': 'Three small flags that earn their place',
+                 'code': ('strace -q myprogram         drop the attach and\n'
+                          '                            exit chatter\n'
+                          'strace -i myprogram         show the instruction\n'
+                          '                            pointer per call\n'
+                          'sudo strace -u nobody prog  run it as another user'),
+                 'note': '-q is for when you are diffing two traces and the '
+                         'preamble keeps changing. -i tells you where in the '
+                         'program the call came from. -u needs root to drop '
+                         'to someone else, which is the point of it.'},
+                {'label': 'Why -u exists at all',
+                 'code': ('sudo strace -u nobody ./deploy.sh\n'
+                          '\n'
+                          'reproduces "works for me, fails for the\n'
+                          'service account" without logging in as it'),
+                 'note': 'Half of all permission bugs are a program that has '
+                         'only ever been run by someone with more rights than '
+                         'the thing that will run it in production.'},
             ],
             'misconceptions': [
                 '-e trace=file is not the same as -e trace=%file in older '
@@ -201,12 +254,11 @@ MODULE = {
             'id': 'st-follow',
             'title': 'Children, threads, and attaching',
             'concept':
-                'By default strace follows exactly one process. A shell '
-                'script, a service manager, or anything that forks will '
-                'therefore show you a clone call and then nothing, because '
-                'the work happened in a child nobody is watching.\n\n'
-                '-f fixes it: follow forks, and prefix every line with the '
-                'pid that made the call. That prefix is what makes an '
+                '`-f` is how you keep watching after a process forks, and it '
+                'prefixes every line with the pid that made the call. That '
+                'is why a shell-script trace without it ends at clone and '
+                'shows none of the work.\n\n'
+                'That prefix is what makes an '
                 'interleaved trace readable, and it is why -f and -o together '
                 'are the normal way to trace anything real.\n\n'
                 '-ff goes further, and only makes sense with -o: instead of '
@@ -217,7 +269,19 @@ MODULE = {
                 'Ctrl-C leaves the process running. On most distributions '
                 'attaching to a process you did not start requires root or a '
                 'relaxed /proc/sys/kernel/yama/ptrace_scope, which is a '
-                'hardening setting rather than a bug.',
+                'hardening setting rather than a bug.\n\n'
+                'An interleaved `-f` trace without reading the pid column '
+                'looks like one confused program. Two children open the same '
+                'path, one succeeds and one gets EACCES, and the lines sit '
+                'next to each other as if a single process contradicted '
+                'itself. The number at the start of the line is which child. '
+                '`-ff` splits that into files so the contradiction goes away. '
+                'The attach failure is different: `Operation not permitted` '
+                'on `-p` is almost always `ptrace_scope`, not a broken '
+                'strace, and it is policy doing its job.\n\n'
+                'Following and attaching answers who did it. The next '
+                'lesson is where the time went, which is a different '
+                'question and a different mode.',
             'examples': [
                 {'label': 'Follow every child',
                  'code': 'strace -f -o trace.txt ./deploy.sh',
@@ -255,8 +319,10 @@ MODULE = {
             'id': 'st-timing',
             'title': 'Counting and timing: where the time went',
             'concept':
-                'Filtering answers what happened. Counting answers what is '
-                'slow, and it is a different mode of the same tool.\n\n'
+                '`-c` is how you get a summary of which syscalls took the '
+                'time, instead of a line per call. That is why a nine-second '
+                'program usually has its answer in the top row of that '
+                'table.\n\n'
                 '-c suppresses the per-line output entirely and prints a '
                 'summary table when the process exits: calls, errors, time, '
                 'and time per call, sorted by time. For "this program takes '
@@ -272,7 +338,16 @@ MODULE = {
                 '-tt puts a wall clock timestamp with microseconds at the '
                 'front, and -r prints time relative to the previous call. A '
                 'long -T on a read is a program waiting for something else, '
-                'and that is a different problem from a million fast calls.',
+                'and that is a different problem from a million fast calls.\n\n'
+                'The table under `-c` is empty until the process exits, so it '
+                'is the wrong mode for a hang. Attach with `-p` and `-T` '
+                'instead, and the blocked call is the last line, sitting '
+                'there with no return. A program that sleeps for ten seconds '
+                'shows almost nothing in the seconds column of a plain `-c`, '
+                'because that column is time inside the kernel, not time on '
+                'the clock. Add `-w` and the nanosleep line takes the ten '
+                'seconds. The absolute numbers are inflated by the trace '
+                'itself; the ranking is still the answer.',
             'examples': [
                 {'label': 'Where did the time go',
                  'code': 'strace -c -o counts.txt ./slow-thing',
@@ -328,7 +403,17 @@ MODULE = {
                 '**Why is it slow, or stuck?** -c for slow, -p for stuck. A '
                 'hung process attached to shows the syscall it is blocked in, '
                 'which is nearly always a read, a futex or a poll, and each '
-                'of those means something different.',
+                'of those means something different.\n\n'
+                'A long run of ENOENT is not a broken program. It is a search '
+                'path: `/etc/app/app.cfg`, then `~/.config/app.cfg`, then '
+                '`./app.cfg`, each failing until one hits. That list, in '
+                'order, is the configuration the author actually wrote, and '
+                'it is often not the one in the man page. For a hang, the '
+                'blocked syscall is the diagnosis. `read` means a peer or a '
+                'file that has not sent data. `poll` or `select` means it is '
+                'waiting on several fds. `futex` means another thread holds '
+                'a lock, so the answer is in a different pid and `-f` is '
+                'required.',
             'examples': [
                 {'label': 'Which config did it really read',
                  'code': 'strace -f -e trace=%file -o t.txt myprogram; '
@@ -364,9 +449,10 @@ MODULE = {
             'id': 'st-limits',
             'title': 'What strace cannot see, and what to use instead',
             'concept':
-                'Knowing the edge of the tool is part of knowing the tool.\n\n'
-                'strace sees syscalls, so it cannot see anything that is not '
-                'one. Library calls that never reach the kernel are invisible; '
+                'strace cannot see anything that is not a syscall. That is '
+                'why library calls, internal computation, and work that '
+                'finished before you attached all need a different look.\n\n'
+                'Library calls that never reach the kernel are invisible; '
                 'ltrace is the equivalent for those, and it is far less '
                 'reliable on modern binaries. Anything a program computes '
                 'internally, including all the interesting cryptography, is '
@@ -383,7 +469,14 @@ MODULE = {
                 'once instead of one.\n\n'
                 'And in a container, strace needs the right capability. '
                 'SYS_PTRACE is often dropped by default, which produces a '
-                'permission error that looks like a bug and is a policy.',
+                'permission error that looks like a bug and is a policy.\n\n'
+                'The heisenbug is a timeout that only happens under strace. '
+                'A protocol that expects a reply in 50ms will miss it when '
+                'every syscall is paused for printing, and the program takes '
+                'the error path you came to investigate, for a new reason. '
+                'Inside a container the refusal is usually `Operation not '
+                'permitted` with no mention of policy: add `SYS_PTRACE` or '
+                'run the trace from the host against the container\'s pid.',
             'examples': [
                 {'label': 'Library calls, not syscalls',
                  'code': 'ltrace ./program',

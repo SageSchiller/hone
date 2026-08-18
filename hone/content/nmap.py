@@ -43,6 +43,10 @@ MODULE = {
             'id': 'nm-model',
             'title': 'A scan is a question, and a state is an answer',
             'concept':
+                'nmap sends packets and names a state from the reply or from '
+                'silence. The report is a list of guesses. `--reason` prints '
+                'the packet behind the word, which is why a state stops being '
+                'a label and becomes evidence.\n\n'
                 'nmap does not look at a host and see its ports. It sends a '
                 'packet, waits, and infers a state from what came back or '
                 'from the fact that nothing did. Every state name is the name '
@@ -61,7 +65,17 @@ MODULE = {
                 'refuses to guess between them.\n\n'
                 'open|filtered exists for the same honesty. In a UDP scan or a '
                 'FIN scan, an open port and a filtered port both say nothing, '
-                'so nmap reports the ambiguity rather than resolving it.',
+                'so nmap reports the ambiguity rather than resolving it.\n\n'
+                'That is why a scan full of closed ports is more useful than '
+                'it looks. Each RST is the host saying it is there. A scan '
+                'full of filtered ports is the opposite: you still do not '
+                'know whether the host is up, whether a firewall ate the '
+                'probe, or whether your own packets never left. `--reason` '
+                'prints the packet behind each state, which is how you stop '
+                'arguing with the word and start reading the evidence.\n\n'
+                'A state is an answer about one port. The next lesson '
+                'is the question before that: which hosts even get '
+                'asked.',
             'examples': [
                 {'label': 'Ask why, and read the evidence',
                  'code': 'nmap --reason 127.0.0.1',
@@ -93,9 +107,10 @@ MODULE = {
             'id': 'nm-targets',
             'title': 'Targets, and whether to ping first',
             'concept':
-                'Before nmap scans a port it decides whether the host is '
-                'worth scanning at all. That is host discovery, and it is the '
-                'stage that silently loses people the most results.\n\n'
+                'Host discovery is how nmap decides whether a target is '
+                'worth scanning at all. That is why a host that drops pings '
+                'vanishes from a report, and why `-Pn` is the flag that '
+                'brings it back.\n\n'
                 'By default nmap pings first, and "ping" here is not just '
                 'ICMP echo: as an unprivileged user it is a TCP connect to '
                 '80 and 443, and as root it is an ICMP echo, a TCP SYN to '
@@ -113,7 +128,15 @@ MODULE = {
                 'Target syntax is its own small language: a name, an address, '
                 'CIDR, an octet range like 10.0.0.1-50, a comma list inside '
                 'an octet, -iL to read a file, and --exclude to carve pieces '
-                'back out.',
+                'back out.\n\n'
+                'The failure mode is a one-line report: `Host seems down`. '
+                'nmap is telling you discovery failed, not that the host is '
+                'off. A Windows box with the firewall on will drop every '
+                'default probe and vanish from a sweep, then answer every '
+                'port you actually scan once `-Pn` forces the question. '
+                'Across a /24 that same flag also scans every unused '
+                'address, which is why it is the right fix for one host and '
+                'a slow mistake for a range.',
             'examples': [
                 {'label': 'What is alive in this range',
                  'code': 'nmap -sn 192.168.1.0/24',
@@ -221,7 +244,17 @@ MODULE = {
                 '-p- pass, run once and saved, tells you what it also has, '
                 'which is where the interesting service is roughly half the '
                 'time. Doing them in that order means you are reading useful '
-                'output while the slow scan is still running.',
+                'output while the slow scan is still running.\n\n'
+                '`-p-` is all 65535 TCP ports and it is slow. Starting with '
+                '`--top-ports 100` is how you have something to read while '
+                'it runs. UDP needs `-sU` and root, and it is slower still.\n\n'
+                'The line to read first is `Not shown: 996 closed tcp ports`. '
+                'Those ports were scanned and refused. A port that is not in '
+                'the output and not in that count was never asked about, so '
+                'the default 1000 will miss a service sitting on 8443 or '
+                '28017 if those numbers are not in the frequency list. The '
+                'next lesson is what the SERVICE column actually checked: '
+                'without `-sV` it is a table lookup, not a detection.',
             'examples': [
                 {'label': 'Everything, all 65535',
                  'code': 'nmap -p- 10.0.0.5',
@@ -277,7 +310,16 @@ MODULE = {
                 'labels with a confidence percentage for a reason.\n\n'
                 '-A turns on -sV, -O, default scripts and traceroute in one '
                 'flag. It is convenient and it is loud, and knowing what it '
-                'switches on is the point.',
+                'switches on is the point.\n\n'
+                'What `-sV` actually does is connect and wait. Some services '
+                'speak first, a banner, and nmap matches that. Some wait for '
+                'the client to speak, so nmap sends probes from its signature '
+                'database, starting with the ones most likely for that port, '
+                'and works down the intensity list. A result of `unknown` '
+                'means every probe it was willing to try came back unmatched, '
+                'not that nothing is there. Quoting a SERVICE column with no '
+                'VERSION string as a fact is how reports go wrong: the scan '
+                'never checked.',
             'examples': [
                 {'label': 'What is really listening',
                  'code': 'nmap -sV -p 22,80 10.0.0.5',
@@ -329,7 +371,16 @@ MODULE = {
                 '"default and safe". --script-args passes values in, and '
                 '--script-help prints what a script does without running it.\n\n'
                 'Reading --script-help before running anything from brute, '
-                'dos or exploit is the whole of the safety practice here.',
+                'dos or exploit is the whole of the safety practice here.\n\n'
+                'A script you named and then do not see in the output usually '
+                'did not fail. Its rule did not match: wrong port state, '
+                'wrong service name, or `-sV` was needed first so the '
+                'service was identified. That looks like the script is '
+                'broken and is almost always a missing version scan. The '
+                'other miss is treating `default` as safe by another name. '
+                'Default scripts are chosen for usefulness, not gentleness, '
+                'and a couple of them still hit the network hard enough to '
+                'notice.',
             'examples': [
                 {'label': 'The default set',
                  'code': 'nmap -sC -p 80 10.0.0.5',
@@ -388,7 +439,18 @@ MODULE = {
                 'The practical warning is real. A fast scan against fragile '
                 'embedded devices, printers, industrial gear or an overloaded '
                 'firewall can take them out. Slow is not politeness, it is '
-                'accuracy.',
+                'accuracy.\n\n'
+                'What a too-fast scan looks like is missing opens, not an '
+                'error. `-T5` shortens the wait for a reply, so a slow or '
+                'distant host never answers in time and the port is recorded '
+                'as filtered or closed. Re-run the same host at `-T3` and '
+                'ports appear that were not there. That is the accuracy you '
+                'bought with speed, spent. On a LAN `-T4` is usually fine. '
+                'Across a WAN or against anything that rate-limits, the '
+                'missing ports are the real result and the clock is a lie.\n\n'
+                'Speed is a tradeoff. The question left open is what '
+                'you keep of the answer, and the next lesson is why the '
+                'XML file pays off.',
             'examples': [
                 {'label': 'The usual working speed',
                  'code': 'nmap -T4 -p- --open 10.0.0.5',
@@ -422,9 +484,9 @@ MODULE = {
             'id': 'nm-output',
             'title': 'Output formats, and why you keep the file',
             'concept':
-                'A scan that exists only in your scrollback is a scan you '
-                'will run again. nmap has four output formats and one flag '
-                'that turns on three of them.\n\n'
+                'Output files are how a scan survives the scrollback. That '
+                'is why `-oA` writes three formats at once, and why a killed '
+                'four-hour scan is recoverable.\n\n'
                 '-oN is normal, the same text you saw. -oX is XML, which is '
                 'what every other tool reads. -oG is grepable, one host per '
                 'line, which is what awk and grep read. -oA takes a basename '
@@ -439,7 +501,15 @@ MODULE = {
                 'four hour scan from a disaster into an inconvenience. ndiff '
                 'compares two XML files and prints what changed, which is how '
                 'you scan the same network next month and see only what is '
-                'new.',
+                'new. Keep the XML; grep the normal output only for a glance.\n\n'
+                'Redirecting stdout is not `-oN`. The progress lines, the '
+                '`Not shown` summary, and the runtime stats all land in the '
+                'file, and `--resume` will not read it. `-oN` writes the '
+                'report format, which is why it can be resumed and why '
+                '`ndiff` wants the XML sibling rather than a captured '
+                'terminal. A four-hour `-p-` killed at hour three is gone '
+                'unless one of those files exists. That is the whole habit: '
+                'type `-oA` before the scan starts, not after it dies.',
             'examples': [
                 {'label': 'The default habit',
                  'code': 'nmap -A -oA scan-internal 10.0.0.0/24',

@@ -36,6 +36,93 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'dk-why',
+            'title': 'The problem containers solve',
+            'next': 'dk-model',
+            'concept': (
+                'A container is how you ship a program with everything it '
+                'depends on, without shipping a second operating system. '
+                'That is why the thing you tested is the thing that runs, '
+                'on a laptop and on a server.\n\n'
+                'The old answer was a **virtual machine**: ship a whole '
+                'simulated computer, operating system and all. It works and '
+                'it is enormous, gigabytes per copy, a minute to boot, and '
+                'you are running a second kernel to host one small '
+                'program.\n\n'
+                '**A container is the same idea with the heavy part removed.** '
+                'It packages the program and everything it depends on, but '
+                'shares the host\'s kernel rather than bringing its own. So it '
+                'starts in milliseconds, weighs megabytes, and you can run '
+                'thirty of them on a laptop.\n\n'
+                'What you get is **isolation without simulation**. The process '
+                'inside sees its own filesystem, its own network interface '
+                'and its own process list, and none of it is emulated: it is '
+                'one ordinary Linux process that has been lied to about what '
+                'exists. That is why it is fast, and also why a container is '
+                'a weaker security boundary than a VM.\n\n'
+                'Docker is the tool that builds, runs and ships these. The '
+                'payoff is that the thing you tested is the thing that runs, '
+                'byte for byte, on your laptop and on the server. Everything '
+                'in this module is in service of that one property.'
+            ),
+            'examples': [
+                {
+                    'label': 'Three ways to run a program elsewhere',
+                    'code': ('on the host    fast, and depends on\n'
+                             '               whatever is installed\n'
+                             '\n'
+                             'in a VM        isolated, whole extra OS,\n'
+                             '               gigabytes, slow to start\n'
+                             '\n'
+                             'in a container isolated, shares the kernel,\n'
+                             '               megabytes, instant'),
+                    'note': 'The middle option is not obsolete. It is the '
+                            'stronger boundary, and you pick it when you are '
+                            'isolating something hostile rather than '
+                            'something merely fussy.',
+                },
+                {
+                    'label': 'What the container thinks it can see',
+                    'code': ('its own /            not yours\n'
+                             'its own process 1    not systemd\n'
+                             'its own network      its own address\n'
+                             '\n'
+                             'all of it the host kernel,\n'
+                             'answering carefully'),
+                    'note': 'Run `ps` inside a container and you see almost '
+                            'nothing. That is the isolation, and it is '
+                            'bookkeeping rather than simulation.',
+                },
+                {
+                    'label': 'The one-line version of the payoff',
+                    'code': ('docker run -it python:3.12 python\n'
+                             '\n'
+                             'a working Python 3.12, on any machine\n'
+                             'with docker, without installing Python'),
+                    'note': 'Nothing was added to your system, and nothing '
+                            'has to be removed afterwards. That is the whole '
+                            'pitch in one command.',
+                },
+            ],
+            'misconceptions': [
+                'A container is not a lightweight virtual machine. There is '
+                'no second kernel and no emulation; it is a normal process '
+                'with a restricted view.',
+                'Containers are not primarily a security feature. They are an '
+                'isolation and packaging feature, and a VM is the stronger '
+                'boundary when the thing inside is hostile.',
+                'Docker is not the only container runtime. podman, containerd '
+                'and others run the same images, because the image format is '
+                'a standard rather than a product.',
+            ],
+            'try_it': [
+                'Run `docker run -it --rm alpine sh`, then `ps` and `ls /` '
+                'inside it. Compare with the same commands outside.',
+                'Exit that shell and run `ls` on your own machine to confirm '
+                'that nothing you did in there touched anything out here.',
+            ],
+        },
+        {
             'id': 'dk-model',
             'title': 'Images, containers, and layers',
             'next': 'dk-run',
@@ -138,9 +225,17 @@ MODULE = {
                 'every time, while `start`, `stop` and `exec` act on ones that '
                 'already exist. Running `docker run` twice gives you two '
                 'containers, not one restarted, which is the surprise behind a '
-                'pile of stopped duplicates.'
+                'pile of stopped duplicates.\n\n'
+                'The image name on that command is still a loose end. The next '
+                'lesson is where images come from, and why a missing tag is '
+                'already a choice.'
             ),
             'examples': [
+                {
+                    'label': 'Restarting a container you already made',
+                    'code': 'docker start web           start it in the background\ndocker start -ai web       start it and attach to it\n\n-a attaches output, -i keeps stdin open',
+                    'note': 'docker run makes a new container every time, which is how people end up with forty of them. start reuses the one you already have.',
+                },
                 {
                     'label': 'The run flags you reach for',
                     'code': ('docker run -it ubuntu bash      a shell in a '
@@ -184,11 +279,11 @@ MODULE = {
             'title': 'Images: pulling, listing, and the latest trap',
             'next': 'dk-dockerfile',
             'concept': (
-                'Images come from a **registry**, and the default is Docker '
-                'Hub. `docker pull nginx` downloads an image, though you rarely '
-                'need to: `docker run nginx` pulls it automatically if it is '
-                'not already local. `docker images` lists what you have and '
-                '`docker rmi` removes one.\n\n'
+                '`docker pull` is how you download an image from a registry, '
+                'and Docker Hub is the default. That is why a `docker run` '
+                'line can name nginx on a machine that has never seen it: '
+                'run pulls automatically if the image is not local. `docker '
+                'images` lists what you have and `docker rmi` removes one.\n\n'
                 'An image is named `repository:tag`, and the tag is where a '
                 'real trap lives. `nginx:1.27` names a specific version; '
                 '`nginx:latest`, or just `nginx` with no tag, means "whatever '
@@ -203,7 +298,9 @@ MODULE = {
                 'same image and why `docker pull` sometimes downloads nothing, '
                 'because you already have that digest. `docker tag` adds another '
                 'name to an image, which is what you do before pushing it '
-                'somewhere.'
+                'somewhere.\n\n'
+                'Pulling a named image is the easy half. The next lesson is '
+                'building your own: a Dockerfile, read top to bottom.'
             ),
             'examples': [
                 {
@@ -215,6 +312,18 @@ MODULE = {
                              'push'),
                     'note': 'run pulls automatically if the image is missing, '
                             'so an explicit pull is often optional.',
+                },
+                {
+                    'label': 'latest moved, the pinned tag did not',
+                    'code': ('docker pull nginx:1.27\n'
+                             'docker pull nginx            same as :latest\n'
+                             'docker images\n'
+                             '\n'
+                             'nginx  1.27    a6bd71f\n'
+                             'nginx  latest  9c1296e     different image'),
+                    'note': 'A Dockerfile that said FROM nginx last month and '
+                            'today did not use the same bytes. FROM nginx:1.27 '
+                            'cannot drift.',
                 },
             ],
             'misconceptions': [
@@ -237,10 +346,12 @@ MODULE = {
             'title': 'Building an image with a Dockerfile',
             'next': 'dk-data',
             'concept': (
-                'A Dockerfile is a recipe for an image, read top to bottom, '
-                'where each instruction adds a layer. The core instructions are '
-                'few. `FROM` names the base image to start from. `RUN` executes '
-                'a command at build time, which is how you install things. '
+                'A Dockerfile is how you write a recipe for an image, one '
+                'instruction and one layer at a time. That is why a rebuild '
+                'can reuse every layer that did not change, and take a second '
+                'instead of a minute. `FROM` names the base image to start '
+                'from. `RUN` executes a command at build time, which is how '
+                'you install things. '
                 '`COPY` brings files from your project into the image. '
                 '`WORKDIR` sets the directory later instructions run in. And '
                 'one of `CMD` or `ENTRYPOINT` says what to run when a container '
@@ -263,7 +374,14 @@ MODULE = {
                 'One genuine subtlety: `CMD` gives a default command that '
                 '`docker run` can override, while `ENTRYPOINT` sets a command '
                 'that always runs, with `CMD` supplying its default arguments. '
-                'For a simple app, `CMD` is what you want.'
+                'For a simple app, `CMD` is what you want.\n\n'
+                'A **multistage** file has two `FROM` lines. `FROM golang AS '
+                'build` compiles. `FROM alpine` then `COPY --from=build '
+                '/app /app` keeps the binary and drops the compiler. That '
+                'is how a small runtime image is made. `ENV KEY=val` sets '
+                'an environment variable in the image; `EXPOSE 8080` '
+                'documents a port and does not publish it. `-p` is still '
+                'what opens the port on the host.'
             ),
             'examples': [
                 {

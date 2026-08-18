@@ -62,12 +62,17 @@ class BufferAdapter(Adapter):
                 f'{self.scratch_name}, in a throwaway directory.')
 
     def launch(self, scratch: Path, buf: Path, cur: Path,
-               brief: str = '') -> list[str]:
+               brief: str = '', steps: list[str] | None = None) -> list[str]:
         """argv that opens `scratch` and dumps buffer and cursor on exit.
 
         `brief` is one line to keep in front of the student for the whole
         session: the task, and how to get back out. Each editor displays it
         its own way.
+
+        `steps` is the same information at length, for editors that can put it
+        in a second window beside the work. One line is the safety net; the
+        list is what you actually follow in guided mode, and an editor is the
+        one kind of tool that can show it without the student typing anything.
 
         **Convention:** the leave hook must be `argv[-2]` and the file
         `argv[-1]`. Editors put their flags in different places (`-c` for nvim,
@@ -103,7 +108,8 @@ class BufferAdapter(Adapter):
         if self.dir is None:
             return []
         return self.launch(self.scratch, self.dir / BUFFER_DUMP,
-                           self.dir / CURSOR_DUMP, str(spec.get('brief') or ''))
+                           self.dir / CURSOR_DUMP, str(spec.get('brief') or ''),
+                           list(spec.get('steps') or ()))
 
     def observe(self) -> Observation:
         """Read the sandbox back. Read-only, per D1."""

@@ -58,7 +58,7 @@ class TmuxAdapter(Adapter):
     requires = ('tmux',)
     description = 'reads your real tmux session'
     expect_keys = EXPECT_KEYS
-    return_hint = 'press the prefix (C-b) then d to detach'
+    return_hint = 'detach with C-b then d'
 
     #: Windows tmux names automatically. A window still carrying one of these
     #: has not been named by the user, which is what `named_windows` checks.
@@ -163,6 +163,19 @@ class TmuxAdapter(Adapter):
         brief = spec.get('brief')
         if brief and self.has_session():
             _run(['display-message', '-t', self.session, str(brief)])
+            # And then keep it there. A toast is gone in a few seconds, which
+            # is exactly as long as it takes to read the first instruction and
+            # forget the second. tmux already draws a status line, so the task
+            # can simply live in it for as long as the session does.
+            #
+            # A split would show the steps in full, and is the wrong answer
+            # here of all places: this adapter verifies challenges by counting
+            # panes and windows, so hone opening one of its own would grade
+            # its own scaffolding as the student's work.
+            _run(['set-option', '-t', self.session,
+                  'status-left-length', '200'])
+            _run(['set-option', '-t', self.session,
+                  'status-left', str(brief).replace('#', '##') + '  '])
         return handoff_command(spec, self.session)
 
     def teardown(self) -> None:

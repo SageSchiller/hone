@@ -25,7 +25,7 @@ MODULE = {
         {
             'id': 'sa-netexec',
             'title': 'netexec: one tool over many protocols',
-            'concept': 'netexec, which everyone still calls crackmapexec because that was its name until recently, is a single front end over SMB, LDAP, WinRM, MSSQL, SSH and more. Its value is that it does the same thing across a range of hosts and reports it in a table.\n\nThe shape is always `netexec <protocol> <target> <auth> <action>`. The protocol comes first, the target can be a range or a file, authentication is -u and -p or -H for a hash, and the action is a flag like --shares or --users.\n\nThe output convention is worth learning because it is dense. `[+]` means the credentials worked. `(Pwn3d!)` means they worked and the account is a local administrator, which is the difference between access and control. The header line reports the OS, the domain and whether SMB signing is required.\n\nThe actions that matter most: --shares for what is readable, --users and --groups for the directory, --pass-pol for the policy, --sessions for who is logged on, --loggedon-users, and --rid-brute for the RID cycling described earlier.\n\nThe genuine risk to be aware of, and the reason for care rather than an engagement lesson: **running it across a range with a wrong password locks out every account in that range**. Check the lockout policy first, with --pass-pol against one host, before doing anything wide. That is a tool-proficiency fact, not a tactic.',
+            'concept': 'netexec, which everyone still calls crackmapexec because that was its name until recently, is a single front end over SMB, LDAP, WinRM, MSSQL, SSH and more. Its value is that it does the same thing across a range of hosts and reports it in a table.\n\nThe shape is always `netexec <protocol> <target> <auth> <action>`. The protocol comes first, the target can be a range or a file, authentication is -u and -p or -H for a hash, and the action is a flag like --shares or --users.\n\nReading the table is the daily skill. `[*]` is identity: the host answered, here is the OS, the domain and whether SMB signing is required. `[+]` means the credentials were valid. `[-]` means they were not. `(Pwn3d!)` means they were valid and the account is a local administrator on that host, which is the difference between access and control. A sweep full of `[*]` and no `[+]` found hosts, not passwords.\n\n`--pass-pol` against one host is first, before a range, because that is how the lockout threshold is read. `--local-auth` tries the local SAM rather than the domain. The same username can exist in both, so a domain password that works on the DC can fail on a workstation if the local account was what was meant, and the reverse. Drop `--local-auth` when the account is a domain one.\n\nThe actions that matter most: --shares for what is readable, --users and --groups for the directory, --pass-pol for the policy, --sessions for who is logged on, --loggedon-users, and --rid-brute for the RID cycling described earlier.\n\nA wrong password across a CIDR locks accounts. That is a tool limit: netexec will send what was asked, and every failed logon increments the lockout counter on every host it reaches. Check `--pass-pol` first. That is a tool-proficiency fact, not a tactic.\n\nThe same front end covers LDAP and more. The next lesson is Kerberos, and two facts about what the protocol will answer without a password.',
             'examples': [
                 {
                     'label': 'The shape of every netexec command',
@@ -36,6 +36,23 @@ MODULE = {
                     'label': 'Check the policy before anything wide',
                     'code': 'netexec smb 10.0.0.10 -u alice -p pass --pass-pol',
                     'note': 'Lockout threshold first, always. One wrong sweep locks out a domain.',
+                },
+                {
+                    'label': 'Reading a line, and local versus domain',
+                    'code': (
+                        'SMB  10.0.0.10  445  DC01  [*] Windows Server 2019 '
+                        '(domain:corp.local)\n'
+                        'SMB  10.0.0.21  445  WS01  [+] corp\\alice:pass '
+                        '(Pwn3d!)\n'
+                        'SMB  10.0.0.22  445  WS02  [-] corp\\alice:pass '
+                        'STATUS_LOGON_FAILURE\n'
+                        '\n'
+                        'netexec smb 10.0.0.21 -u alice -p pass --local-auth '
+                        '--shares'
+                    ),
+                    'note': '[*] is who answered, [+] is valid, [-] is a miss, '
+                            'and (Pwn3d!) is local admin. --local-auth hits '
+                            'the SAM, so drop it for a domain account.',
                 },
                 {
                     'label': 'Just confirm which hosts are alive and signed',
@@ -55,6 +72,8 @@ MODULE = {
             ],
             'misconceptions': [
                 'A [+] is not the same as (Pwn3d!). The first means the credentials are valid, the second means local admin.',
+                '[*] is identity, not success. The host answered. [+] is a valid pair. [-] is a miss.',
+                '--local-auth is not a quieter flag. It hits the local SAM rather than the domain, so the same username is a different account.',
                 'netexec is not only a credential checker. Most of its value is enumeration across many hosts at once.',
                 'crackmapexec and netexec are the same lineage. Old write-ups use the old name and the syntax is largely unchanged.',
             ],
@@ -67,8 +86,13 @@ MODULE = {
         {
             'id': 'sa-kerberos',
             'title': 'Kerberos: names, tickets and two enumeration facts',
-            'concept': "Kerberos is the authentication protocol, and for enumeration purposes two properties of it matter more than the protocol detail.\n\n**Username enumeration through pre-authentication.** When a client asks for a ticket for an account that does not exist, the KDC answers differently from when the account exists but the pre-authentication fails. That difference makes it possible to test whether a username is valid without ever attempting a password, which means no failed logon and no lockout counter. `kerbrute userenum` is the tool, and this is why username lists are worth building carefully.\n\n**Accounts that do not require pre-authentication** are the second fact. Where DONT_REQ_PREAUTH is set, the KDC will hand out an AS-REP encrypted with a key derived from the account password, to anybody who asks. That is an offline crackable artefact obtained without credentials, and finding those accounts is a single LDAP filter.\n\nService principal names are the related third thing. Any authenticated user can request a service ticket for any SPN, and that ticket is encrypted with the service account's key, which is again offline crackable. So an SPN list is a list of accounts whose passwords can be attacked without touching the account.\n\nThe enumeration lesson underneath all three is the same: **Kerberos is designed to answer questions from unauthenticated and lightly authenticated parties**, and the answers carry more information than they look like they do.",
+            'concept': "kerbrute userenum is how you test whether a username exists without attempting a password. That is why it does not increment a lockout counter, and why preauth-disabled accounts and SPNs also produce offline material.\n\n**Username enumeration through pre-authentication.** When a client asks for a ticket for an account that does not exist, the KDC answers differently from when the account exists but the pre-authentication fails. That difference makes it possible to test whether a username is valid without ever attempting a password, which means no failed logon and no lockout counter. `kerbrute userenum` is the tool, and this is why username lists are worth building carefully.\n\n**Accounts that do not require pre-authentication** are the second fact. Where DONT_REQ_PREAUTH is set, the KDC will hand out an AS-REP encrypted with a key derived from the account password, to anybody who asks. That is an offline crackable artefact obtained without credentials, and finding those accounts is a single LDAP filter.\n\nService principal names are the related third thing. Any authenticated user can request a service ticket for any SPN, and that ticket is encrypted with the service account's key, which is again offline crackable. So an SPN list is a list of accounts whose passwords can be attacked without touching the account.\n\nThe enumeration lesson underneath all three is the same: **Kerberos is designed to answer questions from unauthenticated and lightly authenticated parties**, and the answers carry more information than they look like they do.",
             'examples': [
+                {
+                    'label': 'Checking the clock before blaming Kerberos',
+                    'code': 'ntpdate -q 10.0.0.10\n\n-q queries and prints, changing nothing.\nmore than five minutes of skew and\nKerberos refuses every ticket',
+                    'note': 'KRB_AP_ERR_SKEW is the error, and it looks like an authentication failure. It is a clock failure wearing an authentication costume.',
+                },
                 {
                     'label': 'Which of these usernames exist',
                     'code': 'kerbrute userenum -d corp.local --dc 10.0.0.10 users.txt',
@@ -104,7 +128,7 @@ MODULE = {
         {
             'id': 'sa-lab',
             'title': 'Building somewhere to practise this',
-            'concept': 'This module cannot be practised without a domain, and building one is a legitimate part of learning it. The trainer will not build it for you, and D1 is why: the app creates its own sandbox and nothing else.\n\nThe cheapest real option is a Windows Server evaluation installed in a virtual machine and promoted to a domain controller, with one or two joined clients. The evaluation licence is 180 days and is enough for this. Promotion is a wizard, and the whole build is an afternoon.\n\nThe scripted option is GOAD, Game of Active Directory, which builds a deliberately vulnerable multi-domain forest from configuration. It is large, it wants real resources, and it is the closest thing to a realistic environment that you can rebuild after breaking it.\n\nThe cheap Linux option is Samba configured as an AD domain controller. It speaks LDAP, Kerberos and SMB well enough for nearly every enumeration exercise in this module, runs in a container, and costs nothing. It is not Windows, so some behaviours differ, and it is more than adequate for learning the query languages.\n\nWhatever you build, build it on a network of its own. That is not caution, it is the difference between a lab and an incident: enumeration tools sweep ranges, and a tool pointed at your home network will happily lock out accounts on anything else that answers.',
+            'concept': 'A lab domain is how you practise netexec without pointing a sweep at anything you do not own. That is why a Windows evaluation, GOAD, or Samba AD belongs on an isolated network first.\n\nThe cheapest real option is a Windows Server evaluation installed in a virtual machine and promoted to a domain controller, with one or two joined clients. The evaluation licence is 180 days and is enough for this. Promotion is a wizard, and the whole build is an afternoon.\n\nThe scripted option is GOAD, Game of Active Directory, which builds a deliberately vulnerable multi-domain forest from configuration. It is large, it wants real resources, and it is the closest thing to a realistic environment that you can rebuild after breaking it.\n\nThe cheap Linux option is Samba configured as an AD domain controller. It speaks LDAP, Kerberos and SMB well enough for nearly every enumeration exercise in this module, runs in a container, and costs nothing. It is not Windows, so some behaviours differ, and it is more than adequate for learning the query languages.\n\nWhatever you build, build it on a network of its own. That is not caution, it is the difference between a lab and an incident: enumeration tools sweep ranges, and a tool pointed at your home network will happily lock out accounts on anything else that answers.',
             'examples': [
                 {
                     'label': 'Promote a Windows Server to a DC',
@@ -198,6 +222,51 @@ MODULE = {
         },
     ],
     'challenges': [
+        {
+            'id': 'nxc-read-sweep',
+            'title': 'Read a sweep, and find the one thing that matters',
+            'goal': 'netexec output is one line per host and dense with parenthesised facts. Pull out the hosts whose SMB signing is off, which is the field worth sweeping for.',
+            'setup': {
+                'kind': 'sandbox',
+                'shell': 'bash',
+                'tree': {
+                    'nxc.out': (
+                        'SMB    10.0.0.5    445    DC01    [*] Windows Server 2019 Build 17763 x64 (name:DC01) (domain:corp.local) (signing:True) (SMBv1:False)\n'
+                        'SMB    10.0.0.6    445    WS01    [*] Windows 10 Build 19041 x64 (name:WS01) (domain:corp.local) (signing:False) (SMBv1:False)\n'
+                        'SMB    10.0.0.7    445    WS02    [*] Windows 10 Build 19041 x64 (name:WS02) (domain:corp.local) (signing:False) (SMBv1:True)\n'
+                    ),
+                },
+            },
+            'solution': {
+                'shell': "grep 'signing:False' nxc.out | awk '{print $2}' | sort > nosigning.txt && grep 'SMBv1:True' nxc.out | awk '{print $4}' > smbv1.txt",
+            },
+            'steps': [
+                {
+                    'instruction': 'Each line carries the address in field two and the hostname in field four, with the interesting facts in parentheses at the end.',
+                },
+                {
+                    'instruction': 'Write the addresses of every host reporting signing:False into nosigning.txt, sorted.',
+                    'hint': "grep 'signing:False' nxc.out | awk '{print $2}' | sort",
+                },
+                {
+                    'instruction': 'Write the hostname of anything still offering SMBv1 into smbv1.txt.',
+                    'hint': "grep 'SMBv1:True' nxc.out | awk '{print $4}'",
+                },
+                {
+                    'instruction': 'Note that the domain controller is the one host with signing on. That is the default, and the difference between it and the workstations is the finding.',
+                },
+            ],
+            'free': 'From nxc.out produce nosigning.txt (addresses with signing off, sorted) and smbv1.txt (the hostname still offering SMBv1).',
+            'verify': {
+                'kind': 'sandbox',
+                'expect': {
+                    'file_equals': {'nosigning.txt': '10.0.0.6\n10.0.0.7\n'},
+                    'file_contains': {'smbv1.txt': 'WS02'},
+                },
+            },
+            'fallback': 'self',
+        },
+
         {
             'id': 'sac-netexec-parse',
             'title': 'Find the hosts worth going back to',

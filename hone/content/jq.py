@@ -28,15 +28,113 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'jq-json',
+            'title': 'JSON, and why the usual tools fail on it',
+            'next': 'jq-what',
+            'concept': (
+                'JSON is how nearly every API answers, and it is a small '
+                'format: four kinds of value and two ways to group them.\n\n'
+                'The values are **strings** in double quotes, **numbers**, '
+                '**booleans** (`true`, `false`) and **null**. The groupings '
+                'are **objects**, in braces, which are named fields, and '
+                '**arrays**, in brackets, which are ordered lists. That is '
+                'the entire format. Anything complicated is those pieces '
+                'nested inside each other.\n\n'
+                '**And that nesting is exactly why grep, cut and awk fall '
+                'apart on it.** Those tools think in lines and columns. JSON '
+                'has neither: a record can span forty lines or be crammed '
+                'onto one, whitespace is meaningless, field order is not '
+                'guaranteed, and the thing you want may be four levels down '
+                'inside an array inside an object.\n\n'
+                'You can sometimes get away with `grep \'"name"\'` on a small '
+                'file. It stops working the moment a value contains a brace, '
+                'a field name appears at two different depths, or the server '
+                'starts sending the whole response on one line. Everyone '
+                'learns this by having it break in production.\n\n'
+                '**jq is a tool that understands the structure**, so it can '
+                'say "the name field of every element of the items array" and '
+                'be right regardless of formatting. It parses, you describe '
+                'what you want, and it prints that.\n\n'
+                'One convenience worth knowing before anything else: run '
+                '`jq .` on any JSON and it pretty-prints it. That alone, on a '
+                'one-line API response, is worth the install.'
+            ),
+            'examples': [
+                {
+                    'label': 'The whole format',
+                    'code': ('{\n'
+                             '  "name": "alice",        a string\n'
+                             '  "age": 34,              a number\n'
+                             '  "admin": true,          a boolean\n'
+                             '  "manager": null,        nothing\n'
+                             '  "tags": ["a", "b"],     an array\n'
+                             '  "address": { ... }      an object\n'
+                             '}'),
+                    'note': 'Six lines and you have met every construct JSON '
+                            'has. The complexity in real data is depth, never '
+                            'variety.',
+                },
+                {
+                    'label': 'The same data, equally valid',
+                    'code': ('{"name":"alice","age":34}\n'
+                             '\n'
+                             '{\n'
+                             '  "age" : 34,\n'
+                             '  "name" : "alice"\n'
+                             '}'),
+                    'note': 'Identical to any JSON parser. Whitespace means '
+                            'nothing and field order means nothing, which is '
+                            'precisely what defeats a line-based tool.',
+                },
+                {
+                    'label': 'Where grep goes wrong',
+                    'code': ('grep \'"name"\' data.json\n'
+                             '\n'
+                             'finds the user\'s name.\n'
+                             'also finds the manager\'s name,\n'
+                             'the company name, and any string\n'
+                             'that happens to contain "name".'),
+                    'note': 'It works until it does not, and it fails '
+                            'silently by returning slightly too much. That is '
+                            'the worst failure mode a filter can have.',
+                },
+            ],
+            'misconceptions': [
+                'JSON is not a line-based format. A record may be on one line '
+                'or forty, and both are the same data, which is why tools '
+                'that count lines cannot be relied on.',
+                'JSON objects are not ordered. Two responses with fields in '
+                'different orders are identical, and nothing may depend on '
+                'the order they arrived in.',
+                'JSON is not JavaScript. It borrowed the syntax and is a data '
+                'format with no code in it, which is the entire reason it is '
+                'safe to parse.',
+            ],
+            'try_it': [
+                'Take any API response you have and pipe it through `jq .` '
+                'to see it laid out. Nothing else needs learning for that to '
+                'be useful today.',
+                'Find a JSON file and count how deep the deepest value is. '
+                'That depth is what the rest of this module navigates.',
+            ],
+        },
+        {
             'id': 'jq-what',
             'title': 'What jq is for',
             'next': 'aj-jq-model',
             'concept': (
+                'The previous lesson showed why JSON breaks grep. This one is '
+                'the tool that does not break.\n\n'
                 'jq is a small language people mistake for a path selector, and '
                 'it answers one question: given JSON, keep the interesting parts '
                 'and reshape them. Its records are JSON values and its fields '
                 'are keys, which is the shape of every modern API response and '
                 'most structured logs.\n\n'
+                'The command is `jq \'filter\' file.json`, or a pipe into `jq '
+                '\'filter\'`. `jq .` is the first thing to type: it pretty-'
+                'prints, which is already useful, and it proves the file is '
+                'valid JSON. An error naming a line and a column means the '
+                'input is not JSON, and no filter will save it.\n\n'
                 'The reason to learn it is that JSON is everywhere and text '
                 'tools choke on it: feeding JSON to grep or awk works right up '
                 'until a value contains a space, a brace or a newline. jq '
@@ -45,7 +143,11 @@ MODULE = {
                 'everything anyone actually types.\n\n'
                 'Single-quote the program, for the same reason as awk: a jq '
                 'filter is full of characters, dollars and pipes and brackets, '
-                'that the shell wants to interpret first.'
+                'that the shell wants to interpret first. Without the quotes, '
+                '`$` and `|` belong to the shell and jq never sees the filter '
+                'you wrote.\n\n'
+                'The next lesson is the filter model: `.`, pipes, and why '
+                '`.[]` is awk\'s implicit loop wearing different clothes.'
             ),
             'examples': [
                 {
@@ -57,6 +159,16 @@ MODULE = {
                              'a comma, or a brace in it. jq never does.'),
                     'note': 'jq parses the JSON, so a value with awkward '
                             'characters in it is just a value.',
+                },
+                {
+                    'label': 'Where awk stops',
+                    'code': ('{"name": "Ann, Bob", "id": 3}\n'
+                             '\n'
+                             "awk -F, '{print $1}'   ->  {\"name\": \"Ann\n"
+                             "jq -r .name            ->  Ann, Bob"),
+                    'note': 'A comma inside a string is still a comma. Only a '
+                            'parser that understands strings will not split '
+                            'on it.',
                 },
             ],
             'misconceptions': [
@@ -78,9 +190,10 @@ MODULE = {
             'title': 'A pipeline of filters',
             'next': 'aj-jq-select',
             'concept': (
-                'Every jq program is a FILTER: it takes one input, produces '
-                'zero or more outputs, and `|` connects them exactly like a '
-                'shell pipe.\n\n'
+                'A filter is how jq walks JSON one transformation at a time. '
+                'That is why `.[] | .name` prints every name without a loop. '
+                'Every jq program takes one input, produces zero or more '
+                'outputs, and `|` connects them exactly like a shell pipe.\n\n'
                 '`.` is the identity filter, which is why `jq .` pretty-prints. '
                 '`.name` extracts a key. `.[]` takes an array and produces its '
                 'elements **as separate outputs**, which is the single most '
@@ -89,7 +202,19 @@ MODULE = {
                 'That last point is worth dwelling on. `.[]` does not give you '
                 'an array of things; it gives you several things. Everything '
                 'downstream then runs once per thing, which is exactly awk\'s '
-                'implicit loop wearing different clothes.'
+                'implicit loop wearing different clothes. Wrapping a stream '
+                'in square brackets, `[ .items[] ]`, collects it back into '
+                'one array when you need a single value again.\n\n'
+                '`.` is the current value. `.name` is a field. `.[]` streams '
+                'array elements. Forgetting `.` and writing `name` is a '
+                'compile error; writing `.name` on an array of objects is '
+                'nulls, because the array has no `name`. Pipe `.[]` first, '
+                'then `.name`. `.foo` on missing data gives `null` rather '
+                'than an error, which is why a filter can look like it ran '
+                'and still print nothing useful.\n\n'
+                'The next lesson is select, map, and reshaping: how to keep '
+                'some of those streamed values and build a new object from '
+                'the pieces.'
             ),
             'examples': [
                 {
@@ -134,9 +259,9 @@ MODULE = {
             'title': 'select, map, and reshaping',
             'next': 'aj-jq-output',
             'concept': (
-                '`select(condition)` keeps an input if the condition is true '
-                'and produces nothing otherwise, which makes it jq\'s filter and '
-                'the direct analogue of an awk pattern.\n\n'
+                '`select` is how you keep the JSON records you care about. '
+                'That is why an API dump becomes only the 4xx events, and why '
+                'it is jq\'s counterpart to an awk pattern.\n\n'
                 '`map(f)` applies a filter to every element of an array and '
                 'gives back an array, so it is `[.[] | f]` written shorter. Use '
                 'it when you want to stay inside an array; use `.[]` when you '
@@ -147,7 +272,29 @@ MODULE = {
                 'something a shell script can read.\n\n'
                 '`to_entries` turns an object into an array of `{key, value}` '
                 'pairs, which is the standard trick for iterating over an object '
-                'whose keys you do not know.'
+                'whose keys you do not know.\n\n'
+                '`select(.ok)` drops values that fail the test. `map(.id)` '
+                'turns an array of objects into an array of ids. The usual '
+                'miss is `select` without a pipe: the filter runs once on '
+                'the whole input.\n\n'
+                'A missing key is `null`, which is why `.name` on ragged '
+                'data prints `null` rather than skipping. `.name // '
+                '"unknown"` substitutes a default, because `//` is the '
+                'alternative operator: it takes the left side unless that '
+                'side is `null` or `false`.\n\n'
+                '`if cond then a else b end` is the branch when both sides '
+                'need a value. `select` drops. `if` rewrites.\n\n'
+                '`--arg name value` binds a shell string as a jq variable '
+                '`$name`, so a filter can use a value from the environment '
+                'without building the filter from double quotes. That is why '
+                '`jq --arg h "$HOST" \'.[] | select(.host == $h)\'` is safer '
+                'than interpolating `$HOST` into the program string.\n\n'
+                'Changing a field is not a new object. `.name = "ada"` sets '
+                'a key. `.count |= . + 1` updates from the old value. '
+                '`del(.temp)` drops a key. Those three are how you edit a '
+                'record instead of only extracting one.\n\n'
+                'The next lesson is getting that stream into a shell '
+                'script: `-r`, `@tsv`, and slurp.'
             ),
             'examples': [
                 {
@@ -162,14 +309,50 @@ MODULE = {
                     'note': '`test()` takes a regex, which is why regex is a '
                             'prerequisite for this module.',
                 },
+                {
+                    'label': 'Stream versus array, same filter',
+                    'code': ("jq '.[] | select(.ok) | .id'     a stream of ids\n"
+                             "jq 'map(select(.ok) | .id)'      an array of ids\n"
+                             '\n'
+                             'use the first to feed a shell loop\n'
+                             'use the second when the next filter wants an array'),
+                    'note': '`select` without a pipe runs once on the whole '
+                            'input. The usual miss is forgetting `.[]` first.',
+                },
+                {
+                    'label': 'Defaults, branches, and a shell value',
+                    'code': (
+                        "jq '.name // \"unknown\"'\n"
+                        "jq 'if .ok then .id else empty end'\n"
+                        "jq --arg h \"$HOST\" '.[] | select(.host == $h)'"
+                    ),
+                    'note': '`//` fills a missing field. if/then/else '
+                            'rewrites rather than dropping. --arg is how a '
+                            'shell value enters the filter without quoting '
+                            'the program together from double quotes.',
+                },
+                {
+                    'label': 'Edit, do not just extract',
+                    'code': ("jq '.name = \"ada\"'\n"
+                             "jq '.n |= . + 1'\n"
+                             "jq 'del(.temp)'"),
+                    'note': '= sets, |= updates from the old value, del '
+                            'drops a key. The rest of the object stays.',
+                },
             ],
             'misconceptions': [
                 '`select` is not `if`. It emits its input unchanged or emits '
-                'nothing, which is why it composes in a pipeline.',
+                'nothing, which is why it composes in a pipeline. `if cond '
+                'then a else b end` is the rewrite when both branches must '
+                'produce a value.',
                 '`map` needs an array. On a stream of scalars it errors, and on a stream of objects it quietly maps the values of each object, which is worse than failing. `.[] | f` was what you wanted, and `.[] '
                 '| f` is what you wanted.',
                 '`add` on an empty array is `null`, not `0`, which breaks '
                 'arithmetic downstream unless you handle it.',
+                'Building a jq program from double-quoted shell interpolation '
+                'is how `$HOST` becomes a syntax error the first time it '
+                'contains a space. `--arg` is the way a shell value enters '
+                'the filter.',
             ],
             'try_it': [
                 'Take any JSON API response you have and turn it into a flat '
@@ -191,7 +374,20 @@ MODULE = {
                 '"slurps" a stream of separate JSON values into one array, '
                 'which is how you handle a file with one object per line. And '
                 '`@tsv` or `@csv` after a pipe formats an array as columns, '
-                'which hands off cleanly to awk or cut.'
+                'which hands off cleanly to awk or cut.\n\n'
+                'The previous lesson built a stream of values. This one is '
+                'how that stream becomes something a shell can loop over '
+                'without choking on quotes.\n\n'
+                '`-r` strips the JSON quotes from strings so the shell sees '
+                'a path, not `"a path"`. Without it, `cd` gets a name that '
+                'includes quotes and fails. Slurp (`-s`) turns a stream of '
+                'objects into one array when you need to count or sort '
+                'across the whole file, and it reads the whole input into '
+                'memory, so it is the wrong choice for a huge stream.\n\n'
+                'jq exits 0 even when the filter produced nothing, which is '
+                'why a missing key looks like success in a script. `-e` is '
+                'what makes a false or null result a non-zero exit, so `if '
+                'jq -e .ok` means what it looks like.'
             ),
             'examples': [
                 {
@@ -317,6 +513,18 @@ MODULE = {
          'answer': 'jq \'group_by(.status)\' log.json',
          'prompt': 'Collect array elements into groups by a shared field.',
          'teach': 'group_by returns an array of arrays, one per distinct value, and it expects the input sorted on the same key.'},
+        {'id': 'jqd-set', 'type': 'command',
+         'answer': "jq '.name = \"ada\"'",
+         'prompt': 'Set the name field to ada.',
+         'teach': '= assigns. The rest of the object stays.'},
+        {'id': 'jqd-update', 'type': 'command',
+         'answer': 'jq \'.n |= . + 1\'',
+         'prompt': 'Add one to the n field, from its current value.',
+         'teach': '|= pipes the old value through the right-hand filter.'},
+        {'id': 'jqd-del', 'type': 'command',
+         'answer': 'jq \'del(.temp)\'',
+         'prompt': 'Drop the temp key from the object.',
+         'teach': 'del removes a path. The other keys stay.'},
     ],
 
     'challenges': [
@@ -350,6 +558,32 @@ MODULE = {
                 'file_contains': {'failures.json': ['host', 'code', '10.0.0.2',
                                                     '404', '500']},
                 'file_lacks': {'failures.json': ['10.0.0.1', 'size']}}},
+            'fallback': 'self',
+        },
+        {
+            'id': 'aj-jq-edit',
+            'title': 'Change a field, drop another',
+            'goal': 'First-week jq is often an edit, not an extract. Set a '
+                    'name, bump a count, delete a scratch key.',
+            'setup': {'kind': 'sandbox', 'shell': 'bash', 'tree': {
+                'user.json': '{"name":"old","n":2,"temp":true}\n',
+            }},
+            'solution': {
+                'shell': "jq '.name = \"ada\" | .n |= . + 1 | del(.temp)' "
+                         'user.json > out.json',
+            },
+            'steps': [
+                {'instruction': 'Set name to ada.',
+                 'hint': '.name = "ada"'},
+                {'instruction': 'Add one to n.',
+                 'hint': '.n |= . + 1'},
+                {'instruction': 'Drop temp. Write the result to out.json.',
+                 'hint': 'del(.temp)'},
+            ],
+            'free': 'out.json has name ada, n 3, and no temp.',
+            'verify': {'kind': 'sandbox', 'expect': {
+                'file_contains': {'out.json': ['ada', '3']},
+                'file_lacks': {'out.json': ['temp', 'old']}}},
             'fallback': 'self',
         },
         {'id': 'aj-jq-reshape',

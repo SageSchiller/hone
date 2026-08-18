@@ -25,7 +25,7 @@ MODULE = {
     'prereqs': ['linux'],
     'adapter': 'sandbox',
     'estimate': '6-8 hours',
-    'order': 42,
+    'order': 12,
 
     'lessons': [
         {
@@ -33,9 +33,17 @@ MODULE = {
             'title': 'The fourth digit',
             'next': 'la-caps',
             'concept': (
-                'Basics said permissions were three digits. There is a fourth, '
-                'in front, and it holds three bits that change who a program '
-                'runs as and how a directory behaves.\n\n'
+                'The fourth permission digit is how a program runs as its '
+                'owner, or how a directory restricts who may delete. That '
+                'is why `passwd` can edit `/etc/shadow` while you cannot, '
+                'and why `/tmp` is `1777`. The rest of this module is the '
+                'same layer: descriptors, signals, systemd, and the '
+                'network stack. None of it assumes a pentest. All of '
+                'it shows up the first week someone hands you a real box.\n\n'
+                'find is taught later. The one line here means start in '
+                '`/usr/bin`, keep files whose bits include setuid, and print '
+                'them. `2>/dev/null` hides unreadable dirs, which is why a '
+                'permission miss looks like absence rather than an error.\n\n'
                 '**setuid (4)** on an executable makes it run as its owner '
                 'rather than as you. That is how `passwd` can edit '
                 '`/etc/shadow` while you cannot. **setgid (2)** does the same '
@@ -48,7 +56,12 @@ MODULE = {
                 'that can be made to run arbitrary commands, read arbitrary '
                 'files or write arbitrary paths is a root shell, and finding '
                 'them is the first thing anyone does on a machine they just '
-                'landed on.'
+                'landed on.\n\n'
+                'The fourth digit is 4 for setuid, 2 for setgid, 1 for sticky. '
+                '`find /usr/bin -perm -4000` lists setuid files you can see; '
+                'a miss on the rest of the disk is usually permissions, not '
+                'absence. The next lesson is the quieter privilege path: '
+                'capabilities and ACLs, which `find -perm` does not see.'
             ),
             'examples': [
                 {
@@ -99,6 +112,16 @@ MODULE = {
             'title': 'ACLs and capabilities',
             'next': 'la-fds',
             'concept': (
+                'ACLs and capabilities are how you grant one extra person, '
+                'or one extra power, without changing the owner. That is '
+                'why `ls -l` can look right and access still fail, and why '
+                '`find -perm -4000` misses a privilege path. A process '
+                'still has a user and a group: `id` prints both, and '
+                '`whoami` is the user only. `/etc/passwd` is the list of accounts; '
+                '`/etc/group` is the list of groups. `usermod -aG team ada` '
+                'adds ada to team without dropping the groups she already '
+                'has. Leaving off `-a` replaces the list, which is how people '
+                'lock themselves out of `sudo`.\n\n'
                 'Two systems exist because the classic owner-group-other model '
                 'is too coarse for real machines.\n\n'
                 '**ACLs** let you grant a specific user access to a specific '
@@ -113,7 +136,14 @@ MODULE = {
                 'reads them. This is strictly better than setuid and is why '
                 'modern distributions have fewer setuid binaries than they used '
                 'to, but it also means a machine can have a privilege path that '
-                '`find -perm -4000` does not show.'
+                '`find -perm -4000` does not show.\n\n'
+                '`setcap -r` drops capabilities you did not mean to leave. '
+                'Copying a file often drops both the ACL and the capability, '
+                'which is why a binary that worked in `/usr/bin` fails after '
+                'you copy it into a lab directory: the bits came along, the '
+                'privilege did not.\n\n'
+                'The next lesson is file descriptors properly: why `2>&1` '
+                'order is not a superstition.'
             ),
             'examples': [
                 {
@@ -170,7 +200,18 @@ MODULE = {
                 'script keeps a log file open for its whole life. And '
                 '**here-documents** feed literal text to stdin without a '
                 'temporary file, which is how scripts write config files '
-                'without quoting nightmares.'
+                'without quoting nightmares.\n\n'
+                '`exec 3>log` opens descriptor 3 for the rest of the script. '
+                'Forgetting to close it leaks the file into every child. '
+                '`cmd >file 2>&1` still works for the reason the basics '
+                'module gave: the copy happens after the redirect.\n\n'
+                'A file descriptor is also how a deleted file stays on disk. '
+                'The name is gone, the table entry is not, so the blocks stay '
+                'allocated until every process that holds the fd closes it. '
+                'That is the same table this lesson is about, seen from the '
+                'other side.\n\n'
+                'The next lesson is what happens to a process after it dies, '
+                'or fails to: signals, orphans, and zombies.'
             ),
             'examples': [
                 {
@@ -231,7 +272,18 @@ MODULE = {
                 'has exited but its parent has not collected its exit status, '
                 'so the entry stays in the table. A zombie uses no resources '
                 'and cannot be killed, because it is already dead; you fix the '
-                'parent or the parent exits and init reaps it.'
+                'parent or the parent exits and init reaps it.\n\n'
+                '`kill -9` on a zombie does nothing useful. `ps` shows `Z` in '
+                'the state column. The parent is the one that must `wait`. '
+                'An orphan is already fine: init adopted it.\n\n'
+                '`kill -9` is a last resort rather than a habit, because the '
+                'process never runs its cleanup: no `trap`, no flush, no '
+                'temp-file delete. SIGTERM first, then wait, then SIGKILL if '
+                'it is still there. A background job still receives SIGHUP '
+                'when the terminal closes unless `disown` or `nohup` took it '
+                'off the job table.\n\n'
+                'The next lesson is why `df` and `du` disagree, which is '
+                'usually a deleted file still held open, or a mount.'
             ),
             'examples': [
                 {
@@ -293,7 +345,16 @@ MODULE = {
                 'Bind mounts and loop mounts are worth knowing exist: a bind '
                 'mount makes a directory appear in a second place, and a loop '
                 'mount attaches a file as if it were a disk, which is how you '
-                'read an ISO or a disk image.'
+                'read an ISO or a disk image.\n\n'
+                '`du` sums files it can see. `df` asks the filesystem how '
+                'many blocks are free. A deleted file still open keeps the '
+                'blocks, so `df` is full and `du` looks fine. `lsof +L1` '
+                'names the process holding it. Running out of inodes with '
+                'space still free is the other confusing full-disk: millions '
+                'of tiny files, and `df -i` is the check, because `df -h` '
+                'looks healthy.\n\n'
+                'The next lesson is systemd: start versus enable, and the '
+                'journal that replaced a pile of log files.'
             ),
             'examples': [
                 {
@@ -337,9 +398,12 @@ MODULE = {
             'title': 'systemd, journalctl, and timers',
             'next': 'la-network',
             'concept': (
-                'On a modern Linux machine systemd starts everything, restarts '
-                'what dies, and owns the logs. Four commands cover most of '
-                'it.\n\n'
+                'systemd is how a modern Linux machine starts services, '
+                'restarts what dies, and keeps their logs. That is why '
+                '`systemctl status` is the first command when a box '
+                'misbehaves: whether it is running, whether it is enabled '
+                'at boot, and the last log lines are often the whole '
+                'answer.\n\n'
                 '`systemctl status name` is the one to run first: it shows '
                 'whether the unit is running, whether it is enabled at boot, '
                 'and the last few log lines, which is often the whole answer. '
@@ -353,7 +417,12 @@ MODULE = {
                 'Timers are systemd\'s cron. They are more verbose to write and '
                 'better in every other way: they log, they can catch up after '
                 'downtime, and `systemctl list-timers` shows what will run '
-                'next, which crontab cannot.'
+                'next, which crontab cannot.\n\n'
+                '`enable` is start at boot. `start` is start now. Doing one '
+                'and expecting the other is the usual surprise after a '
+                'reboot. `journalctl -u name -n 50 --no-pager` is the first '
+                'read; `-f` follows. The next lesson is local network state: '
+                'what is listening, and why `dig` and `ping` can disagree.'
             ),
             'examples': [
                 {
@@ -418,7 +487,13 @@ MODULE = {
                 'checked before DNS on most configurations, and '
                 '`/etc/nsswitch.conf` decides the order, which is why a host '
                 'can resolve differently for `ping` and for `dig`: dig asks DNS '
-                'directly and skips the rest.'
+                'directly and skips the rest.\n\n'
+                '`ss -tulpn` is the modern netstat: listening sockets, '
+                'numeric, with the process. A port already in use is '
+                '`Address already in use`, and `ss` tells you who has it. '
+                '`/etc/hosts` winning over DNS is why a name works on this '
+                'box and fails on another. This module stops at the machine; '
+                'the Network group is other machines.'
             ),
             'examples': [
                 {

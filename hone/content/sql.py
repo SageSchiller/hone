@@ -80,6 +80,16 @@ MODULE = {
                     'note': 'You described the rows (dept is eng) and the '
                             'column (name). You did not say how to find them.',
                 },
+                {
+                    'label': 'The same filter, written two ways',
+                    'code': ('awk:   $3 == "eng" { print $2 }\n'
+                             '       walk every line, keep some\n'
+                             '\n'
+                             "SQL:   SELECT name FROM users WHERE dept = 'eng';\n"
+                             '       name the set, stop'),
+                    'note': 'awk is the loop. SQL is the description. The '
+                            'engine decides whether to scan or use an index.',
+                },
             ],
             'misconceptions': [
                 'SQL is not a loop. You do not iterate rows; you describe the '
@@ -101,7 +111,9 @@ MODULE = {
             'title': 'Getting data in and out with sqlite3',
             'next': 'sq-select',
             'concept': (
-                'The `sqlite3` command is your way into a database file, and it '
+                '`sqlite3` is how you open a database file and run a query '
+                'from the shell. That is why a browser history or a phone-app '
+                'dump becomes something you can question without a server. It '
                 'has two kinds of input: SQL statements, which end in a '
                 'semicolon, and dot-commands, which control the tool itself and '
                 'do not. Confusing the two is the first stumble: `.tables` '
@@ -172,8 +184,10 @@ MODULE = {
             'title': 'SELECT, WHERE, and ORDER BY',
             'next': 'sq-aggregate',
             'concept': (
-                'Every query is the same shape, and once you have it the rest '
-                'is vocabulary. `SELECT` names the columns you want, `FROM` '
+                '`SELECT` is how you ask a table for some of its rows and '
+                'columns. That is why a filtered, sorted list of users is one '
+                'sentence rather than a loop. `SELECT` names the columns you '
+                'want, `FROM` '
                 'names the table, `WHERE` filters the rows, `ORDER BY` sorts '
                 'the result, and `LIMIT` caps how many come back. They are '
                 'always written in that order, and `SELECT *` means every '
@@ -191,7 +205,16 @@ MODULE = {
                 'group them exactly as you would expect. `ORDER BY col DESC` '
                 'sorts high to low, and you can sort by several columns. '
                 '`SELECT DISTINCT` removes duplicate rows from the result, '
-                'which is how you answer "what are the distinct values here".'
+                'which is how you answer "what are the distinct values here".\n\n'
+                '`CASE WHEN` is the per-row branch. `CASE WHEN status = 200 '
+                'THEN \'ok\' WHEN status >= 400 THEN \'fail\' ELSE \'other\' '
+                'END` turns a number into a label you can `GROUP BY` later. '
+                'It is not a filter: `WHERE` drops rows, `CASE` keeps them '
+                'and writes a new column. The first matching `WHEN` wins, so '
+                'put the tighter tests first.\n\n'
+                'You can keep rows and sort them. The next lesson is '
+                'how many and how much per, which is the question a row '
+                'list leaves open.'
             ),
             'examples': [
                 {
@@ -214,6 +237,18 @@ MODULE = {
                     'note': 'NULL is not equal to anything, so test it with IS '
                             'NULL, never with = NULL.',
                 },
+                {
+                    'label': 'CASE WHEN labels a row without dropping it',
+                    'code': ('SELECT url,\n'
+                             '       CASE WHEN status = 200 THEN \'ok\'\n'
+                             '            WHEN status >= 400 THEN \'fail\'\n'
+                             '            ELSE \'other\' END AS kind\n'
+                             'FROM access\n'
+                             'ORDER BY kind;'),
+                    'note': 'WHERE would have dropped the other rows. CASE '
+                            'keeps them and writes a column you can sort or '
+                            'group by.',
+                },
             ],
             'misconceptions': [
                 'String literals use single quotes. Double quotes mean a column '
@@ -234,6 +269,8 @@ MODULE = {
             'title': 'Counting and grouping',
             'next': 'sq-join',
             'concept': (
+                'Now that you can filter a table, the leftover '
+                'questions are how many and how much per.\n\n'
                 'A great many real questions are "how many" and "how much per", '
                 'and those are aggregates. The aggregate functions collapse '
                 'many rows into one number: `COUNT(*)` counts rows, `SUM(col)` '
@@ -323,7 +360,19 @@ MODULE = {
                 'condition pairs every row with every row, a cross product, and '
                 'on two thousand-row tables that is a million rows. If a query '
                 'suddenly returns far too much, a missing or wrong `ON` is the '
-                'first thing to check.'
+                'first thing to check.\n\n'
+                'A join puts columns from two tables on the same row. `UNION '
+                'ALL` stacks rows from two queries that share the same columns, '
+                'and keeps duplicates. `UNION` without `ALL` also sorts and '
+                'deduplicates, which is slower and is usually not what a log '
+                'or an audit trail wanted. The two queries must return the '
+                'same number of columns, of compatible types. Reach for '
+                '`UNION ALL` when the rows already live in two tables and '
+                'should appear as one list, not when they should appear as '
+                'one wider row.\n\n'
+                'Two tables can be put back together. The next lesson '
+                'is a question whose answer depends on another '
+                'question, which a join does not cover.'
             ),
             'examples': [
                 {
@@ -345,6 +394,17 @@ MODULE = {
                              '  -> users who never did anything'),
                     'note': 'LEFT JOIN keeps every user; the NULL on the right '
                             'is exactly the ones with no matching event.',
+                },
+                {
+                    'label': 'Stack rows, do not widen them',
+                    'code': ('SELECT name FROM staff\n'
+                             'UNION ALL\n'
+                             'SELECT name FROM contractors;\n'
+                             '\n'
+                             'UNION ALL keeps duplicates\n'
+                             'UNION     sorts and drops them'),
+                    'note': 'Same columns, compatible types. A join would have '
+                            'put staff and contractor fields on one row.',
                 },
             ],
             'misconceptions': [
@@ -368,6 +428,8 @@ MODULE = {
             'title': 'Subqueries and common table expressions',
             'next': 'sq-mutate',
             'concept': (
+                'The previous lesson left open questions that need a '
+                'list first.\n\n'
                 'A subquery is a query used inside another query, and it is how '
                 'you answer a question whose answer depends on another '
                 'question. The commonest form feeds a list into an `IN`: '
@@ -390,7 +452,12 @@ MODULE = {
                 'one you rewrite from scratch.\n\n'
                 'The habit worth forming is to reach for a CTE the moment a '
                 'query has more than one idea in it. Named steps beat nested '
-                'parentheses every time.'
+                'parentheses every time.\n\n'
+                '`WITH RECURSIVE t(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM '
+                't WHERE n < 10) SELECT * FROM t` walks a list that does not '
+                'already sit in a table: a calendar, a tree, a counter. The '
+                'first `SELECT` is the seed. `UNION ALL` plus the self-join '
+                'is the step. Without `RECURSIVE`, a CTE cannot name itself.'
             ),
             'examples': [
                 {
@@ -434,9 +501,9 @@ MODULE = {
             'title': 'Changing data, and transactions',
             'next': 'sq-schema',
             'concept': (
-                'Reading is most of what you do, but you will create and change '
-                'data too, and the write statements are the sharp tools in the '
-                'drawer. `INSERT INTO t (a, b) VALUES (1, 2)` adds a row. '
+                '`INSERT`, `UPDATE` and `DELETE` are how you change a table. '
+                'That is why a cleanup or a one-off correction is SQL, not a '
+                'file edit. `INSERT INTO t (a, b) VALUES (1, 2)` adds a row. '
                 '`UPDATE t SET a = 5 WHERE id = 3` changes existing rows. '
                 '`DELETE FROM t WHERE id = 3` removes them. `CREATE TABLE` and '
                 '`DROP TABLE` make and destroy tables.\n\n'

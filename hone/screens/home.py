@@ -24,6 +24,15 @@ which differs per row and answers the question you actually have while
 choosing, and a module that cannot be checked says so in warning colour where
 nothing else competes with it.
 
+**Warning colour is reserved for something you can act on.** "Cannot be
+checked" covers two unlike things: a tool this machine has not got, which you
+fix by installing it, and a module authored with no verifier at all, which you
+do not fix because nothing is broken. Both wore the cross, so dig and xfreerdp
+sat there in amber on a machine with dig and FreeRDP installed and read as a
+detection failure. The absent binary keeps the cross; the authored-self-marked
+module gets a dim bullet, which reads as "nothing to check here" rather than
+"go and install something".
+
 **The header states the size of the build, counted from the registry.** It is
 the one place the whole roster can be seen at once, and it is read off
 `Registry.tally()` rather than written down, because a hand-typed total is a
@@ -48,6 +57,13 @@ from . import STAY, Action, ListScreen, push
 #: Placeholder swapped for the glyph-set bullet at render time, so the count
 #: string can be built once without knowing the terminal's rung.
 SEP = '\x00'
+
+#: What a module says when nothing here will be checked. Two unrelated causes
+#: share the wording deliberately: D26 read-only mode, and a module authored
+#: with no adapter at all. `module_row` tells them apart by where it is in the
+#: branch, not by re-deriving the cause, so the string is named rather than
+#: repeated.
+SELF_MARKED = 'read and drill only'
 
 
 def _and_list(names: list[str]) -> str:
@@ -127,7 +143,7 @@ class HomeScreen(ListScreen):
         that is not on this machine is the answer whatever the adapter says.
         """
         if A.read_only():
-            return False, 'read and drill only'
+            return False, SELF_MARKED
         gone = install.missing(mod.needs)
         if gone:
             return False, f'needs {_and_list(gone)}'
@@ -135,7 +151,7 @@ class HomeScreen(ListScreen):
         if ok:
             return True, 'checks your work'
         if not mod.adapter:
-            return False, 'read and drill only'
+            return False, SELF_MARKED
         return False, reason
 
     # -- content -----------------------------------------------------------
@@ -198,6 +214,17 @@ class HomeScreen(ListScreen):
             t.add(f'{mod.estimate}', p.dim)
         elif A.read_only():
             t.add('  ', p.dim).add(f'{mod.estimate}', p.dim)
+        elif label == SELF_MARKED:
+            # Authored without a verifier, which is not a fault to fix. dig
+            # needs a resolver and xfreerdp needs a Windows host, and D1
+            # forbids the trainer from reaching either, so there was never an
+            # adapter to build. These wore the same warn-coloured cross as a
+            # genuinely absent binary, and it read as "hone cannot find your
+            # tools": it sent someone to install dig and FreeRDP on a machine
+            # that had both. A dim bullet says "nothing to check here" without
+            # claiming anything is wrong.
+            t.add(f'{caps.g("bullet")} ', p.dim)
+            t.add(label, p.dim)
         else:
             t.add(f'{caps.g("cross")} ', p.warn, bold=True)
             t.add(label, p.warn)

@@ -41,6 +41,10 @@ MODULE = {
             'id': 'dw-channels',
             'title': 'Channels, providers, and where the log actually is',
             'concept':
+                '`Get-WinEvent` is how you read Windows event records from a '
+                'channel or a saved evtx. That is why the first skill is '
+                'knowing which of the hundreds of channels holds the answer, '
+                'and that an event ID only means something with its channel.\n\n'
                 'Windows logging is not one log. It is hundreds of channels, '
                 'each written by a provider, each with its own numbering, and '
                 'the first skill is knowing which one holds the answer.\n\n'
@@ -104,8 +108,10 @@ MODULE = {
             'id': 'dw-ids',
             'title': 'The event IDs actually worth knowing',
             'concept':
-                'There are thousands and about twenty carry most of the '
-                'weight. Learn these with what they prove, not as a list.\n\n'
+                'A short list of event IDs is how you turn a huge log into '
+                'evidence. That is why 4624, 4625, 4688, 7045, 1102 and 4104 '
+                'are worth learning with what they prove, not as a numbered '
+                'list.\n\n'
                 '**Authentication.** 4624 is a successful logon and its Logon '
                 'Type field is the important part: 2 is interactive at the '
                 'console, 3 is network such as a file share, 10 is RemoteDesktop, '
@@ -130,7 +136,10 @@ MODULE = {
                 '**PowerShell.** 4104 in the PowerShell Operational channel '
                 'is script block logging, and it records the actual code, '
                 'deobfuscated. It is the single highest value modern source '
-                'and it is off by default.',
+                'and it is off by default.\n\n'
+                'Twenty IDs carry the weight. The next lesson is how to '
+                'find them in a log of two million events without '
+                'waiting twenty minutes.',
             'examples': [
                 {'label': 'Failed logons, most recent first',
                  'code': 'Get-WinEvent -FilterHashtable @{LogName="Security"; '
@@ -175,10 +184,11 @@ MODULE = {
             'id': 'dw-filter',
             'title': 'Three ways to filter, and the performance cliff',
             'concept':
-                'This is the practical skill that separates someone who can '
-                'use these logs from someone who waits twenty minutes for '
-                'every question, and the difference is entirely about where '
-                'the filtering happens.\n\n'
+                '`-FilterHashtable` and `-FilterXPath` are how you let the '
+                'event log service discard events before PowerShell builds '
+                'objects. That is why `Where-Object` on a two-million-event '
+                'log is the slow way, and why XPath is the one that can ask '
+                'for logon type 3.\n\n'
                 '**Where-Object is the slow one.** It reads every event into '
                 'PowerShell objects and then discards most of them. On a log '
                 'with two million records that is two million objects '
@@ -199,6 +209,11 @@ MODULE = {
                 'live under System, event specific fields under EventData/Data '
                 'with a Name attribute, and the two are combined with and.',
             'examples': [
+                {
+                    'label': 'When the pretty output is hiding the field you want',
+                    'code': '$event = Get-WinEvent -MaxEvents 1\n$event.ToXml()\n\nthe full event, every EventData field,\nwith the names the schema actually uses',
+                    'note': 'The console view shows a rendered summary. ToXml gives you everything, which is how you find the field name to filter on next time.',
+                },
                 {'label': 'The slow way, which reads naturally',
                  'code': 'Get-WinEvent -LogName Security | Where-Object '
                          '{ $_.Id -eq 4625 }',
@@ -334,7 +349,10 @@ MODULE = {
                 'The habit worth building is order. Volatile first if the '
                 'machine is live, then the event logs, then the on-disk '
                 'artifacts, and hash and record everything you copy as you '
-                'go.',
+                'go.\n\n'
+                'The map is not an order. The next lesson is a triage '
+                'order that finds things, which is where the map pays '
+                'off.',
             'examples': [
                 {'label': 'What ran, even if it is gone now',
                  'code': 'Get-ChildItem C:\\Windows\\Prefetch\\*.pf | '
@@ -375,9 +393,10 @@ MODULE = {
             'id': 'dw-triage',
             'title': 'A triage order that finds things',
             'concept':
-                'Given an alert and a machine, the difference between an hour '
-                'and a day is usually the order of the questions rather than '
-                'the tooling.\n\n'
+                'A fixed order of questions is how you triage a Windows host '
+                'in an hour rather than a day. That is why the window, the '
+                'logons, what ran, what persisted, what left, and what was '
+                'hidden come before any deep dive.\n\n'
                 '**Establish the window.** When did the thing happen, and how '
                 'much log do you actually have either side of it. Check the '
                 'log sizes before assuming coverage.\n\n'
@@ -446,9 +465,10 @@ MODULE = {
             'id': 'dw-limits',
             'title': 'Reading Linux-side, and what does not transfer',
             'concept':
-                'You will often be triaging Windows data from something that '
-                'is not Windows, and the boundary is worth being exact '
-                'about.\n\n'
+                '`evtx_dump` and `python-evtx` are how you read a Windows '
+                'evtx from Linux. That is why `Get-WinEvent` is a Windows-only '
+                'cmdlet, and why the XPath and the event IDs are the half of '
+                'this skill that transfers.\n\n'
                 'PowerShell itself runs on Linux and macOS, so the pipeline, '
                 'the object model, Select-Object, Where-Object, Group-Object '
                 'and Export-Csv all work anywhere. What does not is anything '

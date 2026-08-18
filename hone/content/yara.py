@@ -41,11 +41,97 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'ya-why',
+            'title': 'What YARA is for, and what it replaces',
+            'next': 'ya-shape',
+            'concept': (
+                'YARA is how you write a reusable question about what a '
+                'file looks like. That is why you reach for it when grep '
+                'cannot express AND, NOT, and a header check across a '
+                'directory.\n\n'
+                '`grep` can find a string. It cannot express "this string '
+                'AND that byte sequence, but not this third thing, and only '
+                'if the file starts with MZ". Once your question has '
+                'structure, grep runs out, and writing a script for each '
+                'question means you have a directory of scripts nobody else '
+                'can read.\n\n'
+                '**YARA is a language for writing those questions down.** A '
+                'rule names some strings or byte patterns and gives a '
+                'condition combining them. Point it at a file, a directory or '
+                'a running process and it tells you which rules matched. That '
+                'is the whole tool.\n\n'
+                'It is often described as "pattern matching for malware '
+                'researchers", which is true and undersells it. A rule is '
+                'really **a hypothesis you can share**. The reason the format '
+                'matters is that a rule written by someone else runs '
+                'unchanged on your files, so detection knowledge travels the '
+                'way code does rather than the way advice does.\n\n'
+                'Where a hash identifies **one exact file**, a good YARA rule '
+                'identifies **a family**: every variant that shares the '
+                'characteristic, including the ones nobody has seen yet. That '
+                'is the step up from the hashing module, and it is why both '
+                'exist.'
+            ),
+            'examples': [
+                {
+                    'label': 'The question, and why grep cannot ask it',
+                    'code': ('grep:  find "evil.example.com"\n'
+                             '\n'
+                             'yara:  find files that contain that domain\n'
+                             '       AND the bytes 6a 40 68 00 30\n'
+                             '       AND start with MZ\n'
+                             '       AND are under 2MB'),
+                    'note': 'The moment a question has an AND and a NOT in '
+                            'it, you want a language rather than a pipeline.',
+                },
+                {
+                    'label': 'Hash, rule, and what each catches',
+                    'code': ('sha256   this exact file. one variant.\n'
+                             '\n'
+                             'yara     anything with these traits.\n'
+                             '         the repack, the rebuild,\n'
+                             '         next month\'s version.'),
+                    'note': 'A hash goes stale the moment one byte changes. A '
+                            'rule aimed at what the thing does tends to '
+                            'survive it.',
+                },
+                {
+                    'label': 'What running it looks like',
+                    'code': ('yara rules.yar suspicious.bin\n'
+                             '  MyRule suspicious.bin\n'
+                             '\n'
+                             'yara -r rules.yar /samples/\n'
+                             '  one line per match, rule then file'),
+                    'note': 'Silence means nothing matched. The output is '
+                            'deliberately boring, which is what you want from '
+                            'something you run over ten thousand files.',
+                },
+            ],
+            'misconceptions': [
+                'YARA is not antivirus. It matches rules you or someone else '
+                'wrote and has no opinion about whether a file is bad.',
+                'A YARA rule is not a signature for one file. Writing it that '
+                'way is possible and wastes the tool: a hash would have done '
+                'it, faster.',
+                'YARA does not run the file or analyse behaviour. It reads '
+                'bytes, which is why it is safe and also why it cannot see '
+                'anything that only exists at runtime.',
+            ],
+            'try_it': [
+                'Think of a file you know well and write down, in English, '
+                'three things that would be true of it and few other files. '
+                'That is a rule, before the syntax.',
+                'Run `yara --help` and note how few options there are. The '
+                'complexity is all in the rules, by design.',
+            ],
+        },
+        {
             'id': 'ya-shape',
             'title': 'The shape of a rule',
             'concept':
-                'Every rule has the same three part shape, and two of the '
-                'parts are optional.\n\n'
+                'The three-part rule is how you write a YARA match. That is '
+                'why the name, the strings, and the condition are worth '
+                'learning as one shape rather than as syntax to look up.\n\n'
                 'A rule opens with the keyword rule and a name, which must be '
                 'unique in the file and is what gets printed when it fires. '
                 'Inside are up to three sections: meta for information about '
@@ -66,7 +152,10 @@ MODULE = {
                 'meta is free-form key and value, and it is where the author, '
                 'the date, the reference and the hash of the sample belong. '
                 'It affects nothing at match time and it is what makes a rule '
-                'maintainable a year later.',
+                'maintainable a year later.\n\n'
+                'A condition without strings is a joke or a test. The '
+                'next lesson is the three kinds of string, which is '
+                'what a real rule actually looks for.',
             'examples': [
                 {'label': 'A complete, minimal rule',
                  'code': 'rule finds_a_url\n'
@@ -120,8 +209,10 @@ MODULE = {
             'id': 'ya-strings',
             'title': 'Three kinds of string, and their modifiers',
             'concept':
-                'YARA has three ways to describe what to look for, and '
-                'choosing the right one is most of writing a good rule.\n\n'
+                'Text, hex, and regex strings are how you tell YARA what to '
+                'look for. That is why choosing the right form, and the '
+                'right modifier, is most of writing a rule that fires on the '
+                'sample and not on everything else.\n\n'
                 '**Text strings** are in double quotes and are exact by '
                 'default. Their modifiers are where the power is. `nocase` '
                 'makes them case insensitive. `wide` matches the UTF-16 form, '
@@ -210,7 +301,10 @@ MODULE = {
                 '`uint16(0)` and friends read integers at an offset, and '
                 '`uint16(0) == 0x5A4D` is the idiomatic "this is a Windows '
                 'executable" check. It is fast, it is precise, and it belongs '
-                'at the front of nearly every rule about executables.',
+                'at the front of nearly every rule about executables.\n\n'
+                'A condition that is true too often is worse than no '
+                'rule. The next lesson is over-matching, and how to '
+                'know before you deploy.',
             'examples': [
                 {'label': 'The everyday shape',
                  'code': 'condition:\n'
@@ -257,6 +351,10 @@ MODULE = {
             'id': 'ya-overmatch',
             'title': 'Over-matching, and how to know before you deploy',
             'concept':
+                'A goodware corpus is how you learn whether a rule is '
+                'deployable. That is why a rule that fires on known-clean '
+                'files is not finished, even if it catches the sample it '
+                'was written from.\n\n'
                 'A rule that matches everything is worse than no rule. It '
                 'costs the same to run, it produces alerts nobody reads, and '
                 'it teaches the people around it to ignore the tool. This is '
@@ -398,8 +496,9 @@ MODULE = {
             'id': 'ya-running',
             'title': 'Running rules, and reading what came back',
             'concept':
-                'The command line is small and the useful flags are worth '
-                'knowing by heart.\n\n'
+                '`yara rules.yar target` is how you run a rule and see what '
+                'matched. That is why the flags that print strings, counts, '
+                'and meta turn a match into something you can investigate.\n\n'
                 '`yara rules.yar target` is the base: rules first, then a '
                 'file or a directory. `-r` recurses. `-s` prints the matching '
                 'strings and their offsets, which is what turns a match into '
@@ -464,9 +563,10 @@ MODULE = {
             'id': 'ya-practice',
             'title': 'Where rules come from, and where they go',
             'concept':
-                'A rule is usually written from a sample, and the process is '
-                'the same triage routine as the file module, with one extra '
-                'step at the end.\n\n'
+                'Writing a rule from a sample is how you turn file triage '
+                'into a reusable detection. That is why the extra step after '
+                'hashing and strings is a condition that still matches the '
+                'next variant.\n\n'
                 'Identify the file and hash it. Pull its strings, with a '
                 'sensible minimum and with the UTF-16 pass. Look at the '
                 'structure with the pe module or with a hex dump. Pick the '

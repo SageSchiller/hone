@@ -39,12 +39,107 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'os-what',
+            'title': 'What openssl is, and why it feels like fifty tools',
+            'next': 'os-formats',
+            'concept': (
+                'openssl is how you inspect, convert, and issue the files '
+                'TLS runs on. That is why a handshake error, a mystery '
+                '`.pem`, or a key that will not load all land on the same '
+                'name. It is **a box of '
+                'roughly fifty separate programs sharing one name**, and '
+                'the first word after `openssl` chooses which one you are '
+                'using. `openssl x509` is a certificate tool. `openssl '
+                's_client` is a network client. `openssl enc` is a file '
+                'encryptor. They share almost no flags and barely resemble '
+                'each other.\n\n'
+                'Knowing this in advance saves a lot of confusion, because '
+                '`man openssl` describes the launcher and says almost nothing '
+                'useful, while `man openssl-x509` describes the tool you '
+                'actually want. The help is per subcommand, and so is '
+                'everything else.\n\n'
+                '**What is it all for?** Three families of thing.\n\n'
+                '**Certificates and keys.** Making them, reading them, '
+                'converting them between formats, checking whether a key '
+                'matches a certificate. This is most of what people use '
+                'openssl for and most of this module.\n\n'
+                '**Talking to a live TLS service.** `s_client` connects and '
+                'shows you the whole handshake: which certificate was '
+                'presented, which chain, which protocol version, which '
+                'cipher. It is the network equivalent of curl -v for the '
+                'encryption layer.\n\n'
+                '**Raw cryptography.** Hashing, encrypting a file, generating '
+                'random bytes, base64. Useful, occasionally, and the part '
+                'most likely to be the wrong tool for a job someone else has '
+                'already solved.\n\n'
+                'A warning worth having early: **openssl\'s interface is old '
+                'and unforgiving**. Arguments are positional in places, error '
+                'messages are terse and occasionally wrong, and several '
+                'subcommands will happily do nothing while reporting success. '
+                'This is not you.'
+            ),
+            'examples': [
+                {
+                    'label': 'One name, many programs',
+                    'code': ('openssl x509 ...      certificates\n'
+                             'openssl req ...       certificate requests\n'
+                             'openssl genrsa ...    private keys\n'
+                             'openssl s_client ...  connect to a TLS service\n'
+                             'openssl enc ...       encrypt a file\n'
+                             'openssl dgst ...      hash something'),
+                    'note': 'Run `openssl help` for the full list. It is '
+                            'longer than you expect and that is the point of '
+                            'this lesson.',
+                },
+                {
+                    'label': 'Where the documentation actually is',
+                    'code': ('man openssl          the launcher. unhelpful.\n'
+                             'man openssl-x509     the tool. helpful.\n'
+                             'openssl x509 -help   the flags, quickly'),
+                    'note': 'Almost everyone reads the first one, concludes '
+                            'openssl is undocumented, and gives up one page '
+                            'early.',
+                },
+                {
+                    'label': 'The two commands you will run most',
+                    'code': ('openssl x509 -in cert.pem -noout -text\n'
+                             '   read a certificate in full\n'
+                             '\n'
+                             'openssl s_client -connect host:443\n'
+                             '   see what a server actually presents'),
+                    'note': '-noout means "do not re-print the encoded form", '
+                            'and forgetting it is why people get a wall of '
+                            'base64 with the answer buried above it.',
+                },
+            ],
+            'misconceptions': [
+                'openssl is not a single command with subflags. Each '
+                'subcommand is effectively its own program with its own '
+                'arguments and its own manual page.',
+                '`man openssl` is not the documentation for what you are '
+                'doing. The per-subcommand pages are, and they are much '
+                'better.',
+                'openssl is not only for certificates. It is also the '
+                'quickest way to see what a TLS server is really offering, '
+                'which is a debugging tool rather than a crypto one.',
+            ],
+            'try_it': [
+                'Run `openssl help` and read the list. Note how many of them '
+                'you have never seen and how few you will ever need.',
+                'Run `openssl s_client -connect example.com:443 </dev/null` '
+                'and look at how much it tells you before you have typed '
+                'anything.',
+            ],
+        },
+        {
             'id': 'os-formats',
             'title': 'PEM, DER, and why files look different',
             'concept':
-                'There is one underlying structure and several ways to write '
-                'it down, and confusing the encoding with the content is the '
-                'commonest beginner mistake here.\n\n'
+                '`openssl x509` and `openssl pkcs12` are how you tell which '
+                'encoding a certificate file is in and turn it into the one '
+                'the next program wants. That is why a file that will not '
+                'load is usually PEM handed to something that wanted DER, '
+                'or a `.p12` handed to something that wanted two PEM files.\n\n'
                 'DER is the binary encoding. It is what the structure '
                 'actually is, and a DER file looks like nothing in a text '
                 'editor.\n\n'
@@ -63,7 +158,10 @@ MODULE = {
                 'a single encrypted container holding a key, its certificate '
                 'and usually the chain. Windows and Java want it; most Unix '
                 'software wants separate PEM files; converting between them '
-                'is a routine chore.',
+                'is a routine chore.\n\n'
+                'Encoding is not content. The next lesson is what a '
+                'certificate actually asserts, which is the question '
+                'the PEM header only names.',
             'examples': [
                 {'label': 'What is actually in this file',
                  'code': 'head -1 mystery.crt',
@@ -106,6 +204,11 @@ MODULE = {
             'id': 'os-x509',
             'title': 'Reading a certificate: the fields that matter',
             'concept':
+                '`openssl x509` is how you read the fields that decide '
+                'whether a certificate is still valid and whether a name '
+                'matches. That is why a sudden TLS outage and a browser '
+                'that refuses a hostname both start with `-text` or '
+                '`-dates`.\n\n'
                 'A certificate is a signed statement. Someone, the issuer, '
                 'asserts that a public key belongs to a subject, for a period '
                 'of time, for certain uses, and signs that assertion. Every '
@@ -194,7 +297,10 @@ MODULE = {
                 'are the thing that makes a service fail to start unattended. '
                 'A key with a passphrase must have it typed at boot, which is '
                 'why so many production keys are stored unencrypted with '
-                'filesystem permissions doing the work instead.',
+                'filesystem permissions doing the work instead.\n\n'
+                'A key sitting next to a certificate still has to '
+                'become one. The next lesson is the CSR, which is how '
+                'you ask for that without sending the private half.',
             'examples': [
                 {'label': 'Does this key go with this certificate',
                  'code': 'openssl x509 -in cert.pem -noout -pubkey | '
@@ -241,6 +347,9 @@ MODULE = {
             'id': 'os-csr',
             'title': 'CSRs and self-signed certificates',
             'concept':
+                '`openssl req` is how you ask a CA for a certificate without '
+                'sending the private key. That is why a CSR exists: the '
+                'public half and the names travel, the private half stays.\n\n'
                 'A certificate signing request is a small package containing '
                 'a public key and the details you want asserted about it, '
                 'signed by the corresponding private key to prove you hold '
@@ -259,7 +368,12 @@ MODULE = {
                 'Always read the CSR back before sending it. `openssl req '
                 '-in req.csr -noout -text` shows exactly what you asked for, '
                 'and catching a typo there costs a second, while catching it '
-                'after issuance costs a reissue.',
+                'after issuance costs a reissue.\n\n'
+                'To *be* the CA for a lab, sign that request with your CA '
+                'key: `openssl x509 -req -in req.csr -CA ca.pem -CAkey '
+                'ca.key -CAcreateserial -out cert.pem -days 365`. That is '
+                'how a chain challenge is built: a request, then a signature '
+                'from a different key, not `req -x509` again.',
             'examples': [
                 {'label': 'A request, without the twenty questions',
                  'code': 'openssl req -new -key key.pem -out req.csr '
@@ -302,10 +416,10 @@ MODULE = {
             'id': 'os-chain',
             'title': 'Chains, trust, and why the browser disagrees',
             'concept':
-                'A certificate is trusted because something you already trust '
-                'signed it, or signed something that signed it. That path is '
-                'the chain, and it ends at a root certificate in a trust '
-                'store you did not choose individually.\n\n'
+                '`openssl verify` is how you check whether a leaf, its '
+                'intermediates, and a root you already trust form a path. '
+                'That is why a site that works in your browser and fails on '
+                'a fresh machine is almost always a missing intermediate.\n\n'
                 'Servers must send their own certificate plus every '
                 'intermediate, in order, leaf first. They must not send the '
                 'root, because the client already has it. The single '
@@ -323,7 +437,10 @@ MODULE = {
                 'Order matters in a bundle file. Leaf, then intermediates '
                 'towards the root. A bundle assembled in the wrong order is '
                 'accepted by some software and rejected by other software, '
-                'which is the worst kind of bug to chase.',
+                'which is the worst kind of bug to chase.\n\n'
+                'A file can be a correct chain and still not be what '
+                'the server sends. The next lesson is s_client, which '
+                'answers that live.',
             'examples': [
                 {'label': 'Does this chain build',
                  'code': 'openssl verify -CAfile root.pem -untrusted '
@@ -366,6 +483,10 @@ MODULE = {
             'id': 'os-sclient',
             'title': 'Reaching a live service with s_client',
             'concept':
+                '`openssl s_client` is how you open a real TLS connection '
+                'and read what the server sent. That is why a chain that '
+                'verifies as a file still needs this check: the file is not '
+                'the wire.\n\n'
                 'Everything so far reads a file. `s_client` is the one '
                 'subcommand that opens a real TLS connection, and it answers '
                 'the question a file never can: what is this server actually '
@@ -431,8 +552,10 @@ MODULE = {
             'id': 'os-digest',
             'title': 'Signing, verifying, and encrypting a file',
             'concept':
-                'The same key material does three separable things, and '
-                'keeping them separate is most of the understanding.\n\n'
+                '`openssl dgst` is how you hash a file, sign it with a '
+                'private key, and verify that signature with the public '
+                'half. That is why a release artefact and a file you need '
+                'to prove unchanged both land on this subcommand.\n\n'
                 '**Hashing** proves content is unchanged and involves no keys '
                 'at all. `openssl dgst -sha256` is `sha256sum` with different '
                 'output formatting.\n\n'

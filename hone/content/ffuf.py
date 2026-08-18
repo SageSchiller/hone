@@ -25,7 +25,7 @@ MODULE = {
         {
             'id': 'wd-model',
             'title': 'Every response is a signal',
-            'concept': 'Content discovery is a loop: take a word, build a URL, send a request, decide whether the answer means the path is there. The interesting part is entirely in the last step.\n\nThe status code is the obvious signal and the weakest one. 200 means found, 404 means not found, in theory. In practice plenty of applications return 200 with a "not found" page, or 302 to a login for everything, or 500 for anything unexpected. A tool that only understands status codes is blind on all three.\n\nThe other signals are what make the technique reliable. **Length** in bytes distinguishes a real page from a constant error page. **Word count** and **line count** do the same thing more robustly when the error page contains the path you requested, so its length varies slightly. **Redirect target** matters: everything redirecting to /login is uninteresting, and the one path redirecting to /admin/dashboard is not. **Response time** occasionally gives away a path that does real work.\n\nSo the working method is: send one request for a path you are confident does not exist, record what a miss looks like, and then filter that out. Everything left is worth reading.\n\n403 deserves its own note. Forbidden usually means the path is real and you are not allowed in, which makes it more interesting than 200 rather than less.',
+            'concept': 'Content discovery is how you find paths a server will not list, by asking one name at a time and reading the reply. That is why `/admin`, `/.git`, and `backup.zip` turn up: they have boring names, and the only way to know they exist is to ask.\n\nThe status code is the obvious signal and the weakest one. 200 means found, 404 means not found, in theory. In practice plenty of applications return 200 with a "not found" page, or 302 to a login for everything, or 500 for anything unexpected. A tool that only understands status codes is blind on all three.\n\nThe other signals are what make the technique reliable. **Length** in bytes distinguishes a real page from a constant error page. **Word count** and **line count** do the same thing more robustly when the error page contains the path you requested, so its length varies slightly. **Redirect target** matters: everything redirecting to /login is uninteresting, and the one path redirecting to /admin/dashboard is not. **Response time** occasionally gives away a path that does real work.\n\nSo the working method is: send one request for a path you are confident does not exist, record what a miss looks like, and then filter that out. Everything left is worth reading.\n\n403 deserves its own note. Forbidden usually means the path is real and you are not allowed in, which makes it more interesting than 200 rather than less.\n\nA miss is a signal you can filter. The next lesson is which words you send, because the list is the input and a larger one is usually the wrong move.',
             'examples': [
                 {
                     'label': 'Establish what a miss looks like first',
@@ -57,7 +57,7 @@ MODULE = {
         {
             'id': 'wd-wordlists',
             'title': 'Wordlists, and choosing a smaller one',
-            'concept': "The wordlist is the input, and the instinct to reach for the largest one is usually wrong. A list of two million entries against a slow target is hours of requests to find what a curated list of a thousand would have found in a minute.\n\nThe lists people actually use come from SecLists, and the important ones are small: raft-small-directories, directory-list-2.3-small, common.txt from dirb. Start there, read the results, and escalate only when the small list comes back empty.\n\nExtensions matter as much as words. A path that returns 404 as /admin may be /admin.php or /admin.aspx, and every tool takes an extension list for exactly this. Choose them from what you already know about the stack: guessing .php against an ASP.NET site doubles the requests and finds nothing.\n\nTargeted beats generic. A wordlist built from the site itself, from words on its pages, from its JavaScript, from its sitemap, will find things no generic list contains, because the interesting paths on a bespoke application are named after that application's own concepts.\n\nAnd read robots.txt first, always. It is a list of paths the owner specifically did not want indexed, published deliberately, at a known location, for free.",
+            'concept': "A wordlist is how you choose which names to ask for, and a small curated one finds what a two-million-line dump spends hours missing. That is why the first list is raft-small or common.txt, not the largest file on disk. A list of two million entries against a slow target is hours of requests to find what a curated list of a thousand would have found in a minute.\n\nThe lists people actually use come from SecLists, and the important ones are small: raft-small-directories, directory-list-2.3-small, common.txt from dirb. Start there, read the results, and escalate only when the small list comes back empty.\n\nExtensions matter as much as words. A path that returns 404 as /admin may be /admin.php or /admin.aspx, and every tool takes an extension list for exactly this. Choose them from what you already know about the stack: guessing .php against an ASP.NET site doubles the requests and finds nothing.\n\nTargeted beats generic. A wordlist built from the site itself, from words on its pages, from its JavaScript, from its sitemap, will find things no generic list contains, because the interesting paths on a bespoke application are named after that application's own concepts.\n\nAnd read robots.txt first, always. It is a list of paths the owner specifically did not want indexed, published deliberately, at a known location, for free.",
             'examples': [
                 {
                     'label': 'The free list nobody reads first',
@@ -94,7 +94,7 @@ MODULE = {
         {
             'id': 'wd-ffuf',
             'title': 'ffuf: FUZZ goes wherever you put it',
-            'concept': "ffuf's one idea is that the placeholder is positional. You write FUZZ somewhere in the request and it substitutes each word there. That somewhere does not have to be the path.\n\nIn the path it is directory discovery. In a parameter name or value it is parameter fuzzing. In the Host header it is virtual host discovery. In a POST body it is form fuzzing, and in a Cookie or Authorization header it is whatever you are testing there. One tool, one concept, many jobs, which is why it displaced the single-purpose tools.\n\nThe matching and filtering flags come in pairs, and knowing that the m-flags and f-flags mirror each other is most of the syntax: -mc and -fc for status codes, -ms and -fs for size, -mw and -fw for words, -ml and -fl for lines, -mr and -fr for a regex on the body.\n\nTwo more matter in practice. -ac turns on autocalibration, where ffuf sends its own junk requests first and works out the filter for you, which is right often enough to be the default habit. And -recursion follows what it finds, with -recursion-depth to stop it running forever.\n\nRate control is not optional politeness. -t sets threads and -rate caps requests per second, and the default of 40 threads will knock over a small application.",
+            'concept': "ffuf is how you run that loop with FUZZ as a placeholder you can put in a path, a header, or a body. That is why one tool does directory discovery, parameter fuzzing, and virtual-host discovery: you move the word, not the tool.\n\nIn the path it is directory discovery. In a parameter name or value it is parameter fuzzing. In the Host header it is virtual host discovery. In a POST body it is form fuzzing, and in a Cookie or Authorization header it is whatever you are testing there. One tool, one concept, many jobs, which is why it displaced the single-purpose tools.\n\nThe matching and filtering flags come in pairs, and knowing that the m-flags and f-flags mirror each other is most of the syntax: -mc and -fc for status codes, -ms and -fs for size, -mw and -fw for words, -ml and -fl for lines, -mr and -fr for a regex on the body.\n\nTwo more matter in practice. -ac turns on autocalibration, where ffuf sends its own junk requests first and works out the filter for you, which is right often enough to be the default habit. And -recursion follows what it finds, with -recursion-depth to stop it running forever.\n\nRate control is not optional politeness. -t sets threads and -rate caps requests per second, and the default of 40 threads will knock over a small application.\n\nA captured request becomes a fuzz with `-request`. Save the raw HTTP from a proxy into a file, put `FUZZ` where the value should vary, and point ffuf at the file. That is how a login POST or a request with five headers you do not want to retype becomes the same loop as a path. `-request-proto` sets http or https; the file supplies the rest.\n\nFUZZ can sit in a header as easily as a path. The next lesson is the Host header, which is a different search on the same address.",
             'examples': [
                 {
                     'label': 'Directory discovery, the basic form',
@@ -121,6 +121,40 @@ MODULE = {
                     'code': 'ffuf -u http://target/FUZZ -w words.txt -t 10 -rate 20',
                     'note': '40 threads is the default and is too much for a small application.',
                 },
+                {
+                    # The misconception below promises FUZZ works in a body,
+                    # and no example ever showed it. -X and -d were drilled.
+                    'label': 'FUZZ in the body, not the URL',
+                    'code': ('ffuf -u http://target/login \\\n'
+                             '     -X POST \\\n'
+                             '     -d "user=FUZZ&pass=x" \\\n'
+                             '     -w names.txt'),
+                    'note': '-X sets the method and -d carries the body. The '
+                            'URL stops changing and the payload starts, which '
+                            'is the same loop pointed somewhere else.',
+                },
+                {
+                    'label': 'Where FUZZ is allowed to go',
+                    'code': ('-u http://target/FUZZ          the path\n'
+                             '-u http://target/?q=FUZZ       a parameter\n'
+                             '-H "Host: FUZZ.target"         a header\n'
+                             '-d "user=FUZZ&pass=x"          the body\n'
+                             '\n'
+                             'anywhere the string appears, it is substituted'),
+                    'note': 'It is a plain string substitution over the whole '
+                            'request. That is the entire mechanism, and it is '
+                            'why the tool is more flexible than it looks.',
+                },
+                {
+                    'label': 'A saved raw request becomes the fuzz',
+                    'code': ('# req.txt is a captured raw HTTP request\n'
+                             '# with FUZZ where the value should vary\n'
+                             'ffuf -request req.txt -request-proto http '
+                             '-w words.txt'),
+                    'note': '-request is how a captured login POST turns into '
+                            'the same loop as a path, without retyping the '
+                            'headers.',
+                },
             ],
             'misconceptions': [
                 'FUZZ is not a fixed part of the URL syntax. It is a placeholder you can put in a header, a body or a parameter just as easily.',
@@ -136,7 +170,7 @@ MODULE = {
         {
             'id': 'wd-vhost',
             'title': 'Virtual hosts: the same address, different sites',
-            'concept': 'One IP address commonly serves many sites, and the server chooses between them using the Host header the client sent. That means a site can exist on an address you can reach and be completely invisible to you unless you ask for it by name.\n\nThis is a genuinely different search from directory discovery, and people conflate them. Directory discovery asks "what paths does this site have". Virtual host discovery asks "what other sites live at this address".\n\nDNS subdomain enumeration is a third, related thing again: it asks what names exist, by resolving them, and it will miss any host that has no public DNS record. Virtual host fuzzing finds exactly those, because it never asks DNS anything: it connects to the address you already have and varies the header.\n\nThe filtering problem is the same as before and bites harder. Every wrong Host header returns the default site, so the default site\'s size is the filter, and without it every single word appears to match.',
+            'concept': 'Virtual-host discovery is how you find other sites on the same address by varying the Host header. That is why a name with no public DNS record can still be a live site: the server chooses by the header, not by the resolver.\n\nOne IP address commonly serves many sites, and the server chooses between them using the Host header the client sent. That means a site can exist on an address you can reach and be completely invisible to you unless you ask for it by name.\n\nThis is a genuinely different search from directory discovery, and people conflate them. Directory discovery asks "what paths does this site have". Virtual host discovery asks "what other sites live at this address".\n\nDNS subdomain enumeration is a third, related thing again: it asks what names exist, by resolving them, and it will miss any host that has no public DNS record. Virtual host fuzzing finds exactly those, because it never asks DNS anything: it connects to the address you already have and varies the header.\n\nThe filtering problem is the same as before and bites harder. Every wrong Host header returns the default site, so the default site\'s size is the filter, and without it every single word appears to match.',
             'examples': [
                 {
                     'label': 'By hand, one name',
@@ -195,6 +229,34 @@ MODULE = {
                     'code': 'curl -s -o /dev/null -w "%{http_code} -> %{redirect_url}\\n" http://target/admin',
                     'note': 'Where a path redirects to is often more interesting than that it redirects.',
                 },
+                {
+                    # The drills ask for -sL and -sk, and the lesson had only
+                    # ever written -s, -L and -k separately. Bundling is
+                    # obvious once you know and invisible until you are told.
+                    'label': 'Short flags bundle, which is why -sL exists',
+                    'code': ('curl -s -L http://target/admin\n'
+                             'curl -sL http://target/admin      identical\n'
+                             '\n'
+                             'curl -sk https://target           -s and -k\n'
+                             'curl -sI https://target           -s and -I'),
+                    'note': 'Any run of single-letter flags with no arguments '
+                            'can be jammed together. This is why real commands '
+                            'look like line noise, and why -sL in someone '
+                            'else\'s script is two flags rather than one you '
+                            'have never met.',
+                },
+                {
+                    'label': 'The two you will bundle most',
+                    'code': ('-sL   quiet, and follow redirects\n'
+                             '      the 302 to /admin/ is not the answer,\n'
+                             '      what is behind it is\n'
+                             '\n'
+                             '-sk   quiet, and ignore a bad certificate\n'
+                             '      lab hosts have self-signed certs'),
+                    'note': '-k on anything you did not build yourself is a '
+                            'decision rather than a convenience. On a lab box '
+                            'it is fine and saves an argument every time.',
+                },
             ],
             'misconceptions': [
                 'curl does not follow redirects by default. Without -L you see the 301 and nothing behind it, which is often what you want.',
@@ -210,7 +272,7 @@ MODULE = {
         {
             'id': 'wd-manners',
             'title': 'Rate, noise, and reading what you found',
-            'concept': 'Content discovery is the loudest thing in this roster. A default ffuf run is forty concurrent requests, thousands of them, all with an obvious user agent, and it appears in every log the target has. Two consequences follow.\n\nFirst, it can break things. Small applications, anything on shared hosting, and anything with a database behind it can fall over under a fast scan. -t and -rate exist for that, and starting slow costs you minutes while starting fast can cost you the target.\n\nSecond, the results need reading rather than collecting. A list of two hundred 200s is not a finding. The questions worth asking of each result: is this a page or a directory listing, does it need authentication, is it a backup file, is it a different application on the same host, and does its existence tell you what the stack is.\n\nSave the output. Every tool has -o and a format flag, and the second scan of the same target is much more useful when you can diff it against the first.\n\nBackup and temporary files deserve their own pass, because they are the highest value finding per request: .bak, .old, .swp, .zip, .tar.gz, and the editor leftovers like index.php~ and .index.php.swp.',
+            'concept': '`-t`, `-rate`, and `-o` are how you keep a scan from taking a small site down and how you keep a result you can read later. That is why the default forty threads is not a starting point: the log, and the target, both notice. Two consequences follow.\n\nFirst, it can break things. Small applications, anything on shared hosting, and anything with a database behind it can fall over under a fast scan. -t and -rate exist for that, and starting slow costs you minutes while starting fast can cost you the target.\n\nSecond, the results need reading rather than collecting. A list of two hundred 200s is not a finding. The questions worth asking of each result: is this a page or a directory listing, does it need authentication, is it a backup file, is it a different application on the same host, and does its existence tell you what the stack is.\n\nSave the output. Every tool has -o and a format flag, and the second scan of the same target is much more useful when you can diff it against the first.\n\nBackup and temporary files deserve their own pass, because they are the highest value finding per request: .bak, .old, .swp, .zip, .tar.gz, and the editor leftovers like index.php~ and .index.php.swp.',
             'examples': [
                 {
                     'label': 'Slower than the default, deliberately',

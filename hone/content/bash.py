@@ -30,17 +30,117 @@ MODULE = {
     'prereqs': ['linux'],
     'adapter': 'sandbox',
     'estimate': '6-8 hours',
-    'order': 41,
+    'order': 21,
 
     'lessons': [
+        {
+            'id': 'sh-what',
+            'title': 'What a shell does with the line you typed',
+            'next': 'sh-which-shell',
+            'concept': (
+                'A shell is a program whose job is to read a line of text, '
+                'work out what you meant, and run something. It is the only '
+                'program most people use for hours a day without ever '
+                'wondering what it is.\n\n'
+                'Two roles, one program, and keeping them apart explains a '
+                'lot. **Interactively** it is a prompt with history, '
+                'completion and a blinking cursor. Up-arrow recalls the last '
+                'line. `history` prints the list. Ctrl-R (`C-r`) searches it '
+                'as you type, which is how you find a command from last week '
+                'without scrolling. **As a language** it is a '
+                'real programming language with variables, conditionals, '
+                'loops and functions, and a script is just those same lines '
+                'in a file. Anything you can type you can script, and '
+                'anything in a script you can type.\n\n'
+                '**The shell rewrites the line, then runs a program.** A '
+                'later lesson lists every rewrite in order. Two facts are '
+                'enough for now. The star in `ls *.txt` is replaced by '
+                'filenames before `ls` starts; `ls` never sees the star. A '
+                'name with a space in it becomes two words unless it is '
+                'quoted. The rest of this module is those two facts, made '
+                'precise.\n\n'
+                'Do not hold "split, then expand" as the order. Expansion '
+                'of `$name` happens first, then the result is split on '
+                'spaces, then stars become filenames. That is why an '
+                'unquoted variable that contains a space becomes two '
+                'arguments, and why quoting is not decoration.\n\n'
+                '**The program never sees the original text.** When you type '
+                '`rm *.txt`, `rm` does not receive `*.txt`. The shell expands '
+                'the star into a list of filenames and `rm` receives those. '
+                'This is why quoting matters, why a filename with a space '
+                'breaks things, and why `grep *` behaves so strangely in a '
+                'directory full of files.\n\n'
+                'The next lesson is which program is doing that rewriting, '
+                'because the shell you type in and the shell a script runs '
+                'in are often two different languages.'
+            ),
+            'examples': [
+                {
+                    'label': 'What the program actually receives',
+                    'code': ('you type:     ls *.txt\n'
+                             'shell expands to:  ls a.txt b.txt c.txt\n'
+                             'ls receives:  two arguments, no star\n'
+                             '\n'
+                             'ls has never seen a * in its life'),
+                    'note': 'Every Unix tool is simpler than it looks because '
+                            'the shell did the clever part before the tool '
+                            'was started.',
+                },
+                {
+                    'label': 'The same shell, two ways',
+                    'code': ('interactive:   you type, it runs, repeat\n'
+                             '               Up-arrow   last line\n'
+                             '               history    the whole list\n'
+                             '               Ctrl-R     search as you type\n'
+                             '\n'
+                             'script:        #!/usr/bin/env bash\n'
+                             '               for f in *.txt; do\n'
+                             '                   echo "$f"\n'
+                             '               done'),
+                    'note': 'The loop works identically typed at the prompt. '
+                            'There is no separate scripting mode. History is '
+                            'interactive only; a script has none.',
+                },
+                {
+                    'label': 'Expansion order, caught in the act',
+                    'code': ('echo $HOME        /home/sage\n'
+                             'echo "$HOME"      /home/sage\n'
+                             "echo '$HOME'      $HOME\n"
+                             '\n'
+                             'single quotes stop step 2 entirely'),
+                    'note': 'Double quotes prevent word splitting and globbing '
+                            'but allow variables. Single quotes prevent '
+                            'everything. That distinction never stops '
+                            'mattering.',
+                },
+            ],
+            'misconceptions': [
+                'The shell is not the terminal. The terminal is the window '
+                'drawing text; the shell is the program running inside it, '
+                'and you can change one without the other.',
+                'Commands do not interpret `*` themselves. The shell expands '
+                'it first, and a program that appears to understand globs is '
+                'usually just receiving the results.',
+                'A script is not a different language from what you type. It '
+                'is the same shell reading from a file instead of a '
+                'keyboard.',
+            ],
+            'try_it': [
+                'Run `echo *` in a directory with a few files. The output is '
+                'the expansion, and `echo` did nothing but print what it was '
+                'handed.',
+                'Run `echo "$HOME"` and `echo \'$HOME\'` and satisfy '
+                'yourself about which step the quotes are switching off.',
+            ],
+        },
         {
             'id': 'sh-which-shell',
             'title': 'Which shell are you actually learning?',
             'next': 'sh-quoting',
             'concept': (
-                'Your login shell and the shell your scripts run in are usually '
-                'not the same thing, and if you use fish they are definitely '
-                'not.\n\n'
+                'Checking which program is reading the line is how you stop '
+                'writing fish into a bash script. That is why a file that '
+                'works at your prompt dies on a server.\n\n'
                 'fish is a genuinely nicer interactive shell and is '
                 'deliberately not POSIX compatible. Variables are `set x y` '
                 'rather than `x=y`. The exit status is `$status` rather than '
@@ -50,7 +150,21 @@ MODULE = {
                 'every server you ssh into, inside every container, in CI, in '
                 '`#!/bin/bash` at the top of scripts other people wrote. So '
                 'this module has to be learned deliberately rather than picked '
-                'up, because your daily typing will not reinforce it.'
+                'up, because your daily typing will not reinforce it.\n\n'
+                '`echo $0` names the program that is reading your line. At '
+                'an interactive bash prompt it is often `bash`; inside a '
+                'script it is the script\'s path. `$BASH_VERSION` is set only '
+                'when that program really is bash, which is why it is the '
+                'honest check. The shebang at the top of a file is used when '
+                'you execute the file. It is ignored when you run `sh '
+                'script.sh`: you get whatever `sh` is on that machine. On '
+                'Debian and Ubuntu that is dash, which has no arrays and no '
+                '`[[ ]]`, so a script that works when you `./it` dies when '
+                'someone types `sh it`. On this machine `sh` is bash, so the '
+                'same trick hides the bug until you land on a different box.\n\n'
+                'The next lesson is the bug that survives every shell: what '
+                'happens after a variable is expanded and the result has a '
+                'space in it.'
             ),
             'examples': [
                 {
@@ -63,6 +177,17 @@ MODULE = {
                              'bash:  done                  fish:  end'),
                     'note': 'Note there is no space around bash\'s `=`. Adding '
                             'one is the classic first error.',
+                },
+                {
+                    'label': 'Which program is reading the line',
+                    'code': ('echo $0              the program, or the script\n'
+                             'echo $BASH_VERSION   empty if this is not bash\n'
+                             'echo $SHELL          your login shell, not this one\n'
+                             '\n'
+                             './script.sh          uses the shebang\n'
+                             'sh script.sh         ignores it, uses sh'),
+                    'note': '$SHELL is a stored preference. It does not tell '
+                            'you what is running now.',
                 },
             ],
             'misconceptions': [
@@ -85,18 +210,32 @@ MODULE = {
             'title': 'Quoting, and word splitting',
             'next': 'sh-expansion',
             'concept': (
-                'This is the lesson. Almost every shell bug in the world is '
-                'here.\n\n'
+                'The last lesson named the program. This is the lesson about '
+                'what that program does to a value. Almost every shell bug '
+                'in the world is here.\n\n'
                 'After the shell expands a variable, it splits the result on '
                 'whitespace and then expands any globs in the pieces. So if '
                 '`f` holds `My File.txt`, then `rm $f` is **two** arguments and '
                 'deletes neither of them. `rm "$f"` is one argument and works. '
                 'That is the entire bug, and it is why the rule is: **quote '
-                'every variable, every time**.\n\n'
+                'every variable, every time**. The failure mode is not a '
+                'crash. `rm` looks for a file called `My` and a file called '
+                '`File.txt`, prints two "No such file" lines, and leaves the '
+                'real file sitting there. People read that as "rm is broken" '
+                'rather than "I handed it two names".\n\n'
+                '`"$@"` is the same rule applied to a script\'s arguments. '
+                '`$@` unquoted re-splits every argument the caller passed. '
+                '`"$*"` joins them into one string. Only `"$@"` hands each '
+                'original argument through as one word, which is why a script '
+                'that loops `for f in "$@"` survives a filename with a space '
+                'and a script that loops `for f in $@` does not.\n\n'
                 'Single quotes take everything literally. Double quotes still '
                 'expand `$variables` and `$(commands)` but stop the splitting '
                 'and globbing. So single when you mean the characters, double '
-                'when you mean the value.'
+                'when you mean the value.\n\n'
+                'Quoting turns two of the rewrite steps off. The next lesson '
+                'is the whole order those steps run in, because a few of them '
+                'cannot be quoted away.'
             ),
             'examples': [
                 {
@@ -145,6 +284,7 @@ MODULE = {
             'title': 'The order everything happens in',
             'next': 'sh-globs',
             'concept': (
+                'The last lesson turned two rewrite steps off with quotes. '
                 'The shell rewrites your command line in a fixed order before '
                 'running anything, and knowing the order explains most '
                 'surprises.\n\n'
@@ -156,7 +296,18 @@ MODULE = {
                 'globbing happens after that, which is why a variable '
                 'containing `*` expands against your files unless it is quoted. '
                 'Brace expansion happening first is why `{1..3}` works but '
-                '`{1..$n}` does not.'
+                '`{1..$n}` does not. Run with `n=3` and `{1..$n}` becomes the '
+                'literal string `{1..3}`, because the braces were already '
+                'considered before `$n` existed. Quotes cannot fix that: the '
+                'step that would have helped has already passed. `seq 1 "$n"` '
+                'is the workaround, which is why it exists.\n\n'
+                'The other order trap is quoting something you wanted expanded. '
+                '`echo "$HOME/*.txt"` does not list files. Double quotes stop '
+                'globbing, so the star stays a star and `echo` prints a path '
+                'with an asterisk in it. That looks like "the glob failed" and '
+                'is really "I asked the shell not to glob".\n\n'
+                'The next lesson is the glob language itself, because `*` in '
+                'a glob and `*` in a regex are not the same character.'
             ),
             'examples': [
                 {
@@ -203,8 +354,8 @@ MODULE = {
             'title': 'Globs are not regular expressions',
             'next': 'sh-vars',
             'concept': (
-                'They share characters and mean different things, which is why '
-                'people who know regex often get globs wrong.\n\n'
+                'A glob is how you name a set of files without listing them. '
+                'That is why `*.log` is a shell job and not a regex.\n\n'
                 'In a glob, `*` means any run of characters including none, `?` '
                 'means exactly one, and `[abc]` is a character class. There is '
                 'no `+`, no alternation without extglob, and crucially `*` does '
@@ -213,7 +364,18 @@ MODULE = {
                 'The other difference is who does the work. Globs are expanded '
                 'by the SHELL before your command runs, so `grep *.log` hands '
                 'grep a list of filenames. A regex is handed to the tool as a '
-                'string, which is why it needs quoting and a glob does not.'
+                'string, which is why it needs quoting and a glob does not.\n\n'
+                'If a glob matches nothing, bash does not produce an empty '
+                'list. It hands the literal pattern through, so `ls *.log` '
+                'in a directory with no logs errors with `cannot access '
+                '\'*.log\'`. The asterisk is still there. That is why a loop '
+                '`for f in *.log` can run once on a file that does not exist, '
+                'named `*.log`. `shopt -s nullglob` makes unmatched globs '
+                'expand to nothing instead, which is the fix the later '
+                'challenges rely on, and it is a shell option rather than a '
+                'property of `*`.\n\n'
+                'The next lesson is the names you put those values in: '
+                'assignment, arguments, and the one array form that is safe.'
             ),
             'examples': [
                 {
@@ -257,16 +419,35 @@ MODULE = {
             'title': 'Variables, arguments and arrays',
             'next': 'sh-exit',
             'concept': (
-                'Assignment has no spaces: `name=value`. A space makes it a '
-                'command invocation and the error will not obviously say so.\n\n'
+                'Assignment is how a name gets a value in bash. That is why a '
+                'space around `=` turns the name into a command. Assignment '
+                'has no spaces: `name=value`. A space '
+                'makes it a command invocation and the error will not obviously '
+                'say so. `name = value` prints `name: command not found`, '
+                'because the shell saw a command called `name` with two '
+                'arguments. That is the first bash error most people hit, '
+                'and it is a parse, not a failed assignment.\n\n'
                 'Inside a script your arguments are `$1`, `$2` and so on, `$#` '
                 'is how many, and `"$@"` is all of them **as separate words**. '
                 'That last one is the important one: `$@` unquoted re-splits '
                 'every argument, and `"$*"` joins them into one string. Only '
-                '`"$@"` passes what you were given through unchanged.\n\n'
+                '`"$@"` passes what you were given through unchanged. `shift` '
+                'drops `$1` and renumbers the rest, so a loop that processes '
+                'one argument at a time is `while [[ $# -gt 0 ]]; do ...; '
+                'shift; done`.\n\n'
+                '`${1:?usage}` exits if `$1` is unset or empty, and prints '
+                'your message. `${name:-none}` substitutes a default and '
+                'keeps going. They look similar and do opposite things, which '
+                'is why putting the wrong one at the top of a script is a '
+                'quiet disaster rather than a loud one.\n\n'
                 'Arrays exist in bash and not in sh: `arr=(a b c)`, and '
                 '`"${arr[@]}"` iterates them safely. If you find yourself '
-                'keeping a list in a space-separated string, you want an array.'
+                'keeping a list in a space-separated string, you want an array. '
+                '`"$@"` is already that array for arguments, which is why the '
+                'quoting lesson and this one keep naming it.\n\n'
+                'A value is only useful if you know whether the command that '
+                'produced it worked. That is exit codes, and it is the next '
+                'lesson.'
             ),
             'examples': [
                 {
@@ -286,8 +467,15 @@ MODULE = {
                              'name="two words"  quote it\n'
                              '\n'
                              'arr=(one two)     bash array\n'
-                             'for x in "${arr[@]}"; do echo "$x"; done'),
-                    'note': 'The no-spaces rule catches everyone once.',
+                             'for x in "${arr[@]}"; do echo "$x"; done\n'
+                             '\n'
+                             'while [[ $# -gt 0 ]]; do\n'
+                             '  echo "got $1"\n'
+                             '  shift           old $2 is now $1\n'
+                             'done'),
+                    'note': 'The no-spaces rule catches everyone once. shift '
+                            'drops $1 and renumbers, which is how a script '
+                            'eats flags one at a time.',
                 },
             ],
             'misconceptions': [
@@ -307,7 +495,9 @@ MODULE = {
             'id': 'sh-exit',
             'title': 'Exit codes and failing loudly',
             'concept': (
-                'Every command returns a number. Zero means success and '
+                'An exit code is how a command reports whether it worked. '
+                'That is why `&&`, `||` and `if` read a number rather than '
+                'printed text. Zero means success and '
                 'anything else means failure, which is backwards from most '
                 'languages and worth saying out loud. `$?` holds the last '
                 'one.\n\n'
@@ -320,7 +510,20 @@ MODULE = {
                 'changes that: exit on error, exit on an unset variable, and let '
                 'a failure anywhere in a pipeline fail the pipeline. It is three '
                 'words and it turns a script that silently does half the job '
-                'into one that stops.'
+                'into one that stops.\n\n'
+                'A pipeline\'s status is the last command unless `pipefail` is '
+                'on. `false | true` exits 0, because `true` did. That is how a '
+                'grep in the middle of a pipeline can match nothing and the '
+                'script still reports success. `set -e` also will not stop a '
+                'script for a failure inside `if`, `&&` or `||`, because those '
+                'constructs are *using* the status. `if grep -q x f; then` does '
+                'not abort when grep finds nothing: no match is exit 1, and '
+                '`if` expected a number. People turn on `set -e`, see grep '
+                '"fail", and think the script is broken. It is doing what they '
+                'asked.\n\n'
+                'The next lesson is the punctuation around those statuses: '
+                '`then`/`fi`, `do`/`done`, and the function that returns a '
+                'value by printing it.'
             ),
             'examples': [
                 {
@@ -333,6 +536,18 @@ MODULE = {
                              'set -euo pipefail     put this at the top'),
                     'note': 'Without pipefail, `false | true` succeeds, which is '
                             'how a broken pipeline reports success.',
+                },
+                {
+                    'label': 'What set -e does not catch',
+                    'code': ('set -e\n'
+                             'if grep -q missing file; then\n'
+                             '  echo found\n'
+                             'fi\n'
+                             'echo still running     this prints\n'
+                             '\n'
+                             'false | true; echo $?  0, until pipefail'),
+                    'note': 'if consumes the status, so -e stays out of the '
+                            'way. A pipeline reports its last command only.',
                 },
             ],
             'misconceptions': [
@@ -354,9 +569,9 @@ MODULE = {
             'title': 'if, for, while, case, and functions',
             'next': 'sh-vocabulary',
             'concept': (
-                'Control flow is where bash syntax stops looking like anything '
-                'else, and the punctuation is what people get wrong. Learn the '
-                'shapes once and they stop being mysterious.\n\n'
+                '`if`, `for`, `while` and `case` are how a script branches '
+                'and loops. That is why the punctuation is worth learning '
+                'once: every later script is those four shapes.\n\n'
                 '`if` runs a command and branches on its exit code, so there is '
                 'no comparison operator involved: `if grep -q x f; then ... fi`. '
                 'When you do want to test a string or a file, the command you '
@@ -374,7 +589,10 @@ MODULE = {
                 'little script. Declare working variables `local` or they leak '
                 'into the whole shell, and return a result by echoing it and '
                 'capturing with `$(...)`: the numeric `return` is an exit code, '
-                'not a value.'
+                'not a value.\n\n'
+                'Most scripts spend more lines in pipelines than in `if`. The '
+                'next lesson is the small vocabulary those pipelines are made '
+                'of, and the one combination that answers half of them.'
             ),
             'examples': [
                 {
@@ -436,16 +654,27 @@ MODULE = {
             'title': 'The pipeline vocabulary',
             'next': 'sh-scripts',
             'concept': (
-                'A small set of tools combine into most one-liners, and they '
+                'The last lesson was control flow. A small set of tools '
+                'combine into most one-liners, and they '
                 'are worth knowing as a vocabulary rather than individually.\n\n'
                 '`cut` takes columns, `sort` orders, `uniq` collapses adjacent '
                 'duplicates, `wc` counts, `head` and `tail` take the ends, and '
                 '`tr` substitutes characters. The single most useful combination '
                 'in existence is `sort | uniq -c | sort -rn`, which counts '
-                'occurrences and ranks them.\n\n'
+                'occurrences and ranks them. `sort` gathers identical lines '
+                'together, `uniq -c` counts each run, and `sort -rn` ranks the '
+                'counts. Leave any one out and the answer is wrong in a way '
+                'that still looks like a count.\n\n'
                 'The one that catches people is `uniq`, which only removes '
                 'ADJACENT duplicates. It needs sorted input, which is why it is '
-                'always downstream of `sort`.'
+                'always downstream of `sort`.\n\n'
+                '`cut -d: -f1` is the right tool when the separator is one '
+                'character and the field is a column. It cannot treat a run of '
+                'spaces as one separator, which is why `ls -l | cut` is a bad '
+                'habit and `awk \'{print $1}\'` is the usual next reach. When '
+                'the one-liner grows a third pipe and a comment, it wants to '
+                'be a script. That is the next lesson, and the habits that '
+                'keep the script from embarrassing you.'
             ),
             'examples': [
                 {
@@ -489,19 +718,49 @@ MODULE = {
             'id': 'sh-scripts',
             'title': 'Writing a script that will not embarrass you',
             'concept': (
+                'The last lesson was the pipeline that wants to grow up. '
                 'A script is the same commands in a file, plus four habits that '
                 'separate one that works from one that works reliably.\n\n'
                 'Start with `#!/usr/bin/env bash` so it finds bash wherever it '
                 'lives. Follow with `set -euo pipefail`. Quote every variable. '
                 'Check your arguments before doing anything destructive, and '
                 '`${1:?usage: ...}` does that in one line.\n\n'
+                '`chmod +x script.sh` is not decoration. Without the execute '
+                'bit the kernel will not honour the shebang, and `./script.sh` '
+                'prints `Permission denied`. You can still run `bash '
+                'script.sh`, which is why the file "works" when you paste it '
+                'and fails when you treat it as a program.\n\n'
+                'A file that came from Windows often has CRLF line endings. '
+                'The shebang then looks for a program named `bash\\r`, and the '
+                'error is `env: \'bash\\r\': No such file or directory`. That '
+                'is not a missing bash. It is a carriage return sitting on '
+                'the first line. `file script.sh` will say "CRLF" if you know '
+                'to ask, and `tr -d \'\\r\'` is the fix from the last lesson.\n\n'
                 'The control-flow constructs from the previous lesson, `if`, '
                 '`for`, `while` and functions, are the body of most scripts; '
                 'the habits here are the frame around them. Use `[[ ]]` rather '
                 'than `[ ]` throughout, because it does not word-split and has '
-                'proper `&&`, `||` and pattern matching.'
+                'proper `&&`, `||` and pattern matching.\n\n'
+                'Two checks before you run anything destructive. `bash -n '
+                'script.sh` parses the file and reports syntax errors '
+                'without executing a line. `set -x` inside the script '
+                'prints each rewritten line as it runs; `set +x` turns '
+                'that off. When the script is a pile of settings you want '
+                'in *this* shell, `source ./vars.sh` (or `. ./vars.sh`) '
+                'runs it here so the variables remain. `./vars.sh` would '
+                'start a new process and throw them away on exit.\n\n'
+                'A here-document writes many lines without a stack of '
+                '`echo` commands. `cat > config <<\'EOF\'` then the lines '
+                'then `EOF` on its own line. Quotes on `EOF` mean leave '
+                '`$names` alone. Unquoted `EOF` expands them, which is '
+                'how a template becomes a filled-in file.'
             ),
             'examples': [
+                {
+                    'label': 'Functions, and refusing to run without an argument',
+                    'code': 'greet() { echo "hi $1"; }\ngreet world\n\ndir="${1:?usage}"      exit if $1 is unset',
+                    'note': 'The :? form is the cheapest argument check there is: if $1 is unset the script exits and prints your message, with no if statement.',
+                },
                 {
                     'label': 'The skeleton',
                     'code': ('#!/usr/bin/env bash\n'
@@ -527,6 +786,21 @@ MODULE = {
                     'note': 'Use `[[ ]]` for strings and files, `(( ))` for '
                             'numbers, and never `[ ]` in bash.',
                 },
+                {
+                    'label': 'A here-document, and a syntax check',
+                    'code': ('cat > config.ini <<\'EOF\'\n'
+                             '[main]\n'
+                             'path = $HOME\n'
+                             'EOF\n'
+                             '\n'
+                             'bash -n script.sh     check, do not run\n'
+                             'set -x                print each rewritten line\n'
+                             'set +x                stop tracing\n'
+                             'source ./vars.sh      run in THIS shell'),
+                    'note': 'Quoted EOF leaves $HOME as letters. Unquoted EOF '
+                            'would expand it. bash -n is syntax only. set -x '
+                            'is a running trace.',
+                },
             ],
             'misconceptions': [
                 '`[` is a command, not syntax, which is why it needs spaces '
@@ -544,6 +818,18 @@ MODULE = {
     ],
 
     'drills': [
+        {'id': 'sh-keys-histsearch', 'type': 'keys', 'keys': ['C-r'],
+         'prompt': 'Search the command history as you type.',
+         'teach': 'Up-arrow is the last line. history prints the list. Ctrl-R finds a line from last week without scrolling.'},
+        {'id': 'sh-cmd-history', 'type': 'command', 'answer': 'history',
+         'prompt': 'Print the list of commands this shell has already run.',
+         'teach': 'Up-arrow is the last one. Ctrl-R searches the list as you type.'},
+        {'id': 'sh-cmd-shift', 'type': 'command', 'answer': 'shift',
+         'prompt': 'Drop $1 and renumber the remaining arguments.',
+         'teach': 'After shift, the old $2 is $1. A loop that eats one arg at a time uses this.'},
+        {'id': 'sh-cmd-setx', 'type': 'command', 'answer': 'set -x',
+         'prompt': 'Print each rewritten command line as the script runs it.',
+         'teach': 'set +x turns it off. bash -n is syntax only; -x is a running trace.'},
         {'id': 'sh-cmd-quote', 'type': 'command', 'answer': 'rm "$f"',
          'prompt': 'Delete the file whose name is in the variable f, safely, '
                    'even if it contains spaces.',
@@ -559,6 +845,15 @@ MODULE = {
                    'empty.',
          'teach': 'The colon covers unset and empty. Without it only unset is '
                   'covered, so an empty variable passes straight through.'},
+        {'id': 'sh-cmd-bash-n', 'type': 'command', 'answer': 'bash -n script.sh',
+         'prompt': 'Check script.sh for syntax errors without running it.',
+         'teach': '-n parses and stops. Use it before a script that deletes or '
+                  'overwrites anything.'},
+        {'id': 'sh-cmd-source', 'type': 'command', 'answer': 'source ./vars.sh',
+         'accepts': ['. ./vars.sh'],
+         'prompt': 'Run vars.sh in the current shell so its variables remain.',
+         'teach': './vars.sh starts a new process and throws the settings away '
+                  'on exit. source keeps them.'},
         {'id': 'sh-cmd-require', 'type': 'command', 'answer': 'dir="${1:?usage}"',
          'prompt': 'Assign the first argument to dir, but exit with a message if '
                    'it was not supplied.',
@@ -1196,5 +1491,18 @@ MODULE = {
                          'Assigns, but only inside a function.'],
          'teach': 'Assignment takes no spaces around the equals sign. The error '
                   'message does not obviously say so.'},
+
+        {'id': 'bq-setx', 'type': 'mcq',
+         'prompt': 'What is the difference between `bash -n script.sh` and '
+                   '`set -x`?',
+         'answer': 'bash -n parses and does not run. set -x prints each '
+                   'rewritten line as the script runs it.',
+         'distractors': ['They are two spellings of the same syntax check.',
+                         'set -x is the syntax check; bash -n traces execution.',
+                         'bash -n is for functions; set -x is for the whole '
+                         'file.'],
+         'teach': 'Use bash -n before you run something destructive. Use set -x '
+                  'when the running script is doing the wrong thing and you '
+                  'need to see the rewritten line.'},
     ],
 }

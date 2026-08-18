@@ -95,11 +95,22 @@ HELP = [
           [('hone --export f.json', 'write your progress to a file'),
            ('hone --import f.json', 'replace it from one'),
            ('hone --sync f.json', 'remember a file and keep it current'),
-           ('hone --list', 'what is installed, and what can be verified'),
+           ('hone --reset', 'erase all of it and start over'),
+           ('hone --reset dig', 'erase one tool, keep the rest'),
+           ('', 'reset backs up first and tells you the --import'),
+           ('', 'line that puts it back; settings are kept')]),
+    # Split out of the card above, which had reached the 24-row ceiling the
+    # render test enforces and could not take the second reset line. It was
+    # also filed wrong: --ascii and --no-splash are not about where progress
+    # lives, and burying --reset among display flags is how a destructive
+    # command gets skimmed past.
+    _card('Asking hone about itself',
+          'Everything here answers and exits without starting the app, so it '
+          'all works in a pipe or a script.',
+          [('hone --list', 'what is installed, and what can be verified'),
            ('hone --sheet ssh', 'print one tool as a reference card'),
            ('hone --sheet all', 'every tool, to a file or a printer'),
            ('hone --doctor', 'why something degrades on this machine'),
-           ('hone --reset', 'erase progress and start over, backup written'),
            ('hone --ascii', 'no box drawing, for a plain terminal'),
            ('hone --no-splash', 'skip the launch and exit animations'),
            ('hone --no-split', 'never open a second tmux pane')]),

@@ -43,6 +43,98 @@ MODULE = {
 
     'lessons': [
         {
+            'id': 'ld-what',
+            'title': 'What triage is, and the order it happens in',
+            'next': 'ld-artifacts',
+            'concept': (
+                'Triage is how you answer whether something happened, '
+                'roughly what, and whether the machine comes off the network '
+                'now. That is why the first pass is fast, and why memory and '
+                'running state come before anything that survives a reboot.\n\n'
+                '**Triage is the fast first pass.** Not a full forensic '
+                'examination, which takes days and a disk image. Triage '
+                'answers three questions quickly enough to decide what to do '
+                'next: did something happen, roughly what, and does this '
+                'machine need to come off the network right now.\n\n'
+                '**Order matters, and it is not obvious.** Evidence has a '
+                'lifetime, so you collect in order of how fast it '
+                'disappears:\n\n'
+                '1. **Memory and running state.** Processes, network '
+                'connections, open files. All of it gone the moment the '
+                'machine is powered off, and some of it gone in seconds.\n'
+                '2. **The filesystem.** Logs, timestamps, config, '
+                'persistence. Survives a reboot, changes as the machine '
+                'keeps running.\n'
+                '3. **Anything off the machine.** Central logs, network '
+                'records, backups. Slowest to change and often the only '
+                'thing an attacker could not edit.\n\n'
+                '**The two rules that make the difference.** Change as little '
+                'as possible: every command you run writes to bash history, '
+                'updates access times and adds log entries, so prefer reading '
+                'over anything else. And record what you did, with '
+                'timestamps, because "when did you look at that" is a '
+                'question you will be asked and cannot reconstruct '
+                'afterwards.\n\n'
+                'A caution the rest of the module keeps returning to: '
+                '**anything on the machine could have been edited by whoever '
+                'was on the machine.** Logs are evidence, not truth, and '
+                'agreement between two independent sources is worth far more '
+                'than either alone.'
+            ),
+            'examples': [
+                {
+                    'label': 'Order of volatility, top first',
+                    'code': ('memory, processes, connections   seconds\n'
+                             'temp files, running state        minutes\n'
+                             'logs, timestamps, config         days\n'
+                             'central logs, backups            long\n'
+                             '\n'
+                             'collect downward, never upward'),
+                    'note': 'Rebooting a suspect machine to "get a clean look" '
+                            'destroys the top two rows permanently. It is the '
+                            'single most common way evidence is lost.',
+                },
+                {
+                    'label': 'The questions triage is trying to answer',
+                    'code': ('who logged in, from where, when?\n'
+                             'what is running that should not be?\n'
+                             'what would survive a reboot?\n'
+                             'what changed recently, and when?'),
+                    'note': 'Four questions, and the rest of this module is '
+                            'which file or command answers each one on '
+                            'Linux.',
+                },
+                {
+                    'label': 'Reading, not disturbing',
+                    'code': ('ls -l --time=atime   reads, changes nothing\n'
+                             'cat /var/log/auth.log  reads\n'
+                             '\n'
+                             'anything you run adds a line\n'
+                             'to your own history and the logs'),
+                    'note': 'You are part of the timeline from the moment you '
+                            'log in. Note when you arrived, so your own '
+                            'footprints can be told from theirs.',
+                },
+            ],
+            'misconceptions': [
+                'Triage is not forensics. It is the fast pass that decides '
+                'whether the slow one is needed, and it deliberately trades '
+                'completeness for speed.',
+                'Logs are not proof. Anyone with root could have edited them, '
+                'which is why the same event appearing in two independent '
+                'places is worth so much more than one detailed account.',
+                'Rebooting does not give you a clean machine to examine. It '
+                'destroys everything in memory, which is often the only place '
+                'the answer was.',
+            ],
+            'try_it': [
+                'Write down the four triage questions and, before reading on, '
+                'guess which file on your own machine answers each.',
+                'Run `last | head` and `who` right now. That is the first '
+                'question answered, and it took two seconds.',
+            ],
+        },
+        {
             'id': 'ld-artifacts',
             'title': 'Where the evidence lives',
             'next': 'ld-persistence',
@@ -73,7 +165,10 @@ MODULE = {
                 'The habit that matters: **copy before you read** where you '
                 'can, and record what you did. Reading a live filesystem '
                 'changes access times, and access times may be the thing you '
-                'later wish you had.'
+                'later wish you had.\n\n'
+                'You know which files answer which question. The next '
+                'lesson is the finite list of places something writes '
+                'itself to come back.'
             ),
             'examples': [
                 {
@@ -122,11 +217,10 @@ MODULE = {
             'title': 'The places something arranges to come back',
             'next': 'ld-auditd',
             'concept': (
-                'Anything that wants to survive a reboot has to write itself '
-                'somewhere the machine reads at startup, and the list of such '
-                'places is finite. That is what makes persistence hunting '
-                'tractable: you are not searching, you are checking a '
-                'list.\n\n'
+                'The finite list of startup locations is how you hunt '
+                'persistence on Linux. That is why you check systemd units, '
+                'cron, shell startup files, authorized_keys and setuid '
+                'binaries rather than searching the whole disk.\n\n'
                 '**systemd** is first now, because it is where most persistence '
                 'lives on a modern box: unit files in '
                 '`/etc/systemd/system/`, in `/usr/lib/systemd/system/`, and in '
@@ -152,6 +246,11 @@ MODULE = {
                 'sort by modification time, and read the recent end.'
             ),
             'examples': [
+                {
+                    'label': 'Sweeping every home directory at once',
+                    'code': 'find /home -name authorized_keys -exec cat {} +\n\n-name matches the filename,\n-exec ... + runs one command over all hits',
+                    'note': 'An added SSH key is the quietest persistence there is: no process, no cron entry, nothing in the logs after the fact.',
+                },
                 {
                     'label': 'The sweep, in order of likelihood',
                     'code': ('systemd  /etc/systemd/system/*.service *.timer\n'

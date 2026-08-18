@@ -71,12 +71,50 @@ def reminder(text: str) -> list[str]:
             '-c', f"silent! echomsg {_vim_str(text)}"]
 
 
+#: Same budget as the Emacs steps window, and for the same reason.
+STEPS_MIN, STEPS_MAX = 5, 12
+
+
+def steps_window(lines: list[str]) -> list[str]:
+    """`-c` arguments opening the task in a split below the file.
+
+    The `-c` commands run after the file on the command line is loaded, so
+    the split lands where it should with no hook needed. The buffer is a
+    `nofile` scratch that is wiped on close and cannot be written, and
+    `wincmd p` puts the cursor back in the student's file.
+
+    Every command is `silent!`: a split that fails must not stop nvim opening,
+    and losing the steps is survivable in a way that losing the editor is not.
+    """
+    if not lines:
+        return []
+    body = ', '.join(_vim_str(str(l)) for l in lines)
+    height = max(STEPS_MIN, min(STEPS_MAX, len(lines) + 1))
+    # One `-c`, bar-separated, and that is not a style choice: **nvim accepts
+    # at most ten `-c` arguments** and rejects the whole invocation with
+    # "Too many -c arguments" if given eleven. The reminder already spends
+    # four and the leave hook one, so five more here sat exactly on the limit
+    # and the next person to add a line would have broken every nvim
+    # challenge at once. Found by hitting it.
+    cmds = [f'belowright {height}new',
+            f'call setline(1, [{body}])',
+            'setlocal buftype=nofile bufhidden=wipe noswapfile nomodifiable '
+            'nomodified nonumber norelativenumber winfixheight nowrap',
+            'file [hone]',
+            'wincmd p']
+    return ['-c', ' | '.join(f'silent! {c}' for c in cmds)]
+
+
 class NvimAdapter(BufferAdapter):
     name = 'nvim'
     requires = ('nvim',)
     description = 'reads the buffer you actually edited'
     editor = 'nvim'
-    return_hint = 'press Esc, then type :wq and Enter'
+    #: `:wqa` rather than `:wq`, and the `a` matters now that a steps window
+    #: can be open beside the file: `:wq` writes and closes *that window*,
+    #: leaving nvim running with only the instructions on screen and the
+    #: student apparently unable to leave. `:wqa` is correct either way.
+    return_hint = 'Esc, then :wqa and Enter'
 
     def probe(self) -> tuple[bool, str]:
         if not shutil.which('nvim'):
@@ -89,8 +127,9 @@ class NvimAdapter(BufferAdapter):
         return (True, '') if r.returncode == 0 else (False, 'nvim failed to start')
 
     def launch(self, scratch: Path, buf: Path, cur: Path,
-               brief: str = '') -> list[str]:
+               brief: str = '', steps: list[str] | None = None) -> list[str]:
         # The leave hook stays at argv[-2] and the file at argv[-1]: the
         # convention in _buffer.py, which the solution replayer relies on.
         head = ['nvim'] + (reminder(brief) if brief else [])
+        head += steps_window(steps or [])
         return head + ['-c', leave_hook(scratch, buf, cur), str(scratch)]

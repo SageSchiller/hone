@@ -99,6 +99,16 @@ PACKAGES: dict[str, dict[str, str]] = {
              'zypper': 'file', 'apk': 'file', 'brew': 'file'},
     'strings': {'pacman': 'binutils', 'apt': 'binutils', 'dnf': 'binutils',
                 'zypper': 'binutils', 'apk': 'binutils', 'brew': 'binutils'},
+    # Same package as strings. Named so a machine missing only the
+    # disassembler still gets an install line that is true.
+    'readelf': {'pacman': 'binutils', 'apt': 'binutils', 'dnf': 'binutils',
+                'zypper': 'binutils', 'apk': 'binutils', 'brew': 'binutils'},
+    'objdump': {'pacman': 'binutils', 'apt': 'binutils', 'dnf': 'binutils',
+                'zypper': 'binutils', 'apk': 'binutils', 'brew': 'binutils'},
+    'gdb': {'pacman': 'gdb', 'apt': 'gdb', 'dnf': 'gdb',
+            'zypper': 'gdb', 'apk': 'gdb', 'brew': 'gdb'},
+    'make': {'pacman': 'make', 'apt': 'make', 'dnf': 'make',
+             'zypper': 'make', 'apk': 'make', 'brew': 'make'},
     # Packaged with vim nearly everywhere, which is worth saying rather than
     # letting someone search for an xxd package that does not exist.
     'xxd': {'pacman': 'xxd', 'apt': 'xxd', 'dnf': 'vim-common',
@@ -155,6 +165,11 @@ PACKAGES: dict[str, dict[str, str]] = {
                  'apk': 'exiftool', 'brew': 'exiftool'},
     'sqlite3': {'pacman': 'sqlite', 'apt': 'sqlite3', 'dnf': 'sqlite',
                 'zypper': 'sqlite3', 'apk': 'sqlite', 'brew': 'sqlite'},
+    # TeX Live is split differently on every distribution. These packages
+    # are the smallest set that actually puts `pdflatex` on PATH.
+    'pdflatex': {'pacman': 'texlive-basic', 'apt': 'texlive-latex-base',
+                 'dnf': 'texlive-latex', 'zypper': 'texlive-latex',
+                 'apk': 'texlive', 'brew': 'basictex'},
     'netexec': {},        # pipx only: see COMMANDS
     'msfconsole': {},     # never in the ordinary repositories: see COMMANDS
     'vol': {},            # a Python project, not a package: see COMMANDS

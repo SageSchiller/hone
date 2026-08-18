@@ -4,7 +4,7 @@ An offline terminal trainer for command-line tools. It teaches one tool per
 module, hands you the real tool to practise in, and then reads back what you
 actually did.
 
-50 tools, 269 lessons, 1020 drills, 285 practice sessions.
+56 tools, 360 lessons, 1177 drills, 336 practice sessions.
 
 ```
 python3 dist/hone.pyz
@@ -55,22 +55,29 @@ hone --list        what is installed, and what can be verified here
 hone --sheet ssh   one tool as a reference card; "all" for every tool
 hone --doctor      why something degrades on this machine, and how to fix it
 hone --export f    your progress, as one JSON file
+hone --import f    replace your progress from one
+hone --reset       erase your progress; name a tool to reset only that one
 hone --ascii       no box drawing, for a plain terminal
 ```
 
 Progress is one JSON file in `~/.local/share/hone/`. Nothing is sent anywhere.
 
+`--reset` asks before it does anything, and writes a timestamped backup first,
+so `hone --import` always has something to put back. Your theme, rigor and sync
+settings are not progress and survive it. With no terminal to ask on it refuses
+outright rather than guessing; `--yes` is the way to mean it in a script.
+
 ## Tools covered
 
 **Editors** vim/neovim, Doom Emacs, org-mode ·
 **Terminal** tmux, bash ·
-**Text** regex, awk, jq, SQL ·
-**Linux** basics, advanced, utilities, systemd ·
+**Text** regex, awk, jq, SQL, LaTeX ·
+**Linux** basics, pacman/apt, advanced, utilities, systemd ·
 **Version control** git ·
 **Network** ssh, scp/rsync, dig, curl, netcat/socat, xfreerdp, nftables/iptables, tcpdump ·
-**Scripting** Python, PowerShell ·
+**Scripting** Python, PowerShell, make ·
 **Containers** Docker ·
-**Security** nmap, strace, file, strings, xxd, hashing, stat, openssl, gpg, ffuf,
+**Security** nmap, strace, gdb, file, strings, xxd, readelf/objdump, hashing, stat, openssl, gpg, ffuf,
 gobuster, hashcat, John the Ripper, hydra, YARA, smbclient/rpcclient, ldapsearch,
 netexec, impacket, Metasploit, Volatility, mimikatz, Windows/Sysmon DFIR,
 Linux DFIR, The Sleuth Kit

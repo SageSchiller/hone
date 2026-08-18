@@ -144,17 +144,26 @@ class App:
                 return
 
         with self.tty.suspended():
+            # Recorded before argv is filled in: an empty argv means we are
+            # handing back a plain shell, and that is the case a self-marked
+            # challenge takes. It used to print nothing at all there, because
+            # the test was `cwd`, which only a sandbox sets. So the challenges
+            # with no verification, the ones whose whole instruction is prose
+            # the student has to follow unaided, were the ones handed over in
+            # silence.
+            shell = not argv
             if not argv:
                 argv = [os.environ.get('SHELL', '/bin/sh')]
             # Printed only for a shell handover: an editor clears the screen
             # on the way in, so this would flash past unread. Editors get the
-            # same information as a persistent line inside the tool instead.
-            if brief and cwd:
+            # same information in a window inside the tool instead.
+            if brief and (cwd or shell):
                 print()
                 print('\u2500' * 60)
                 for ln in brief:
                     print(f'  {ln}' if ln else '')
-                print(f'\n  You are in {cwd}')
+                if cwd:
+                    print(f'\n  You are in {cwd}')
                 print('\u2500' * 60)
                 print()
             try:
