@@ -6,11 +6,21 @@ actually did.
 
 56 tools, 360 lessons, 1177 drills, 336 practice sessions.
 
-```
-python3 dist/hone.pyz
-```
+## Getting it
 
-Python 3 standard library only. No dependencies, no network, no install step.
+You need **Python 3.10 or newer** and a terminal (`--ascii` if it cannot draw
+boxes). Then either:
+
+- download `hone.pyz` from the
+  [latest release](https://github.com/SageSchiller/hone/releases/latest)
+  and run `python3 hone.pyz`, or
+- clone this repository and run `python3 -m hone` from inside it.
+
+Standard library only: no dependencies, no network, no install step. The
+tools themselves (tmux, nvim, git, tcpdump and the rest) are whatever your
+machine already has. `hone --doctor` says what it can verify here, and a
+module whose tool is absent still teaches and drills, and tells you the
+install command.
 
 ## What makes it different
 
@@ -93,11 +103,30 @@ hone works without them. A module whose tool is absent degrades to read-and-dril
 and tells you the exact install command for your package manager rather than
 leaving you at a dead end. It never installs anything itself.
 
+## For testers
+
+Thank you. Three things are worth an evening each:
+
+1. **A tool you already use.** Pick it, read the walkthrough, do one practice
+   at `coached`, then drill until the invocation is automatic. If a check
+   disagrees with what you did, that is the bug: note the tier it showed
+   (`verified`, `checked`, `self-marked`) and what you typed.
+2. **A tool you do not have installed.** The module should degrade to
+   read-and-drill and name the install command, never a dead end.
+3. **The capture drills** (tmux, vim, Doom). Keys are the hardest thing to
+   read back through a terminal, and `hone --doctor` says whether yours folds
+   TAB, RET and ESC together.
+
+A useful report is `hone --doctor`, the module and the item, and what the
+screen said; `hone --export f` makes a file of your progress you can attach.
+Known edges: only Linux has been tried; the author runs Python 3.14, and 3.10
+to 3.13 have not been tried by hand.
+
 ## Development
 
 ```
 python3 validate.py --lint    # content graph and prose
-python3 test.py               # 11000 checks
+python3 test.py               # 12445 checks, plays every verified solution through the real tool
 bash build.sh                 # dist/hone.pyz
 bash build.sh --per-tool      # plus one .pyz per tool
 ```
@@ -106,3 +135,7 @@ bash build.sh --per-tool      # plus one .pyz per tool
 suite proves the content is solvable rather than merely parseable.
 
 Design decisions and their reasoning live in `HONE-PLAN.md`.
+
+## Licence
+
+MIT. See `LICENSE`.

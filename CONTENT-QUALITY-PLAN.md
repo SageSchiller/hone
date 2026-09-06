@@ -116,7 +116,7 @@ of opinion.
 
 ## The work, in the order to do it
 
-### Phase 0 — Curriculum order (small, do first)
+### Phase 0: Curriculum order (small, do first)
 
 Everything else is per module; this is the one change that alters what a
 beginner sees on first launch.
@@ -129,7 +129,7 @@ beginner sees on first launch.
 
 *Cost: an afternoon. Risk: low, it is `order` fields and a test update.*
 
-### Phase 1 — The foundational thirteen (REWRITE)
+### Phase 1: The foundational thirteen (REWRITE)
 
 These carry a beginner from nothing and are the worst written in the roster,
 which is the whole problem in one sentence. They are also, with one exception,
@@ -172,7 +172,7 @@ the order listed: `linux` and `bash` first if the goal is the beginner path,
 **Recommended: `linux`, `bash`, `vim`, `doom` first.** That is the real
 first-hour path for a new student, and it is where the reported confusion was.
 
-### Phase 2 — DEEPEN (5 modules)
+### Phase 2: DEEPEN (5 modules)
 
 `ssh`, `awk`, `nmap`, `john`, `xfreerdp`.
 
@@ -182,7 +182,7 @@ as Phase 1 but only on the lessons still under 900, plus the handoffs.
 
 *Cost: two to three hours each.*
 
-### Phase 3 — POLISH (20 modules)
+### Phase 3: POLISH (20 modules)
 
 `linuxutils` `mimikatz` `emacs` `gobuster` `hydra` `hashing` `scprsync` `file`
 `stat` `dig` `hashcat` `smbenum` `strace` `strings` `curl` `ffuf` `gpg`
@@ -195,7 +195,7 @@ lessons.
 
 *Cost: an hour each, mostly adding handoffs and examples.*
 
-### Phase 4 — The thirteen already at standard
+### Phase 4: The thirteen already at standard
 
 `dfirwin` `docker` `firewall` `impacket` `ldapsearch` `msf` `ncsocat` `netexec`
 `sleuthkit` `systemd` `vol` `yara` `linuxdfir`
